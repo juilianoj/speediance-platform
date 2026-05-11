@@ -13,7 +13,8 @@ interface WebArgs {
 
 export function Web({ api, auth }: WebArgs) {
   const site = new sst.aws.Nextjs('Web', {
-    path: 'apps/web',
+    // Relative to sst.config.ts (infra/) — see SyncWorker.ts for the same reason.
+    path: '../apps/web',
     environment: {
       NEXT_PUBLIC_API_URL: api.url,
       NEXT_PUBLIC_COGNITO_USER_POOL_ID: auth.userPool.id,
