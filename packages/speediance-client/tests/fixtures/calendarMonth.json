@@ -1,0 +1,9 @@
+{
+  "code": 0,
+  "msg": "ok",
+  "data": [
+    { "thatDay": "2026-05-04", "templateCode": "TPL-A1", "status": 1, "deviceType": 1 },
+    { "thatDay": "2026-05-05", "courseId": 555, "status": 1, "deviceType": 1 },
+    { "thatDay": "2026-05-07", "templateCode": "TPL-B2", "status": 1, "deviceType": 1 }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "name": "@speediance/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "echo 'no api tests yet' && exit 0"
+  },
+  "dependencies": {
+    "hono": "^4.6.16"
+  },
+  "devDependencies": {
+    "@speediance/eslint-config": "workspace:*",
+    "@types/node": "^22.10.5",
+    "eslint": "^9.18.0",
+    "typescript": "^5.7.3"
+  }
+}

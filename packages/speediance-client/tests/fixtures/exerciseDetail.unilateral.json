@@ -1,0 +1,10 @@
+{
+  "code": 0,
+  "msg": "ok",
+  "data": {
+    "id": 777,
+    "name": "Single-Arm Row",
+    "isLeftRight": 1,
+    "actionLibraryList": [{ "id": 7771 }, { "id": 7772 }]
+  }
+}

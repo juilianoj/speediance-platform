@@ -1,0 +1,19 @@
+#!/usr/bin/env sh
+
+# Run secret scan first — abort commit if anything matches.
+# Uses gitleaks if installed (brew install gitleaks). If absent, the hook
+# warns and falls through so contributors aren't blocked, but CI still gates.
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks protect --staged --redact --verbose --exit-code 1 --config=.gitleaks.toml || {
+    echo
+    echo "✖ gitleaks found possible secrets in staged changes."
+    echo "  Review and either remove them or add a documented exception."
+    exit 1
+  }
+else
+  echo "⚠  gitleaks not installed locally — skipping secret scan."
+  echo "   Install with: brew install gitleaks   (CI will still enforce.)"
+fi
+
+# Format/lint changed files
+pnpm exec lint-staged

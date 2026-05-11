@@ -1,0 +1,13 @@
+packages:
+  - 'apps/*'
+  - 'packages/*'
+  - 'infra'
+
+# pnpm v11 requires explicit approval for build scripts.
+# - esbuild: vitest depends on it; needs to fetch the platform binary
+# - unrs-resolver: used by eslint-plugin resolution
+# - aws-sdk: deep transitive (legacy v2); not used by our code
+allowBuilds:
+  esbuild: true
+  unrs-resolver: true
+  aws-sdk: false

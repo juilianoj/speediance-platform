@@ -1,0 +1,22 @@
+# gitleaks config — extends the default ruleset with project-specific patterns.
+# https://github.com/gitleaks/gitleaks
+title = "speediance-platform gitleaks"
+
+[extend]
+useDefault = true
+
+# Custom: never commit a Speediance API token or appUserId from the live API.
+[[rules]]
+id = "speediance-token-header"
+description = "Speediance auth token from API response"
+regex = '''(?i)(speediance[_-]?token|app[_-]?user[_-]?id)\s*[:=]\s*["'][A-Za-z0-9._-]{16,}["']'''
+tags = ["secret", "speediance"]
+
+[allowlist]
+description = "Skip fixture files, snapshots, and example config"
+paths = [
+  '''.env.example$''',
+  '''(^|/)fixtures/''',
+  '''(^|/)__snapshots__/''',
+  '''(^|/)docs/''',
+]

@@ -1,0 +1,22 @@
+{
+  "name": "infra",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "echo 'no infra tests yet' && exit 0",
+    "deploy:dev": "sst deploy --stage dev",
+    "deploy:prod": "sst deploy --stage prod",
+    "console": "sst console"
+  },
+  "devDependencies": {
+    "@speediance/eslint-config": "workspace:*",
+    "@types/node": "^22.10.5",
+    "eslint": "^9.18.0",
+    "sst": "^3.19.0",
+    "typescript": "^5.7.3"
+  }
+}

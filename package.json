@@ -1,0 +1,43 @@
+{
+  "name": "speediance-platform",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Self-hosted AWS web app for tracking Speediance workouts and generating AI-driven training programs.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/juilianoj/speediance-platform.git"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@11.0.9",
+  "scripts": {
+    "build": "pnpm -r run build",
+    "typecheck": "pnpm -r --parallel run typecheck",
+    "lint": "pnpm -r --parallel run lint",
+    "lint:fix": "pnpm -r --parallel run lint:fix",
+    "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\" --ignore-path .gitignore",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,json,md}\" --ignore-path .gitignore",
+    "test": "pnpm -r --parallel run test",
+    "clean": "pnpm -r --parallel run clean && rm -rf node_modules",
+    "prepare": "husky || true"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "eslint": "^9.18.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.4.1",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.3"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx}": [
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ]
+  }
+}
