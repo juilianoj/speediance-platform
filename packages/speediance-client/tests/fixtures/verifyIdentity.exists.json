@@ -1,0 +1,8 @@
+{
+  "code": 0,
+  "msg": "ok",
+  "data": {
+    "isExist": true,
+    "hasPwd": true
+  }
+}

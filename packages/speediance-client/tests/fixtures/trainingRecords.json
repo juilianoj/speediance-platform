@@ -1,0 +1,30 @@
+{
+  "code": 0,
+  "msg": "ok",
+  "data": [
+    {
+      "id": 9001,
+      "userId": 1234567,
+      "trainingType": "custom",
+      "templateCode": "TPL-A1",
+      "templateName": "Push Day",
+      "startTime": 1715630400000,
+      "duration": 2700,
+      "totalCapacity": 4820,
+      "calorie": 312,
+      "deviceType": 1
+    },
+    {
+      "id": 9002,
+      "userId": 1234567,
+      "trainingType": "course",
+      "courseId": 555,
+      "courseName": "20-min Cardio Burn",
+      "startTime": 1715716800000,
+      "duration": 1200,
+      "totalCapacity": 0,
+      "calorie": 215,
+      "deviceType": 1
+    }
+  ]
+}

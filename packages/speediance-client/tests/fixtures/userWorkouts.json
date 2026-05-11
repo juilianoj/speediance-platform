@@ -1,0 +1,20 @@
+{
+  "code": 0,
+  "msg": "ok",
+  "data": [
+    {
+      "id": 4001,
+      "code": "TPL-A1",
+      "name": "Push Day",
+      "deviceType": 1,
+      "totalCapacity": 4820
+    },
+    {
+      "id": 4002,
+      "code": "TPL-B2",
+      "name": "Pull Day",
+      "deviceType": 1,
+      "totalCapacity": 5210
+    }
+  ]
+}

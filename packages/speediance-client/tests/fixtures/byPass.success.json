@@ -1,0 +1,8 @@
+{
+  "code": 0,
+  "msg": "ok",
+  "data": {
+    "token": "FIXTURE_TOKEN_NOT_A_REAL_SECRET",
+    "appUserId": 1234567
+  }
+}
