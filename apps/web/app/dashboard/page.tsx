@@ -1,9 +1,9 @@
 import { redirect } from 'next/navigation';
 
+import { Nav } from '@/app/(authed)/nav';
 import { verifyIdTokenFromCookies } from '@/lib/auth/session';
 import { loadDashboard, type DashboardData, type DashboardWorkout } from './load-dashboard';
 import { MuscleGroupChart } from './muscle-group-chart';
-import { SignOutButton } from './signout-button';
 import { WeeklyChart } from './weekly-chart';
 
 export const metadata = {
@@ -18,36 +18,32 @@ export default async function DashboardPage() {
   const data = await loadDashboard(claims.sub);
 
   return (
-    <main
-      style={{
-        maxWidth: 1100,
-        margin: '2.5rem auto',
-        padding: '0 1.5rem',
-        fontFamily: 'system-ui, sans-serif',
-        color: '#1a1a1a',
-      }}
-    >
-      <header style={headerStyle}>
-        <div>
-          <h1 style={{ margin: 0, fontSize: '1.6rem' }}>Dashboard</h1>
-          <p style={{ color: '#666', margin: '0.2rem 0 0 0', fontSize: '0.9rem' }}>{display}</p>
-        </div>
-        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-          <a href="/profile" style={linkStyle}>
-            Profile
-          </a>
-          <SignOutButton />
-        </div>
-      </header>
-
-      {!data.hasCreds ? (
-        <SetupCallout hasProfile={data.hasProfile} />
-      ) : (
-        <DashboardBody data={data} />
-      )}
-    </main>
+    <div style={pageWrapStyle}>
+      <Nav current="dashboard" userLabel={String(display)} />
+      <main style={mainStyle}>
+        <h1 style={{ margin: '0 0 1.25rem 0', fontSize: '1.5rem' }}>Dashboard</h1>
+        {!data.hasCreds ? (
+          <SetupCallout hasProfile={data.hasProfile} />
+        ) : (
+          <DashboardBody data={data} />
+        )}
+      </main>
+    </div>
   );
 }
+
+const pageWrapStyle: React.CSSProperties = {
+  background: '#f7f8fa',
+  minHeight: '100vh',
+  fontFamily: 'system-ui, sans-serif',
+  color: '#1a1a1a',
+};
+
+const mainStyle: React.CSSProperties = {
+  maxWidth: 1100,
+  margin: '0 auto',
+  padding: '0 1.5rem 3rem',
+};
 
 function SetupCallout({ hasProfile }: { hasProfile: boolean }) {
   return (
@@ -316,14 +312,6 @@ function formatDuration(seconds: number): string {
 }
 
 // ── Styles ──────────────────────────────────────────────────────────────
-
-const headerStyle: React.CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'flex-start',
-  gap: '1rem',
-  marginBottom: '2rem',
-};
 
 const linkStyle: React.CSSProperties = {
   color: '#0b78d1',

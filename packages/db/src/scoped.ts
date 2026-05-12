@@ -46,6 +46,10 @@ export interface UserScopedDb {
 
   sets: {
     forWorkout: (startTime: string) => Promise<unknown>;
+    /** Every set the user has logged, across all workouts. Cheap at family
+     *  scale (~750 items per user); add a more selective access pattern
+     *  when this becomes hot. */
+    listAll: () => Promise<unknown>;
     put: (input: Put<'sets'>) => Promise<unknown>;
   };
 
@@ -128,6 +132,7 @@ export function createDb(opts: DbConfig): CreatedDb {
 
         sets: {
           forWorkout: (startTime) => entities.sets.query.primary({ userId, startTime }).go(),
+          listAll: () => entities.sets.query.primary({ userId }).go({ pages: 'all' }),
           put: (input) =>
             entities.sets.put({ ...input, userId } as CreateEntityItem<Entities['sets']>).go(),
         },

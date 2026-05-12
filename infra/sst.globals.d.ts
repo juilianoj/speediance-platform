@@ -50,6 +50,10 @@ declare global {
         readonly url: any;
       }
     }
+    class Secret {
+      constructor(name: string, defaultValue?: string);
+      readonly value: any;
+    }
   }
 }
 
