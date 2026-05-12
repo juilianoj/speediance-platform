@@ -181,7 +181,6 @@ export function YearHeatmap({
               const inRange = cell.date <= todayIso;
               const isToday = cell.date === todayIso;
               const fill = inRange ? colorFor(cell) : cell.scheduled ? SCHEDULED_COLOR : '#ffffff';
-              const isClickable = Boolean(cell.startTime);
               const cellTitle = makeTooltip(cell);
               const rect = (
                 <rect
@@ -193,13 +192,21 @@ export function YearHeatmap({
                   fill={fill}
                   stroke={isToday ? TODAY_RING : '#e5e7eb'}
                   strokeWidth={isToday ? 1.4 : 0.5}
+                  style={cell.startTime || cell.scheduled ? { cursor: 'pointer' } : undefined}
                 >
                   <title>{cellTitle}</title>
                 </rect>
               );
-              if (isClickable && cell.startTime) {
+              if (cell.startTime) {
                 return (
                   <a key={`${w}-${d}`} href={`/workouts/${encodeURIComponent(cell.startTime)}`}>
+                    {rect}
+                  </a>
+                );
+              }
+              if (cell.scheduled) {
+                return (
+                  <a key={`${w}-${d}`} href={`/scheduled/${cell.date}`}>
                     {rect}
                   </a>
                 );

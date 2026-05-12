@@ -8,7 +8,11 @@ import { createDb } from '@speediance/db';
 import type { DashboardWorkout } from '@/app/dashboard/load-dashboard';
 
 import type { ExerciseSet, ExerciseSummary } from './load-exercises';
-import { loadNextScheduledWorkout, type ScheduledItem } from './load-scheduled';
+import {
+  loadNextScheduledWorkout,
+  loadScheduledWorkouts,
+  type ScheduledItem,
+} from './load-scheduled';
 import { loadAllWorkouts } from './load-workouts';
 
 export interface PlannedLift {
@@ -26,6 +30,19 @@ export interface PlannedLift {
   /** Date of the session the "last weight" came from. May be from a
    *  different workout — we use lifetime-latest per exercise. */
   lastSessionDate?: string;
+  // ── Speediance program prescription (from course curriculum) ──────
+  /** Sets-and-reps array, e.g. [12, 10, 8, 10] from "12,10,8,10". */
+  plannedReps?: number[];
+  /** Per-set prescribed weight, e.g. [220, 220, 220, 220]. */
+  plannedWeights?: number[];
+  /** Top-level "Speediance recommends X" — may differ from plannedWeights
+   *  (course-level default vs. user-personalised per-set). */
+  speedianceRecommendedWeight?: number;
+  /** User's best 1RM as recorded by Speediance, when present. */
+  bestOneRepMax?: number;
+  /** Rest between sets in seconds (single int — Speediance also exposes a
+   *  per-set rest string but a single number is enough for the dashboard). */
+  breakSeconds?: number;
 }
 
 export interface NextWorkoutPlan {
@@ -52,18 +69,32 @@ export interface WorkoutOption {
   lastDone?: string;
 }
 
-const COURSE_INFO_CACHE = new Map<number, Array<{ id: number; title: string }>>();
+export interface CurriculumEntry {
+  id: number;
+  title: string;
+  plannedReps?: number[];
+  plannedWeights?: number[];
+  speedianceRecommendedWeight?: number;
+  bestOneRepMax?: number;
+  breakSeconds?: number;
+  isUnilateral?: boolean;
+}
+
+// Cache keyed by (userId, courseId) — `myRecommendedWeight2` is per-user.
+const COURSE_INFO_CACHE = new Map<string, CurriculumEntry[]>();
 
 /**
  * Pull the exercise list from Speediance's course curriculum (the authoritative
- * actionLibraryList for a courseId). Cached per-process; results don't change
- * mid-deploy.
+ * actionLibraryList for a courseId). We use `weightConfig=1` so per-user
+ * personalised recommendations (`myRecommendedWeight2`) come back populated.
+ *
+ * Cached per (userId, courseId) — results don't typically change mid-deploy,
+ * but `bestOneRepMax` does shift as the user progresses, so we don't share
+ * across users.
  */
-async function getCourseCurriculum(
-  userId: string,
-  courseId: number,
-): Promise<Array<{ id: number; title: string }>> {
-  const cached = COURSE_INFO_CACHE.get(courseId);
+async function getCourseCurriculum(userId: string, courseId: number): Promise<CurriculumEntry[]> {
+  const cacheKey = `${userId}::${courseId}`;
+  const cached = COURSE_INFO_CACHE.get(cacheKey);
   if (cached) return cached;
   const stage = process.env.SST_STAGE ?? 'dev';
   const secret = await createSecretsStore({ stage }).get(userId);
@@ -91,13 +122,50 @@ async function getCourseCurriculum(
       ? (info.actionLibraryList as Array<Record<string, unknown>>)
       : [];
     const out = list
-      .map((e) => ({ id: Number(e.id), title: String(e.title ?? '') }))
-      .filter((e) => Number.isFinite(e.id) && e.title);
-    COURSE_INFO_CACHE.set(courseId, out);
+      .map((e): CurriculumEntry | null => {
+        const id = Number(e.id);
+        const title = String(e.title ?? '');
+        if (!Number.isFinite(id) || !title) return null;
+        // Prefer `myRecommendedWeight2` (per-user personalised) over `weight`
+        // (course default) over top-level `recommendedWeight`. Both string-list
+        // fields are comma-separated decimals like "220,220,220,220".
+        const personalised = parseCsv(e.myRecommendedWeight2);
+        const planned = parseCsv(e.weight);
+        const weights = personalised.length > 0 ? personalised : planned;
+        const reps = parseCsv(e.setsAndReps);
+        return {
+          id,
+          title,
+          plannedReps: reps.length > 0 ? reps : undefined,
+          plannedWeights: weights.length > 0 ? weights : undefined,
+          speedianceRecommendedWeight: numOrUndef(e.recommendedWeight),
+          bestOneRepMax: numOrUndef(e.bestOneRepMax),
+          breakSeconds: numOrUndef(e.breakTime),
+          isUnilateral: e.isLeftRight === 1,
+        };
+      })
+      .filter((e): e is CurriculumEntry => e !== null);
+    COURSE_INFO_CACHE.set(cacheKey, out);
     return out;
   } catch {
     return [];
   }
+}
+
+function parseCsv(value: unknown): number[] {
+  if (typeof value !== 'string') return [];
+  const out: number[] = [];
+  for (const part of value.split(',')) {
+    const n = Number(part);
+    if (Number.isFinite(n) && n > 0) out.push(n);
+  }
+  return out;
+}
+
+function numOrUndef(value: unknown): number | undefined {
+  if (value === undefined || value === null || value === '') return undefined;
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? n : undefined;
 }
 
 /**
@@ -230,13 +298,13 @@ export async function loadNextWorkoutPlan(
 
   // Resolve the exercise list for the source:
   //   - Prefer course curriculum for the scheduled / matched courseId
-  //     (correct, ordered, regardless of prior detail availability).
+  //     (correct, ordered, with Speediance's own prescribed weights + reps +
+  //     1RM regardless of whether we have prior detail in our DB).
   //   - Fall back to the previously-stored set rows from a matching past
   //     session (good for custom templates without a course).
-  let curriculum: Array<{ id: string; name: string }> = [];
+  let curriculum: CurriculumEntry[] = [];
   if (source.courseId) {
-    const c = await getCourseCurriculum(userId, source.courseId);
-    curriculum = c.map((e) => ({ id: String(e.id), name: e.title }));
+    curriculum = await getCourseCurriculum(userId, source.courseId);
   }
   // Find the most-recent past session of the SAME course (or title) so we
   // can also report "this was the last time you did this workout".
@@ -259,36 +327,12 @@ export async function loadNextWorkoutPlan(
         named.set(s.exerciseId, exById.get(s.exerciseId)?.name ?? `Exercise ${s.exerciseId}`);
       }
     }
-    curriculum = order.map((id) => ({ id, name: named.get(id) ?? `Exercise ${id}` }));
+    curriculum = order.map((id) => ({ id: Number(id), title: named.get(id) ?? `Exercise ${id}` }));
   }
 
-  const lifts: PlannedLift[] = curriculum.map(({ id, name }) => {
-    const exMeta = exById.get(id);
-    const lifetime = lifetimeByExercise.get(id);
-    const hitAllTarget =
-      !lifetime ||
-      !lifetime.targetReps ||
-      (lifetime.finishedReps ?? 0) >= (lifetime.targetReps ?? 0);
-    const flagged = (lifetime?.formFlags?.length ?? 0) > 0;
-    const isolation = detectIsolation(name, Boolean(exMeta?.isUnilateral));
-    const reco = lifetime
-      ? recommend({ lastWeight: lifetime.weight, hitAllTarget, flagged, isolation })
-      : null;
-    return {
-      exerciseId: id,
-      name,
-      muscleGroup: exMeta?.muscleGroup,
-      isUnilateral: exMeta?.isUnilateral,
-      lastWeight: lifetime?.weight,
-      lastReps: lifetime?.finishedReps,
-      lastTargetReps: lifetime?.targetReps,
-      lastFormFlags: lifetime?.formFlags,
-      lastSessionDate: lifetime?.startTime,
-      bestWeight: exMeta?.bestWeight,
-      recommendedWeight: reco?.weight,
-      recommendNote: reco?.note,
-    };
-  });
+  const lifts: PlannedLift[] = curriculum.map((entry) =>
+    buildLift(entry, exById, lifetimeByExercise),
+  );
 
   return {
     plan: {
@@ -310,8 +354,15 @@ function recommend(opts: {
   hitAllTarget: boolean;
   flagged: boolean;
   isolation: boolean;
+  /** True when `lastWeight` is from the user's lifetime history; false when
+   *  it's the Speediance prescription. We only do the progression-bump path
+   *  when it's real history. Otherwise we just echo the plan. */
+  fromLifetime: boolean;
 }): { weight: number; note: string } | null {
   if (opts.lastWeight <= 0) return null;
+  if (!opts.fromLifetime) {
+    return { weight: opts.lastWeight, note: 'Speediance plan — no log yet' };
+  }
   if (opts.flagged) return { weight: opts.lastWeight, note: 'hold — form flag last time' };
   if (opts.hitAllTarget) {
     const bump = opts.isolation ? 2.5 : 5;
@@ -353,3 +404,129 @@ function shortDate(iso: string): string {
 // Keep `ScheduledItem` re-export for callers that imported it through this
 // module (next-session-card etc.). Unused locally is fine.
 export type { ScheduledItem };
+
+/**
+ * Like `loadNextWorkoutPlan` but pinned to one specific calendar date.
+ * Returns one plan per scheduled item on that day. Used by /scheduled/[date].
+ */
+export async function loadScheduledDayPlans(
+  userId: string,
+  date: string,
+): Promise<{ date: string; plans: NextWorkoutPlan[] } | null> {
+  const tableName = process.env.DYNAMO_TABLE_NAME;
+  if (!tableName) return null;
+  const me = createDb({ tableName }).forUser(userId);
+
+  const [allWorkouts, exercisesRes, allSetsRes, scheduled] = await Promise.all([
+    loadAllWorkouts(userId),
+    me.exercises.list() as Promise<{ data: ExerciseSummary[] }>,
+    me.sets.listAll() as Promise<{ data: ExerciseSet[] }>,
+    loadScheduledWorkouts(userId),
+  ]);
+  const onDay = scheduled.filter((s) => s.date === date);
+  if (onDay.length === 0) return { date, plans: [] };
+
+  // Same lifetime-by-exerciseId pre-index as the main loader.
+  type LifetimeSet = {
+    startTime: string;
+    weight: number;
+    finishedReps?: number;
+    targetReps?: number;
+    formFlags?: string[];
+  };
+  const lifetimeByExercise = new Map<string, LifetimeSet>();
+  for (const s of allSetsRes.data ?? []) {
+    if (!s.weight || s.weight <= 0) continue;
+    const cur = lifetimeByExercise.get(s.exerciseId);
+    if (!cur || s.startTime > cur.startTime) {
+      lifetimeByExercise.set(s.exerciseId, {
+        startTime: s.startTime,
+        weight: s.weight,
+        finishedReps: s.finishedReps,
+        targetReps: s.targetReps,
+        formFlags: s.formFlags,
+      });
+    }
+  }
+  const exById = new Map((exercisesRes.data ?? []).map((e) => [e.exerciseId, e]));
+  const workouts = allWorkouts.filter(
+    (w) => !(w.isCardio || w.speedianceTrainingType === 'cardio'),
+  );
+
+  const plans: NextWorkoutPlan[] = [];
+  for (const item of onDay) {
+    const courseId = item.courseId;
+    if (courseId === undefined) continue;
+    const curriculum = await getCourseCurriculum(userId, courseId);
+    if (curriculum.length === 0) continue;
+    const lastCompleted = workouts.find((w) => w.courseId === courseId) ?? null;
+    const lifts: PlannedLift[] = curriculum.map((entry) =>
+      buildLift(entry, exById, lifetimeByExercise),
+    );
+    plans.push({
+      source: { kind: 'scheduled', date: item.date, title: item.title },
+      lastCompleted,
+      lifts,
+      title: item.title,
+    });
+  }
+  return { date, plans };
+}
+
+/** Shared lift-from-curriculum builder — used by both loaders. */
+function buildLift(
+  entry: CurriculumEntry,
+  exById: Map<string, ExerciseSummary>,
+  lifetimeByExercise: Map<
+    string,
+    {
+      startTime: string;
+      weight: number;
+      finishedReps?: number;
+      targetReps?: number;
+      formFlags?: string[];
+    }
+  >,
+): PlannedLift {
+  const id = String(entry.id);
+  const exMeta = exById.get(id);
+  const lifetime = lifetimeByExercise.get(id);
+  const hitAllTarget =
+    !lifetime || !lifetime.targetReps || (lifetime.finishedReps ?? 0) >= (lifetime.targetReps ?? 0);
+  const flagged = (lifetime?.formFlags?.length ?? 0) > 0;
+  const isolation = detectIsolation(
+    entry.title,
+    Boolean(exMeta?.isUnilateral || entry.isUnilateral),
+  );
+  const planFirstWeight = entry.plannedWeights?.[0];
+  const baseForReco = lifetime?.weight ?? planFirstWeight ?? entry.speedianceRecommendedWeight;
+  const reco =
+    baseForReco !== undefined
+      ? recommend({
+          lastWeight: baseForReco,
+          hitAllTarget,
+          flagged,
+          isolation,
+          fromLifetime: lifetime !== undefined,
+        })
+      : null;
+  return {
+    exerciseId: id,
+    name: entry.title,
+    muscleGroup: exMeta?.muscleGroup,
+    isUnilateral: exMeta?.isUnilateral || entry.isUnilateral,
+    lastWeight: lifetime?.weight,
+    lastReps: lifetime?.finishedReps,
+    lastTargetReps: lifetime?.targetReps,
+    lastFormFlags: lifetime?.formFlags,
+    lastSessionDate: lifetime?.startTime,
+    bestWeight: exMeta?.bestWeight,
+    recommendedWeight: reco?.weight,
+    recommendNote: reco?.note,
+    plannedReps: entry.plannedReps,
+    plannedWeights: entry.plannedWeights,
+    speedianceRecommendedWeight: entry.speedianceRecommendedWeight,
+    bestOneRepMax: entry.bestOneRepMax,
+    breakSeconds: entry.breakSeconds,
+  };
+}
