@@ -12,13 +12,15 @@
 
 import type { ApiStack } from './Api';
 import type { AuthStack } from './Auth';
+import type { DatabaseStack } from './Database';
 
 interface WebArgs {
   api: ApiStack;
   auth: AuthStack;
+  database: DatabaseStack;
 }
 
-export function Web({ api, auth }: WebArgs) {
+export function Web({ api, auth, database }: WebArgs) {
   const stage = $app.stage;
   const region = 'us-west-2';
   // ARN pattern for this stage's per-user Speediance secrets. Cannot use a
@@ -29,12 +31,19 @@ export function Web({ api, auth }: WebArgs) {
   const site = new sst.aws.Nextjs('Web', {
     // Relative to sst.config.ts (infra/) — see SyncWorker.ts for the same reason.
     path: '../apps/web',
+    // `link` grants the server function least-privilege IAM on the table
+    // (Query / Get / Put / Update / Delete on the table's ARN). The plain
+    // env-var below makes the table name available at runtime without
+    // depending on the `sst` package's Resource accessor.
+    link: [database.table],
     environment: {
       // Server-side: consumed by lib/auth/cognito.ts and lib/auth/session.ts.
       COGNITO_USER_POOL_ID: auth.userPool.id,
       COGNITO_USER_POOL_CLIENT_ID: auth.userPoolClient.id,
       // Stage is needed by createSecretsStore to namespace secret names.
       SST_STAGE: stage,
+      // Read by lib/profile/actions.ts via @speediance/db.
+      DYNAMO_TABLE_NAME: database.table.name,
       // Client + server: API base for Phase 1.x mutations. Public is fine —
       // CloudFront URL is already known to anyone with the site URL.
       NEXT_PUBLIC_API_URL: api.url,

@@ -28,6 +28,12 @@ export default async function DashboardPage() {
     >
       <header style={{ display: 'flex', alignItems: 'baseline', gap: '1rem' }}>
         <h1 style={{ margin: 0, flex: 1 }}>Dashboard</h1>
+        <a
+          href="/profile"
+          style={{ color: '#0b78d1', fontSize: '0.95rem', textDecoration: 'none' }}
+        >
+          Profile
+        </a>
         <SignOutButton />
       </header>
       <p style={{ color: '#444', marginTop: '1.5rem' }}>

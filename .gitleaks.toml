@@ -13,8 +13,12 @@ useDefault = true
 
 [[rules]]
 id = "speediance-bearer-token"
-description = "Speediance auth token / appUserId pair in any common shape"
-regex = '''(?i)\b(?:token|app[_-]?user[_-]?id)\b\s*[:=]\s*["']?[A-Za-z0-9._\-]{20,}["']?'''
+description = "Speediance auth token / appUserId — string-literal or KV-style leaks"
+# Require quotes around the value so we don't false-match TypeScript expressions
+# like `token = login.credentials.token`. The previous version (no quotes)
+# triggered on any 20+ char value after `:` / `=`, which caught harmless
+# variable assignments in our own auth code.
+regex = '''(?i)\b(?:token|app[_-]?user[_-]?id)\b\s*[:=]\s*["'][A-Za-z0-9._\-]{20,}["']'''
 tags = ["secret", "speediance"]
 
 [[rules]]
