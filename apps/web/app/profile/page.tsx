@@ -1,8 +1,10 @@
 import { redirect } from 'next/navigation';
 
+import { cardStyle, PageShell } from '@/app/(authed)/page-shell';
 import { verifyIdTokenFromCookies } from '@/lib/auth/session';
-import { ProfileForm } from './profile-form';
+
 import { loadProfile } from './load-profile';
+import { ProfileForm } from './profile-form';
 
 export const metadata = {
   title: 'Profile — speediance-platform',
@@ -16,40 +18,26 @@ export default async function ProfilePage() {
   const hasSpeedianceCreds = Boolean(existing?.speedianceSecretArn);
 
   return (
-    <main
-      style={{
-        maxWidth: 640,
-        margin: '4rem auto',
-        padding: '0 1.5rem',
-        fontFamily: 'system-ui, sans-serif',
-      }}
-    >
-      <header style={{ display: 'flex', alignItems: 'baseline', gap: '1rem' }}>
-        <h1 style={{ margin: 0, flex: 1 }}>Profile</h1>
-        <a
-          href="/dashboard"
-          style={{ color: '#0b78d1', fontSize: '0.95rem', textDecoration: 'none' }}
-        >
-          ← Dashboard
-        </a>
-      </header>
-      <p style={{ color: '#666', marginTop: '0.5rem' }}>
+    <PageShell current="profile" userLabel={String(claims.email ?? claims.sub)} title="Profile">
+      <p style={{ color: '#666', margin: '-0.5rem 0 1.5rem 0' }}>
         Your Speediance login is stored encrypted in AWS Secrets Manager. The sync worker uses it to
         pull your training history every morning at 5am ET.
       </p>
-      <ProfileForm
-        initial={{
-          speedianceEmail: existing?.email ?? '',
-          region: existing?.region ?? 'Global',
-          deviceType: existing?.deviceType ?? 1,
-          allowMonsterMoves: existing?.allowMonsterMoves ?? false,
-          bodyweight: existing?.bodyweight,
-          unit: existing?.unit ?? 1, // imperial by default for US users
-          syncStartDate: existing?.syncStartDate ?? defaultSyncStart(),
-        }}
-        hasSpeedianceCreds={hasSpeedianceCreds}
-      />
-    </main>
+      <section style={cardStyle}>
+        <ProfileForm
+          initial={{
+            speedianceEmail: existing?.email ?? '',
+            region: existing?.region ?? 'Global',
+            deviceType: existing?.deviceType ?? 1,
+            allowMonsterMoves: existing?.allowMonsterMoves ?? false,
+            bodyweight: existing?.bodyweight,
+            unit: existing?.unit ?? 1, // imperial by default for US users
+            syncStartDate: existing?.syncStartDate ?? defaultSyncStart(),
+          }}
+          hasSpeedianceCreds={hasSpeedianceCreds}
+        />
+      </section>
+    </PageShell>
   );
 }
 
