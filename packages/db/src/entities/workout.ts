@@ -25,14 +25,50 @@ export function workoutEntity(config: EntityConfiguration) {
         templateCode: { type: 'string' },
         title: { type: 'string' },
         durationSeconds: { type: 'number' },
-        totalCapacity: { type: 'number' },
+        totalCapacity: { type: 'number' }, // strength volume (lbs/kg×reps, untyped)
+        // Mechanical work the Speediance reports in joules. The Google-Sheet
+        // dashboard calls this "Output" and surfaces it both as a totals KPI
+        // and as a per-minute intensity rate. Cardio sessions don't report it.
+        outputJoules: { type: 'number' },
         calories: { type: 'number' },
+        // Cardio-only fields. Walking/running sessions come back without an
+        // `id` and with `sportType`/`mileage` populated instead of muscle
+        // group breakdowns.
+        distanceMiles: { type: 'number' },
+        sportType: { type: 'number' },
+        isCardio: { type: 'boolean' },
+        // Muscle-group set counts captured from `trainingPartSetsInfoList`.
+        // Stored as { "<trainingPartId2>": <set count> } so the dashboard
+        // can render the "Volume by Muscle Group" bar chart without going
+        // back to the (unreliable) detail endpoint.
+        muscleGroupSets: {
+          type: 'map',
+          properties: {
+            chest: { type: 'number' },
+            shoulders: { type: 'number' },
+            back: { type: 'number' },
+            core: { type: 'number' },
+            legs: { type: 'number' },
+            arms: { type: 'number' },
+          },
+        },
         deviceType: { type: 'number' },
         cycle: { type: 'number' },
         weekIso: { type: 'string' }, // Thursday of the workout's ISO week
         completed: { type: 'boolean', default: false },
-        speedianceTrainingId: { type: 'string' }, // upstream `id` from the Speediance API
-        speedianceTrainingType: { type: 'string' }, // 'course' | 'custom'
+        // Speediance returns two IDs per session: `id` is the workout
+        // instance, `trainingId` is the per-user session/template ID that
+        // (via the cttTrainingInfoDetail endpoint) yields set-level data.
+        // Keep both — `speedianceTrainingId` is the instance, the new
+        // `speedianceTrainingTemplateId` is the one we'd pass to the
+        // detail endpoint when (and if) we make it work reliably.
+        speedianceTrainingId: { type: 'string' },
+        speedianceTrainingTemplateId: { type: 'string' },
+        speedianceTrainingType: { type: 'string' }, // 'course' | 'custom' | 'cardio'
+        // Course/curriculum ID from Speediance — useful for grouping
+        // "same workout, different sessions" (e.g. cycle comparisons).
+        courseId: { type: 'number' },
+        courseCategoryName: { type: 'string' },
         createdAt: { type: 'string' },
         updatedAt: { type: 'string', watch: '*', set: () => new Date().toISOString() },
       },

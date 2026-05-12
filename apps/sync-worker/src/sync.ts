@@ -10,6 +10,8 @@ export interface SyncSummary {
   userId: string;
   ok: boolean;
   workoutsProcessed: number;
+  /** Set-level sync is paused until the detail endpoint is reverse-engineered;
+   *  kept in the summary shape so the audit log doesn't change schema yet. */
   setsProcessed: number;
   error?: string;
   startedAt: string;
@@ -114,57 +116,68 @@ export async function syncUser(userId: string): Promise<SyncSummary> {
     const client = createSpeedianceClient(userId, secret, secrets);
 
     // -- 3. Pull training records in the window
-    const records = (await client.getTrainingRecords(rangeStart, rangeEnd)) as Array<{
-      id: number | string;
-      trainingType?: string;
-      startTime?: number | string;
-      templateName?: string;
-      templateCode?: string | number;
-      duration?: number;
-      totalCapacity?: number;
-      calorie?: number;
-      deviceType?: number;
-    }>;
+    //
+    // Field names map (Speediance API → our schema):
+    //   id            → speedianceTrainingId (workout instance, absent on cardio)
+    //   trainingId    → speedianceTrainingTemplateId (per-session template)
+    //   title         → title
+    //   trainingTime  → durationSeconds
+    //   calorie       → calories
+    //   totalCapacity → totalCapacity (strength volume)
+    //   totalEnergy   → outputJoules (the "Output" KPI in the spreadsheet)
+    //   mileage       → distanceMiles (cardio)
+    //   sportType     → sportType (cardio activity id; 39 ≈ walking)
+    //   courseId      → courseId (for grouping "same course, many sessions")
+    //   trainingPartSetsInfoList → muscleGroupSets (mapped to named groups)
+    //
+    // Earlier versions of this worker assumed `templateName`/`duration`/
+    // `calories` field names; those don't exist on the response, so every
+    // workout was being saved with title/duration/output as undefined.
+    const records = (await client.getTrainingRecords(rangeStart, rangeEnd)) as Array<
+      Record<string, unknown>
+    >;
     console.info(
       `syncUser ${userId}: ${records.length} training records in ${rangeStart}..${rangeEnd}`,
     );
 
-    // -- 4. For each session, fetch details + upsert workout + sets
     for (const rec of records) {
-      const startTimeIso = toIsoTimestamp(rec.startTime);
+      const startTimeIso = toIsoTimestamp(rec.startTime as number | string | undefined);
       if (!startTimeIso) continue;
       const weekIso = thursdayOfIsoWeek(new Date(startTimeIso));
-      const trainingType = (rec.trainingType ?? 'custom') as 'course' | 'custom';
+
+      const hasInstanceId = rec.id !== undefined && rec.id !== null;
+      const isCardio = !hasInstanceId || (rec.sportType !== undefined && !rec.courseId);
 
       await me.workouts.put({
         startTime: startTimeIso,
-        templateCode: rec.templateCode ? String(rec.templateCode) : undefined,
-        title: rec.templateName,
-        durationSeconds: rec.duration,
-        totalCapacity: rec.totalCapacity,
-        calories: rec.calorie,
-        deviceType: rec.deviceType,
+        title: (rec.title as string | undefined) ?? cardioTitle(rec),
+        durationSeconds: numField(rec.trainingTime),
+        totalCapacity: numField(rec.totalCapacity),
+        outputJoules: numField(rec.totalEnergy),
+        calories: numField(rec.calorie),
+        distanceMiles: numField(rec.mileage),
+        sportType: numField(rec.sportType),
+        isCardio,
+        deviceType: numField(rec.deviceType),
+        muscleGroupSets: mapMuscleGroupSets(rec.trainingPartSetsInfoList),
         weekIso,
         completed: true,
-        speedianceTrainingId: String(rec.id),
-        speedianceTrainingType: trainingType,
+        speedianceTrainingId: hasInstanceId ? String(rec.id) : undefined,
+        speedianceTrainingTemplateId:
+          rec.trainingId !== undefined ? String(rec.trainingId) : undefined,
+        speedianceTrainingType: isCardio ? 'cardio' : rec.courseId ? 'course' : 'custom',
+        courseId: numField(rec.courseId),
+        courseCategoryName: rec.courseCategoryName as string | undefined,
       });
       workoutsProcessed++;
 
-      try {
-        const detail = (await client.getTrainingDetail(rec.id, trainingType)) as Record<
-          string,
-          unknown
-        >;
-        setsProcessed += await upsertSetsFromDetail(me, startTimeIso, detail);
-      } catch (err) {
-        // One session's detail failing shouldn't fail the whole user sync —
-        // log and move on. The Workout item is already in place.
-        console.warn(`getTrainingDetail failed for ${rec.id}`, err);
-      }
-
-      // Tiny pause to avoid rate-limit clusters.
-      await new Promise((r) => setTimeout(r, 100));
+      // NB: getTrainingDetail is currently disabled — the upstream endpoints
+      // return inconsistent shapes depending on `id` vs `trainingId` vs
+      // `courseId`, and our exercise/set schema doesn't yet model that
+      // reliably. Muscle-group set counts come from the records response
+      // instead (the `trainingPartSetsInfoList` field), which is enough for
+      // every chart on the current dashboard. Re-enable when the detail
+      // endpoint is reverse-engineered properly (TODO Phase 1.x).
     }
 
     // -- 5. Mark profile synced
@@ -251,97 +264,67 @@ function createSpeedianceClient(
   return client;
 }
 
-interface DbForUser {
-  sets: {
-    put: (input: {
-      startTime: string;
-      exerciseId: string;
-      setNum: number;
-      weight?: number;
-      startWeight?: number;
-      endWeight?: number;
-      targetReps?: number;
-      finishedReps?: number;
-      volume?: number;
-      rest?: number;
-      mode?: number;
-      unit?: string;
-      leftRight?: string;
-      formFlags?: string[];
-    }) => Promise<unknown>;
-  };
+/**
+ * Cast an unknown API field to a finite number, or undefined. Speediance
+ * sometimes returns 0 for "not applicable" (e.g. mileage=0 for strength
+ * workouts) — we preserve those so the dashboard can distinguish "no value"
+ * from "explicitly zero".
+ */
+function numField(value: unknown): number | undefined {
+  if (value === undefined || value === null) return undefined;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : undefined;
 }
 
 /**
- * Walks the getTrainingDetail response and writes one Set item per set.
- * The shape varies between course and custom workouts — defensive: skip
- * anything that doesn't match the expected layout.
+ * Speediance's `trainingPartId2` IDs aren't documented anywhere we can find.
+ * Mapping was reverse-engineered by lining workout titles ("chest training",
+ * "back training", "arms training") up against which IDs appeared. If a
+ * given workout maps an unknown ID, we drop it on the floor rather than
+ * blocking the sync — the dashboard caption acknowledges this is best-guess.
  */
-async function upsertSetsFromDetail(
-  me: DbForUser,
-  startTime: string,
-  detail: Record<string, unknown>,
-): Promise<number> {
-  const exercises =
-    (detail.actionLibraryList as unknown[] | undefined) ??
-    (detail.actionList as unknown[] | undefined) ??
-    [];
-  if (!Array.isArray(exercises)) return 0;
+const MUSCLE_GROUP_BY_ID: Record<number, keyof MuscleGroupSets> = {
+  11: 'chest',
+  12: 'shoulders',
+  13: 'back',
+  14: 'core',
+  15: 'legs',
+  16: 'arms',
+};
 
-  let count = 0;
-  for (const ex of exercises) {
-    if (typeof ex !== 'object' || ex === null) continue;
-    const e = ex as Record<string, unknown>;
-    const exerciseId = String(e.groupId ?? e.actionLibraryId ?? e.id ?? '').trim();
-    if (!exerciseId) continue;
+interface MuscleGroupSets {
+  chest?: number;
+  shoulders?: number;
+  back?: number;
+  core?: number;
+  legs?: number;
+  arms?: number;
+}
 
-    const reps = csv(e.setsAndReps);
-    const weights = csv(e.weights);
-    const breaks = csv(e.breakTime ?? e.breakTime2);
-    const modes = csv(e.sportMode);
-    const leftRight = csv(e.leftRight);
-    const finished = csv(e.completionCount);
-    const formFlags = csv(e.errorCorrectionTips);
-
-    const setCount = Math.max(reps.length, weights.length, finished.length);
-    for (let i = 0; i < setCount; i++) {
-      const targetReps = num(reps[i]);
-      const finishedReps = num(finished[i]) ?? targetReps;
-      const weight = num(weights[i]);
-      const volume =
-        finishedReps !== undefined && weight !== undefined ? finishedReps * weight : undefined;
-      const flag = formFlags[i];
-      await me.sets.put({
-        startTime,
-        exerciseId,
-        setNum: i + 1,
-        weight,
-        targetReps,
-        finishedReps,
-        volume,
-        rest: num(breaks[i]),
-        mode: num(modes[i]),
-        leftRight: leftRight[i],
-        formFlags: flag ? [flag] : undefined,
-      });
-      count++;
-    }
+function mapMuscleGroupSets(raw: unknown): MuscleGroupSets | undefined {
+  if (!Array.isArray(raw) || raw.length === 0) return undefined;
+  const out: MuscleGroupSets = {};
+  for (const entry of raw) {
+    if (typeof entry !== 'object' || entry === null) continue;
+    const e = entry as { trainingPartId2?: unknown; sets?: unknown };
+    const partId = typeof e.trainingPartId2 === 'number' ? e.trainingPartId2 : undefined;
+    const sets = typeof e.sets === 'number' ? e.sets : undefined;
+    const group = partId !== undefined ? MUSCLE_GROUP_BY_ID[partId] : undefined;
+    if (!group || sets === undefined) continue;
+    out[group] = (out[group] ?? 0) + sets;
   }
-  return count;
+  return Object.keys(out).length > 0 ? out : undefined;
 }
 
-function csv(value: unknown): string[] {
-  if (typeof value !== 'string') return [];
-  return value
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
-
-function num(value: string | undefined): number | undefined {
-  if (value === undefined) return undefined;
-  const n = Number(value);
-  return Number.isFinite(n) ? n : undefined;
+/**
+ * Speediance's cardio records (walks, runs) come back without a `title`.
+ * Synthesise something useful for the recent-sessions row so it isn't blank.
+ */
+function cardioTitle(rec: Record<string, unknown>): string | undefined {
+  if (rec.sportType === 39) return 'Walk';
+  if (rec.sportType === 38) return 'Run';
+  if (typeof rec.physicalTrainingType === 'number') return `Cardio (${rec.physicalTrainingType})`;
+  return undefined;
 }
 
 function toIsoTimestamp(value: number | string | undefined): string | undefined {

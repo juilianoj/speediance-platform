@@ -2,6 +2,9 @@
 node_modules/
 .pnpm-store/
 
+# Local-only debug scripts — kept out of the deploy bundle and out of git
+*.local.ts
+
 # Build outputs
 dist/
 build/
