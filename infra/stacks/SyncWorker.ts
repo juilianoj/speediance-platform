@@ -49,7 +49,12 @@ export function SyncWorker({ database }: SyncWorkerArgs) {
     function: fn.arn,
   });
 
-  return { functionArn: fn.functionArn, functionName: fn.name };
+  // The real `sst.aws.Function` exposes `.arn` (and `.name`). Earlier we
+  // returned `.functionArn`, which only existed in our loose stub typedef.
+  // At deploy time that resolved to `undefined`, the Web stack's
+  // `lambda:InvokeFunction` permission ended up with an empty Resource,
+  // and IAM rejected the role update with MalformedPolicyDocument.
+  return { functionArn: fn.arn, functionName: fn.name };
 }
 
 export type SyncWorkerStack = ReturnType<typeof SyncWorker>;
