@@ -2,10 +2,13 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useActionState } from 'react';
-import QRCode from 'qrcode';
 
 import { setNewPassword, signIn, verifyMfa, verifyMfaSetup } from '@/lib/auth/actions';
 import type { LoginResult } from '@/lib/auth/types';
+
+// `qrcode` is only needed for the MFA_SETUP step and pulls in ~30KB of
+// canvas/rendering plumbing. Top-level import was crashing the page on
+// hydration. Lazy-load it inside the effect that actually needs it.
 
 /**
  * Multi-step login state machine driven by Cognito's challenge responses.
@@ -199,17 +202,25 @@ function MfaSetupStep({
     if (result && result.state !== 'error') onAdvance(result);
   }, [result, onAdvance]);
 
-  // Render the QR client-side. Avoiding a server round-trip means the QR
-  // can be regenerated on retry without needing another Cognito call.
+  // Render the QR client-side. `qrcode` is dynamically imported so the
+  // module isn't evaluated until we actually reach this step — keeps the
+  // initial /login bundle lean and avoids whatever was making qrcode
+  // crash the login page on hydration.
   useEffect(() => {
     let cancelled = false;
-    QRCode.toString(state.otpauthUri, { type: 'svg', margin: 1, width: 220 })
-      .then((svg) => {
+    (async () => {
+      try {
+        const { toString } = await import('qrcode');
+        const svg = await toString(state.otpauthUri, {
+          type: 'svg',
+          margin: 1,
+          width: 220,
+        });
         if (!cancelled) setQrSvg(svg);
-      })
-      .catch((err: unknown) => {
+      } catch (err) {
         console.error('QR render failed', err);
-      });
+      }
+    })();
     return () => {
       cancelled = true;
     };
