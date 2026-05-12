@@ -69,20 +69,33 @@ export function createSecretsStore(opts: SecretsStoreOptions): SecretsStore {
       const validated = SpeedianceSecretSchema.parse(value);
       const name = secretName(stage, userId);
       const SecretString = JSON.stringify(validated);
+      // Try the update path first. Both consumers (Web setting up a new
+      // user, SyncWorker refreshing an expired token) call this, but
+      // SyncWorker only has IAM for `PutSecretValue`, not `CreateSecret` —
+      // a create-first ordering would AccessDenied before we could fall
+      // back to put. So: put first, fall back to create on
+      // ResourceNotFoundException.
       try {
-        const created = await client.send(
-          new CreateSecretCommand({
-            Name: name,
-            Description: `Speediance credentials for user ${userId} (${stage})`,
-            SecretString,
-          }),
+        const updated = await client.send(
+          new PutSecretValueCommand({ SecretId: name, SecretString }),
         );
-        if (!created.ARN) throw new Error('CreateSecret returned no ARN');
-        return { arn: created.ARN };
+        if (!updated.ARN) throw new Error('PutSecretValue returned no ARN');
+        return { arn: updated.ARN };
       } catch (err) {
+        if (err instanceof ResourceNotFoundException) {
+          const created = await client.send(
+            new CreateSecretCommand({
+              Name: name,
+              Description: `Speediance credentials for user ${userId} (${stage})`,
+              SecretString,
+            }),
+          );
+          if (!created.ARN) throw new Error('CreateSecret returned no ARN');
+          return { arn: created.ARN };
+        }
         if (err instanceof ResourceExistsException) {
-          // The secret already exists — push the new value as a fresh version.
-          // Reading the ARN back via GetSecretValue is cheaper than DescribeSecret.
+          // Defensive: shouldn't be reachable via this path now, but kept
+          // so a future race-condition retry still terminates cleanly.
           const updated = await client.send(
             new PutSecretValueCommand({ SecretId: name, SecretString }),
           );
