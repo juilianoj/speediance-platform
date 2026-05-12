@@ -11,12 +11,6 @@ import {
   RespondToAuthChallengeCommand,
   VerifySoftwareTokenCommand,
 } from '@aws-sdk/client-cognito-identity-provider';
-import {
-  createSrpSession,
-  signSrpSession,
-  wrapAuthChallenge,
-  wrapInitiateAuth,
-} from 'cognito-srp-helper';
 
 import { getCognitoClient, getCognitoConfig } from './cognito.js';
 import {
@@ -31,8 +25,22 @@ import type { LoginResult } from './types.js';
 const TOTP_ISSUER = 'speediance-platform';
 
 /**
- * Step 1: SRP password authentication. Returns the next state for the
- * client-side state machine:
+ * Step 1: password authentication via `USER_PASSWORD_AUTH`.
+ *
+ * Originally implemented as SRP to avoid the password ever leaving the
+ * browser as plaintext, but we couldn't get SRP working reliably from a
+ * Lambda runtime — `cognito-srp-helper`'s timestamp/buffer plumbing
+ * produced signatures Cognito rejected (a standalone Node run with the
+ * same code path worked, so something in the Lambda execution context
+ * mangled it). We already have the plaintext password in our Lambda's
+ * memory after form submission, so the marginal benefit of SRP in this
+ * server-to-Cognito leg is small. Cognito-to-AWS is HTTPS; CloudTrail
+ * doesn't log password parameters.
+ *
+ * `ALLOW_USER_PASSWORD_AUTH` is enabled on the client (was added for
+ * the admin-invite first-login flow; kept for this path too).
+ *
+ * Returns the next state for the client-side state machine:
  *   - 'mfa'         — existing user, MFA already enrolled, show TOTP input
  *   - 'newPassword' — invited user with temporary password, prompt for new one
  *   - 'mfaSetup'    — user has no MFA registered yet, show TOTP QR
@@ -51,57 +59,24 @@ export async function signIn(_prev: LoginResult | null, formData: FormData): Pro
   }
 
   const { email, password } = parsed.data;
-  const { userPoolId, userPoolClientId } = getCognitoConfig();
+  const { userPoolClientId } = getCognitoConfig();
   const client = getCognitoClient();
 
   try {
-    // -- 1. SRP_A: client-side random + g^a derived; sent as USER_SRP_AUTH.
-    //
-    // The 4th arg is `isHashed` and **defaults to `true`** in
-    // cognito-srp-helper — a surprising default. We're passing plaintext
-    // from the form, so we set it to `false` and the library hashes the
-    // password during signSrpSession. With the default, the library would
-    // treat the plaintext bytes as the password hash, the SRP signature
-    // would be wrong, and Cognito returns the generic
-    // "Incorrect username or password" error.
-    const srpSession = createSrpSession(email, password, userPoolId, false);
-    const initResp = await client.send(
-      new InitiateAuthCommand(
-        wrapInitiateAuth(srpSession, {
-          AuthFlow: AuthFlowType.USER_SRP_AUTH,
-          ClientId: userPoolClientId,
-          AuthParameters: { USERNAME: email },
-        }),
-      ),
+    const resp = await client.send(
+      new InitiateAuthCommand({
+        AuthFlow: AuthFlowType.USER_PASSWORD_AUTH,
+        ClientId: userPoolClientId,
+        AuthParameters: { USERNAME: email, PASSWORD: password },
+      }),
     );
 
-    if (initResp.ChallengeName !== ChallengeNameType.PASSWORD_VERIFIER) {
-      return { state: 'error', message: 'Unexpected auth response.' };
-    }
-
-    // When the pool uses email as an alias attribute (our case), Cognito's
-    // canonical username is a generated UUID — surfaced here in
-    // ChallengeParameters.USER_ID_FOR_SRP. SRP password-signature *and*
-    // every subsequent ChallengeResponses.USERNAME field must use that
-    // value, not the email the user typed. Mismatch → "Incorrect email
-    // or password" with no other hint.
-    const userIdForSrp = initResp.ChallengeParameters?.USER_ID_FOR_SRP ?? email;
-
-    // -- 2. PASSWORD_VERIFIER: combine server SRP_B + salt + secret block,
-    //       compute password proof, send back.
-    const signed = signSrpSession(srpSession, initResp);
-    const challengeResp = await client.send(
-      new RespondToAuthChallengeCommand(
-        wrapAuthChallenge(signed, {
-          ChallengeName: ChallengeNameType.PASSWORD_VERIFIER,
-          ClientId: userPoolClientId,
-          Session: initResp.Session,
-          ChallengeResponses: { USERNAME: userIdForSrp },
-        }),
-      ),
-    );
-
-    return await routeChallenge(challengeResp, userIdForSrp);
+    // When the pool uses email as an alias, Cognito's canonical username is
+    // a UUID surfaced as `USER_ID_FOR_SRP` in any subsequent challenge's
+    // ChallengeParameters. Prefer it for the username we propagate; falls
+    // back to email if Cognito short-circuits to tokens.
+    const username = resp.ChallengeParameters?.USER_ID_FOR_SRP ?? email;
+    return await routeChallenge(resp, username);
   } catch (err: unknown) {
     if (isNextRedirect(err)) throw err;
     // Cognito's "NotAuthorizedException" covers both wrong-password and
