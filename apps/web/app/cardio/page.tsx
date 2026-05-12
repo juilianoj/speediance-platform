@@ -1,0 +1,192 @@
+import { redirect } from 'next/navigation';
+
+import {
+  cardHeadingStyle,
+  cardStyle,
+  mutedStyle,
+  PageShell,
+  tableStyle,
+  tdStyle,
+  thStyle,
+} from '@/app/(authed)/page-shell';
+import { verifyIdTokenFromCookies } from '@/lib/auth/session';
+import { loadAllWorkouts } from '@/lib/data/load-workouts';
+
+export const metadata = { title: 'Cardio — speediance-platform' };
+
+export default async function CardioPage() {
+  const claims = await verifyIdTokenFromCookies();
+  if (!claims) redirect('/login');
+
+  const all = await loadAllWorkouts(claims.sub);
+  const cardio = all.filter((w) => w.isCardio || w.speedianceTrainingType === 'cardio');
+
+  // Group by ISO week.
+  type WeekRow = {
+    weekIso: string;
+    label: string;
+    sessions: number;
+    miles: number;
+    calories: number;
+    durationMinutes: number;
+  };
+  const weekMap = new Map<string, WeekRow>();
+  for (const w of cardio) {
+    if (!w.weekIso) continue;
+    if (!weekMap.has(w.weekIso)) {
+      weekMap.set(w.weekIso, {
+        weekIso: w.weekIso,
+        label: shortDate(w.weekIso),
+        sessions: 0,
+        miles: 0,
+        calories: 0,
+        durationMinutes: 0,
+      });
+    }
+    const row = weekMap.get(w.weekIso)!;
+    row.sessions += 1;
+    row.miles += w.distanceMiles ?? 0;
+    row.calories += w.calories ?? 0;
+    row.durationMinutes += (w.durationSeconds ?? 0) / 60;
+  }
+  const weeks = [...weekMap.values()].sort((a, b) => (a.weekIso > b.weekIso ? -1 : 1));
+
+  const totals = {
+    sessions: cardio.length,
+    miles: cardio.reduce((s, w) => s + (w.distanceMiles ?? 0), 0),
+    calories: cardio.reduce((s, w) => s + (w.calories ?? 0), 0),
+    minutes: cardio.reduce((s, w) => s + (w.durationSeconds ?? 0) / 60, 0),
+  };
+  const avgPace = totals.miles > 0 ? totals.minutes / totals.miles : 0;
+
+  return (
+    <PageShell current="cardio" userLabel={String(claims.email ?? claims.sub)} title="Cardio">
+      <section style={kpiGridStyle}>
+        <Kpi label="Sessions" value={String(totals.sessions)} />
+        <Kpi label="Miles" value={totals.miles.toFixed(1)} />
+        <Kpi label="Calories" value={Math.round(totals.calories).toLocaleString()} />
+        <Kpi label="Avg pace" value={avgPace > 0 ? `${avgPace.toFixed(1)} min/mi` : '—'} />
+      </section>
+
+      <section style={cardStyle}>
+        <h2 style={cardHeadingStyle}>By week</h2>
+        <p style={mutedStyle}>Walks and runs aggregated by ISO week.</p>
+        {weeks.length === 0 ? (
+          <p style={{ color: '#888', margin: '1rem 0 0' }}>No cardio sessions yet.</p>
+        ) : (
+          <table style={{ ...tableStyle, marginTop: '1rem' }}>
+            <thead>
+              <tr>
+                <th style={thStyle}>Week</th>
+                <th style={{ ...thStyle, textAlign: 'right' }}>Sessions</th>
+                <th style={{ ...thStyle, textAlign: 'right' }}>Miles</th>
+                <th style={{ ...thStyle, textAlign: 'right' }}>Calories</th>
+                <th style={{ ...thStyle, textAlign: 'right' }}>Duration</th>
+              </tr>
+            </thead>
+            <tbody>
+              {weeks.map((w) => (
+                <tr key={w.weekIso}>
+                  <td style={tdStyle}>{w.label}</td>
+                  <td style={{ ...tdStyle, textAlign: 'right' }}>{w.sessions}</td>
+                  <td style={{ ...tdStyle, textAlign: 'right' }}>{w.miles.toFixed(2)}</td>
+                  <td style={{ ...tdStyle, textAlign: 'right' }}>
+                    {Math.round(w.calories).toLocaleString()}
+                  </td>
+                  <td style={{ ...tdStyle, textAlign: 'right' }}>
+                    {Math.round(w.durationMinutes)}m
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
+
+      <section style={cardStyle}>
+        <h2 style={cardHeadingStyle}>Recent sessions</h2>
+        {cardio.length === 0 ? (
+          <p style={{ color: '#888', margin: '1rem 0 0' }}>No cardio yet.</p>
+        ) : (
+          <table style={{ ...tableStyle, marginTop: '1rem' }}>
+            <thead>
+              <tr>
+                <th style={thStyle}>Date</th>
+                <th style={thStyle}>Type</th>
+                <th style={{ ...thStyle, textAlign: 'right' }}>Distance</th>
+                <th style={{ ...thStyle, textAlign: 'right' }}>Duration</th>
+                <th style={{ ...thStyle, textAlign: 'right' }}>Pace</th>
+                <th style={{ ...thStyle, textAlign: 'right' }}>Calories</th>
+              </tr>
+            </thead>
+            <tbody>
+              {cardio.slice(0, 15).map((w) => {
+                const miles = w.distanceMiles ?? 0;
+                const minutes = (w.durationSeconds ?? 0) / 60;
+                const pace = miles > 0 ? minutes / miles : 0;
+                return (
+                  <tr key={w.startTime}>
+                    <td style={tdStyle}>{formatDate(w.startTime)}</td>
+                    <td style={{ ...tdStyle, color: '#666' }}>{w.title ?? 'Cardio'}</td>
+                    <td style={{ ...tdStyle, textAlign: 'right' }}>{miles.toFixed(2)} mi</td>
+                    <td style={{ ...tdStyle, textAlign: 'right' }}>{Math.round(minutes)}m</td>
+                    <td style={{ ...tdStyle, textAlign: 'right' }}>
+                      {pace > 0 ? `${pace.toFixed(1)}` : '—'}
+                    </td>
+                    <td style={{ ...tdStyle, textAlign: 'right' }}>
+                      {w.calories ? Math.round(w.calories).toLocaleString() : '—'}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </section>
+    </PageShell>
+  );
+}
+
+function Kpi({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={cardStyle}>
+      <div
+        style={{
+          color: '#666',
+          fontSize: '0.72rem',
+          textTransform: 'uppercase',
+          letterSpacing: '0.06em',
+          fontWeight: 600,
+        }}
+      >
+        {label}
+      </div>
+      <div style={{ fontSize: '1.5rem', fontWeight: 700, marginTop: '0.25rem' }}>{value}</div>
+    </div>
+  );
+}
+
+function formatDate(iso: string): string {
+  const d = new Date(iso);
+  const day = d.getDate();
+  const m = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][
+    d.getMonth()
+  ];
+  const dow = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getDay()];
+  return `${dow} ${m} ${day}`;
+}
+
+function shortDate(iso: string): string {
+  const d = new Date(iso + 'T00:00:00Z');
+  const m = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][
+    d.getUTCMonth()
+  ];
+  return `${m} ${d.getUTCDate()}`;
+}
+
+const kpiGridStyle: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+  gap: '0.9rem',
+  marginBottom: '0.5rem',
+};

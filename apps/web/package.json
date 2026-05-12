@@ -15,6 +15,7 @@
     "clean": "rm -rf .next out"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.95.1",
     "@aws-sdk/client-cognito-identity-provider": "^3.717.0",
     "@aws-sdk/client-lambda": "^3.717.0",
     "@speediance/db": "workspace:*",

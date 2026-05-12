@@ -171,13 +171,32 @@ export async function syncUser(userId: string): Promise<SyncSummary> {
       });
       workoutsProcessed++;
 
-      // NB: getTrainingDetail is currently disabled — the upstream endpoints
-      // return inconsistent shapes depending on `id` vs `trainingId` vs
-      // `courseId`, and our exercise/set schema doesn't yet model that
-      // reliably. Muscle-group set counts come from the records response
-      // instead (the `trainingPartSetsInfoList` field), which is enough for
-      // every chart on the current dashboard. Re-enable when the detail
-      // endpoint is reverse-engineered properly (TODO Phase 1.x).
+      // ── Fetch per-exercise + per-set detail for strength workouts ──────
+      //
+      // Both course and custom workouts use the same endpoint shape, keyed
+      // by `trainingId` (NOT `id` — that was the original wrong-ID bug).
+      // For course workouts we hit `courseTrainingInfoDetail`; for custom
+      // we hit `cttTrainingInfoDetail`. Cardio sessions are skipped (no
+      // detail to fetch).
+      if (!isCardio && rec.trainingId !== undefined) {
+        try {
+          const detailType = rec.courseId ? 'course' : 'custom';
+          const exercises = (await client.getTrainingDetail(
+            rec.trainingId as string | number,
+            detailType,
+          )) as Array<Record<string, unknown>>;
+          if (Array.isArray(exercises)) {
+            setsProcessed += await upsertExercisesAndSets(me, startTimeIso, exercises);
+          }
+        } catch (err) {
+          // One session's detail failing shouldn't fail the whole user sync —
+          // log and move on. The Workout item is already in place.
+          console.warn(`getTrainingDetail failed for trainingId ${rec.trainingId}`, err);
+        }
+
+        // Tiny pause to avoid rate-limit clusters on the Speediance side.
+        await new Promise((r) => setTimeout(r, 100));
+      }
     }
 
     // -- 5. Mark profile synced
@@ -262,6 +281,158 @@ function createSpeedianceClient(
     },
   });
   return client;
+}
+
+/**
+ * For each exercise in a workout's detail response, write one Set per
+ * `finishedReps` entry and upsert the Exercise aggregate (best weight,
+ * working weight, last done, total sets, name, muscle group).
+ *
+ * Speediance returns one exercise object per `actionLibraryGroupId` with:
+ *   - actionLibraryName: human-readable exercise name
+ *   - trainingPartId2: muscle group id (mapped via MUSCLE_GROUP_BY_ID)
+ *   - isBarbell, isLeftRight: exercise type flags
+ *   - maxWeight, oneRepMax, totalCapacity: aggregate stats for the session
+ *   - score, completionScore, forceControlScore, …: 0–5 quality scores
+ *   - finishedReps: [{ finishedCount, targetCount, capacity, time, …,
+ *                      trainingInfoDetail: { weights, leftWeights, … } }]
+ *     — one entry per "set"; bilateral has `weights`, unilateral has
+ *     `leftWeights`/`rightWeights`. We pick the heaviest single rep weight
+ *     as the set's `weight` so the Lift Log "max weight per set" math
+ *     stays trivial; drop sets (multiple distinct weights in one entry)
+ *     surface via `startWeight` / `endWeight`.
+ */
+async function upsertExercisesAndSets(
+  me: SyncDbForUser,
+  startTime: string,
+  exercises: Array<Record<string, unknown>>,
+): Promise<number> {
+  let totalSets = 0;
+  for (const ex of exercises) {
+    const exerciseId = String(ex.actionLibraryGroupId ?? '').trim();
+    if (!exerciseId) continue;
+
+    const name = (ex.actionLibraryName as string | undefined) ?? `Exercise ${exerciseId}`;
+    const partId = ex.trainingPartId2 as number | undefined;
+    const muscleGroup = partId !== undefined ? MUSCLE_GROUP_BY_ID[partId] : undefined;
+    const isUnilateral = Boolean(ex.isLeftRight);
+    const finishedReps = Array.isArray(ex.finishedReps) ? ex.finishedReps : [];
+
+    // Write one Set per finishedReps entry. setNum is 1-indexed in the
+    // order Speediance returned them (which is the actual workout order).
+    for (let i = 0; i < finishedReps.length; i++) {
+      const rep = finishedReps[i] as Record<string, unknown>;
+      const detail = (rep.trainingInfoDetail ?? {}) as Record<string, unknown>;
+      const weights = pickWeightsArray(detail);
+      const setWeight = weights.length > 0 ? Math.max(...weights) : undefined;
+      const startWeight = weights.length > 1 ? weights[0] : undefined;
+      const endWeight = weights.length > 1 ? weights[weights.length - 1] : undefined;
+      const finished = pickInt(rep.finishedCount) ?? pickInt(rep.leftCount);
+      const target = pickInt(rep.targetCount);
+      const volume =
+        setWeight !== undefined && finished !== undefined ? setWeight * finished : undefined;
+      const errors = Array.isArray(rep.errorCorrectionTips)
+        ? (rep.errorCorrectionTips as unknown[]).filter((n) => Number(n) > 0).map(String)
+        : undefined;
+
+      await me.sets.put({
+        startTime,
+        exerciseId,
+        setNum: i + 1,
+        weight: setWeight,
+        startWeight,
+        endWeight,
+        targetReps: target,
+        finishedReps: finished,
+        volume,
+        rest: pickInt(rep.time),
+        mode: pickInt(detail.actionMode),
+        leftRight: rep.leftRight !== undefined ? String(rep.leftRight) : undefined,
+        formFlags: errors && errors.length > 0 ? errors : undefined,
+      });
+      totalSets++;
+    }
+
+    // Exercise aggregate: bestWeight is the running max, workingWeight is
+    // the heaviest single weight from this session (per-exercise).
+    const sessionMax = pickFloat(ex.maxWeight);
+    const existing = (await me.exercises.get(exerciseId)) as {
+      data: { bestWeight?: number; totalSets?: number } | null;
+    } | null;
+    const prevBest = existing?.data?.bestWeight ?? 0;
+    const prevTotal = existing?.data?.totalSets ?? 0;
+    await me.exercises.upsert({
+      exerciseId,
+      name,
+      muscleGroup,
+      isUnilateral,
+      bestWeight: sessionMax !== undefined ? Math.max(prevBest, sessionMax) : prevBest,
+      workingWeight: sessionMax,
+      lastDone: startTime,
+      totalSets: prevTotal + finishedReps.length,
+    });
+  }
+  return totalSets;
+}
+
+function pickWeightsArray(detail: Record<string, unknown>): number[] {
+  const candidates = [detail.weights, detail.leftWeights, detail.rightWeights];
+  for (const c of candidates) {
+    if (Array.isArray(c)) {
+      const nums = c.map((v) => Number(v)).filter((n) => Number.isFinite(n) && n > 0);
+      if (nums.length > 0) return nums;
+    }
+  }
+  return [];
+}
+
+function pickInt(value: unknown): number | undefined {
+  if (typeof value !== 'number' && typeof value !== 'string') return undefined;
+  const n = Math.round(Number(value));
+  return Number.isFinite(n) ? n : undefined;
+}
+
+function pickFloat(value: unknown): number | undefined {
+  if (typeof value !== 'number' && typeof value !== 'string') return undefined;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : undefined;
+}
+
+/**
+ * The subset of UserScopedDb that sync.ts pokes at. Kept narrow so the
+ * function signature surfaces what storage it needs.
+ */
+interface SyncDbForUser {
+  sets: {
+    put: (input: {
+      startTime: string;
+      exerciseId: string;
+      setNum: number;
+      weight?: number;
+      startWeight?: number;
+      endWeight?: number;
+      targetReps?: number;
+      finishedReps?: number;
+      volume?: number;
+      rest?: number;
+      mode?: number;
+      leftRight?: string;
+      formFlags?: string[];
+    }) => Promise<unknown>;
+  };
+  exercises: {
+    get: (exerciseId: string) => Promise<unknown>;
+    upsert: (input: {
+      exerciseId: string;
+      name?: string;
+      muscleGroup?: string;
+      isUnilateral?: boolean;
+      bestWeight?: number;
+      workingWeight?: number;
+      lastDone?: string;
+      totalSets?: number;
+    }) => Promise<unknown>;
+  };
 }
 
 /**
