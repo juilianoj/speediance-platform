@@ -1,21 +1,14 @@
 /**
- * Stylized front-view human figure for the muscle-balance page. Each major
- * region is its own SVG path so we can color it by training emphasis: more
- * darkly saturated for muscle groups the user works hard, faded for the
- * neglected ones. Designed to be schematic, not anatomical — readable at
- * 240px wide.
- *
- * Region count matches our MuscleGroupSets keys: chest, shoulders, back,
- * arms, legs, core. Back lives behind the body in this front view, so we
- * render it as a small badge at the upper back / lats outline rather than
- * trying to draw a back view.
+ * Stylized front-view human figure for the muscle-balance page. Each
+ * major region is its own SVG path so we can color it by training
+ * emphasis — more darkly saturated for muscle groups the user works
+ * hard, faded for the neglected ones. Aims for "anatomy diagram
+ * silhouette" rather than the boxy first attempt.
  */
 import type { MuscleGroupSets } from '@/app/dashboard/load-dashboard';
 
 interface Props {
-  /** Set counts per group over the analysis window. */
   sets: MuscleGroupSets;
-  /** Width in px; height scales 1:2.5 to keep the figure tall. */
   width?: number;
 }
 
@@ -32,29 +25,27 @@ const LABELS: Record<Group, string> = {
 };
 
 export function BodyFigure({ sets, width = 240 }: Props) {
-  // Color intensity = sets / max-across-groups. So the most-trained group
-  // gets the deepest blue and everything else scales relative to it.
   const max = Math.max(1, ...GROUPS.map((g) => sets[g] ?? 0));
 
   const fill = (g: Group): string => {
     const v = sets[g] ?? 0;
-    if (v === 0) return '#e5e7eb'; // neutral grey — explicitly "untrained"
-    const t = v / max; // 0..1
-    // Interpolate between a light tint and a deep blue. Tint stays
-    // recognisably different from the "untrained" grey so a 1-set group
-    // still reads as worked.
-    const r = Math.round(173 + (11 - 173) * t);
-    const G = Math.round(216 + (120 - 216) * t);
-    const b = Math.round(243 + (209 - 243) * t);
+    if (v === 0) return '#eef2f7';
+    const t = v / max;
+    // Light tint → deep blue. Keeps recognisably different from untrained
+    // grey for a single-set group.
+    const r = Math.round(180 + (11 - 180) * t);
+    const G = Math.round(220 + (120 - 220) * t);
+    const b = Math.round(245 + (209 - 245) * t);
     return `rgb(${r},${G},${b})`;
   };
 
-  // Coordinates in a 200×500 internal grid; scaled via viewBox.
-  const W = 200;
-  const H = 500;
+  const W = 220;
+  const H = 480;
+  const STROKE = 'rgba(15,23,42,0.22)';
+  const STROKE_W = 1;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.85rem' }}>
       <svg
         width={width}
         height={(width * H) / W}
@@ -63,92 +54,182 @@ export function BodyFigure({ sets, width = 240 }: Props) {
         aria-label="Muscle group focus figure"
         style={{ display: 'block' }}
       >
-        {/* Stroke colour for all body parts */}
         <defs>
-          <linearGradient id="body-shade" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor="rgba(15,23,42,0.05)" />
-            <stop offset="100%" stopColor="rgba(15,23,42,0)" />
+          <linearGradient id="depth" x1="0" x2="1" y1="0" y2="0">
+            <stop offset="0%" stopColor="rgba(15,23,42,0.04)" />
+            <stop offset="50%" stopColor="rgba(15,23,42,0)" />
+            <stop offset="100%" stopColor="rgba(15,23,42,0.04)" />
           </linearGradient>
         </defs>
 
-        {/* Head */}
-        <circle cx={100} cy={42} r={26} fill="#f1f5f9" stroke="#cbd5e1" strokeWidth={1.2} />
+        {/* Head + neck */}
         <ellipse
-          cx={100}
-          cy={73}
-          rx={10}
-          ry={5}
-          fill="#f1f5f9"
-          stroke="#cbd5e1"
-          strokeWidth={1.2}
+          cx={110}
+          cy={42}
+          rx={24}
+          ry={28}
+          fill="#eef2f7"
+          stroke={STROKE}
+          strokeWidth={STROKE_W}
+        />
+        <path
+          d="M 96 68 Q 110 82 124 68 L 124 84 Q 110 90 96 84 Z"
+          fill="#eef2f7"
+          stroke={STROKE}
+          strokeWidth={STROKE_W}
         />
 
-        {/* Shoulders (delts) — two rounded blocks at the top of the torso */}
-        <Region d={`M48 96 Q62 80 78 86 L86 116 Q72 122 56 116 Z`} fill={fill('shoulders')} />
-        <Region d={`M152 96 Q138 80 122 86 L114 116 Q128 122 144 116 Z`} fill={fill('shoulders')} />
+        {/* Trapezius / upper neck — small triangles connecting neck to shoulders */}
+        <path
+          d="M 96 84 Q 88 92 78 100 L 96 96 Z"
+          fill={fill('back')}
+          stroke={STROKE}
+          strokeWidth={STROKE_W}
+          opacity={0.65}
+        />
+        <path
+          d="M 124 84 Q 132 92 142 100 L 124 96 Z"
+          fill={fill('back')}
+          stroke={STROKE}
+          strokeWidth={STROKE_W}
+          opacity={0.65}
+        />
 
-        {/* Chest (pectorals) — two pectoral blocks under the shoulders */}
-        <Region d={`M64 114 L97 114 L97 178 Q80 184 64 174 Z`} fill={fill('chest')} />
-        <Region d={`M136 114 L103 114 L103 178 Q120 184 136 174 Z`} fill={fill('chest')} />
+        {/* Shoulders (delts) — rounded caps on both sides */}
+        <path
+          d="M 78 100 Q 60 102 56 124 Q 60 132 74 130 Q 84 118 88 104 Z"
+          fill={fill('shoulders')}
+          stroke={STROKE}
+          strokeWidth={STROKE_W}
+        />
+        <path
+          d="M 142 100 Q 160 102 164 124 Q 160 132 146 130 Q 136 118 132 104 Z"
+          fill={fill('shoulders')}
+          stroke={STROKE}
+          strokeWidth={STROKE_W}
+        />
 
-        {/* Core (abs + obliques) — torso below pecs */}
-        <Region d={`M70 180 L130 180 L128 270 Q100 280 72 270 Z`} fill={fill('core')} />
+        {/* Pectorals — symmetric, with a cleavage gap, curving under */}
+        <path
+          d="M 88 100 Q 76 110 78 152 Q 96 168 108 162 Q 110 142 108 102 Z"
+          fill={fill('chest')}
+          stroke={STROKE}
+          strokeWidth={STROKE_W}
+        />
+        <path
+          d="M 132 100 Q 144 110 142 152 Q 124 168 112 162 Q 110 142 112 102 Z"
+          fill={fill('chest')}
+          stroke={STROKE}
+          strokeWidth={STROKE_W}
+        />
 
-        {/* Arms (biceps + forearms) — long shapes down both sides */}
-        <Region d={`M40 102 Q34 130 38 170 L52 178 Q56 140 56 110 Z`} fill={fill('arms')} />
-        <Region d={`M52 178 L56 220 Q62 240 56 268 L42 270 Q38 240 38 200 Z`} fill={fill('arms')} />
-        <Region d={`M160 102 Q166 130 162 170 L148 178 Q144 140 144 110 Z`} fill={fill('arms')} />
-        <Region
-          d={`M148 178 L144 220 Q138 240 144 268 L158 270 Q162 240 162 200 Z`}
+        {/* Upper arms (biceps) — long curves hanging from the deltoids */}
+        <path
+          d="M 56 124 Q 46 158 50 196 Q 64 200 70 196 Q 74 158 74 130 Z"
           fill={fill('arms')}
+          stroke={STROKE}
+          strokeWidth={STROKE_W}
+        />
+        <path
+          d="M 164 124 Q 174 158 170 196 Q 156 200 150 196 Q 146 158 146 130 Z"
+          fill={fill('arms')}
+          stroke={STROKE}
+          strokeWidth={STROKE_W}
         />
 
-        {/* Back — rendered as a small "BACK" patch behind the torso so it's
-            visible from this front view. */}
-        <g>
-          <Region
-            d={`M70 138 Q100 132 130 138 L130 196 Q100 200 70 196 Z`}
-            fill={fill('back')}
-            opacity={0.45}
-          />
-          <text
-            x={100}
-            y={172}
-            textAnchor="middle"
-            fontSize="11"
-            fill="rgba(15,23,42,0.4)"
-            fontFamily="system-ui, sans-serif"
-            fontWeight={600}
-          >
-            BACK
-          </text>
+        {/* Forearms — narrower extensions below the biceps */}
+        <path
+          d="M 50 196 Q 46 232 52 268 Q 60 272 68 268 Q 72 232 70 196 Z"
+          fill={fill('arms')}
+          stroke={STROKE}
+          strokeWidth={STROKE_W}
+          opacity={0.92}
+        />
+        <path
+          d="M 170 196 Q 174 232 168 268 Q 160 272 152 268 Q 148 232 150 196 Z"
+          fill={fill('arms')}
+          stroke={STROKE}
+          strokeWidth={STROKE_W}
+          opacity={0.92}
+        />
+
+        {/* Abs / core — clear 6-pack rectangle plus tapering oblique sides */}
+        <path
+          d="M 80 168 Q 92 174 110 174 Q 128 174 140 168 L 144 244 Q 128 260 110 260 Q 92 260 76 244 Z"
+          fill={fill('core')}
+          stroke={STROKE}
+          strokeWidth={STROKE_W}
+        />
+        {/* Subtle abdominal segmentation lines, visible only when core is darker */}
+        <g stroke="rgba(15,23,42,0.18)" strokeWidth={0.8} fill="none">
+          <line x1={110} y1={178} x2={110} y2={252} />
+          <line x1={84} y1={196} x2={136} y2={196} />
+          <line x1={82} y1={216} x2={138} y2={216} />
+          <line x1={80} y1={236} x2={140} y2={236} />
         </g>
 
-        {/* Legs (quads + hamstrings) — two columns */}
-        <Region d={`M72 282 Q70 360 76 420 L94 425 Q97 360 95 282 Z`} fill={fill('legs')} />
-        <Region d={`M128 282 Q130 360 124 420 L106 425 Q103 360 105 282 Z`} fill={fill('legs')} />
-
-        {/* Calves */}
-        <Region
-          d={`M76 425 Q80 460 82 484 L94 484 Q94 455 94 425 Z`}
-          fill={fill('legs')}
-          opacity={0.85}
+        {/* Lats (back) — visible in the gap between arm and ribcage */}
+        <path
+          d="M 74 130 Q 70 150 78 180 L 80 168 Q 78 150 78 130 Z"
+          fill={fill('back')}
+          stroke={STROKE}
+          strokeWidth={STROKE_W}
         />
-        <Region
-          d={`M124 425 Q120 460 118 484 L106 484 Q106 455 106 425 Z`}
-          fill={fill('legs')}
-          opacity={0.85}
+        <path
+          d="M 146 130 Q 150 150 142 180 L 140 168 Q 142 150 142 130 Z"
+          fill={fill('back')}
+          stroke={STROKE}
+          strokeWidth={STROKE_W}
         />
 
-        {/* Subtle vertical shading overlay for depth */}
-        <rect x={0} y={0} width={W} height={H} fill="url(#body-shade)" pointerEvents="none" />
+        {/* Hips / glute-tie-in — narrow waist transition */}
+        <path
+          d="M 76 244 Q 110 260 144 244 L 150 268 Q 110 280 70 268 Z"
+          fill={fill('legs')}
+          stroke={STROKE}
+          strokeWidth={STROKE_W}
+          opacity={0.78}
+        />
+
+        {/* Quads (legs upper) — two tapered cones */}
+        <path
+          d="M 80 268 Q 76 340 90 388 L 108 388 Q 112 340 108 268 Z"
+          fill={fill('legs')}
+          stroke={STROKE}
+          strokeWidth={STROKE_W}
+        />
+        <path
+          d="M 140 268 Q 144 340 130 388 L 112 388 Q 108 340 112 268 Z"
+          fill={fill('legs')}
+          stroke={STROKE}
+          strokeWidth={STROKE_W}
+        />
+
+        {/* Calves (lower legs) */}
+        <path
+          d="M 90 388 Q 88 422 94 452 L 108 452 Q 110 422 108 388 Z"
+          fill={fill('legs')}
+          stroke={STROKE}
+          strokeWidth={STROKE_W}
+          opacity={0.85}
+        />
+        <path
+          d="M 130 388 Q 132 422 126 452 L 112 452 Q 110 422 112 388 Z"
+          fill={fill('legs')}
+          stroke={STROKE}
+          strokeWidth={STROKE_W}
+          opacity={0.85}
+        />
+
+        {/* Subtle left/right body shading */}
+        <rect x={0} y={0} width={W} height={H} fill="url(#depth)" pointerEvents="none" />
       </svg>
 
       <div
         style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(3, 1fr)',
-          gap: '0.4rem',
+          gap: '0.4rem 0.6rem',
           width: '100%',
           maxWidth: 280,
         }}
@@ -182,11 +263,5 @@ export function BodyFigure({ sets, width = 240 }: Props) {
         ))}
       </div>
     </div>
-  );
-}
-
-function Region({ d, fill, opacity }: { d: string; fill: string; opacity?: number }) {
-  return (
-    <path d={d} fill={fill} stroke="rgba(15,23,42,0.15)" strokeWidth={1.1} opacity={opacity} />
   );
 }
