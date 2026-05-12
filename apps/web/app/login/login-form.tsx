@@ -1,14 +1,17 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useActionState } from 'react';
+import { useFormState, useFormStatus } from 'react-dom';
 
 import { setNewPassword, signIn, verifyMfa, verifyMfaSetup } from '@/lib/auth/actions';
 import type { LoginResult } from '@/lib/auth/types';
 
-// `qrcode` is only needed for the MFA_SETUP step and pulls in ~30KB of
-// canvas/rendering plumbing. Top-level import was crashing the page on
-// hydration. Lazy-load it inside the effect that actually needs it.
+// `useActionState` is a React 19 hook. We're on React 18 + Next.js 14.2, so
+// we use `useFormState` from `react-dom` for the [state, action] pair and a
+// dedicated `useFormStatus`-driven SubmitButton for the pending UX.
+//
+// `qrcode` is dynamically imported inside the MFA_SETUP step so its ~30KB
+// browser bundle isn't paid for on the initial /login load.
 
 /**
  * Multi-step login state machine driven by Cognito's challenge responses.
@@ -20,21 +23,10 @@ import type { LoginResult } from '@/lib/auth/types';
  *   │     ↓ (may chain into mfaSetup)
  *   │     → mfaSetup  → verifyMfaSetup  → /dashboard
  *   └─ → mfaSetup     → verifyMfaSetup  → /dashboard
- *
- * Each step renders a focused form and re-uses `useActionState` so the
- * pending / error states are intrinsic to the Server Action call.
  */
 export function LoginForm() {
-  // Top-level driver state — captures the result of the most recent Server
-  // Action so we know which step to render. Each step then runs its OWN
-  // useActionState for its specific action; transitions are explicit when
-  // a step's terminal action returns a new top-level state.
   const [topState, setTopState] = useState<LoginResult | null>(null);
 
-  // Step decoupling: each subform pulls in the latest result and "promotes"
-  // it to topState so we move forward. We could collapse this into one big
-  // useActionState, but per-step actions give Next.js cleaner pending state
-  // (the submit buttons disable independently).
   if (!topState || topState.state === 'error') {
     return <PasswordStep priorError={topState} onAdvance={setTopState} />;
   }
@@ -52,6 +44,27 @@ export function LoginForm() {
   return null;
 }
 
+// ─── Submit button (reads `pending` from useFormStatus) ─────────────────
+
+function SubmitButton({
+  label,
+  pendingLabel,
+  disabled = false,
+}: {
+  label: string;
+  pendingLabel: string;
+  disabled?: boolean;
+}) {
+  // useFormStatus must be called from a component rendered *inside* the
+  // <form>. It returns pending=true while the Server Action is in flight.
+  const { pending } = useFormStatus();
+  return (
+    <button type="submit" disabled={pending || disabled} style={buttonStyle}>
+      {pending ? pendingLabel : label}
+    </button>
+  );
+}
+
 // ─── Steps ──────────────────────────────────────────────────────────────
 
 function PasswordStep({
@@ -61,10 +74,7 @@ function PasswordStep({
   priorError: LoginResult | null;
   onAdvance: (r: LoginResult) => void;
 }) {
-  const [result, action, pending] = useActionState<LoginResult | null, FormData>(
-    signIn,
-    priorError,
-  );
+  const [result, action] = useFormState<LoginResult | null, FormData>(signIn, priorError);
   useEffect(() => {
     if (result && result.state !== 'error') onAdvance(result);
   }, [result, onAdvance]);
@@ -95,9 +105,7 @@ function PasswordStep({
         />
       </label>
       {result?.state === 'error' && <p style={errorStyle}>{result.message}</p>}
-      <button type="submit" disabled={pending} style={buttonStyle}>
-        {pending ? 'Signing in…' : 'Sign in'}
-      </button>
+      <SubmitButton label="Sign in" pendingLabel="Signing in…" />
     </form>
   );
 }
@@ -109,7 +117,7 @@ function MfaStep({
   state: Extract<LoginResult, { state: 'mfa' }>;
   onAdvance: (r: LoginResult) => void;
 }) {
-  const [result, action, pending] = useActionState<LoginResult | null, FormData>(verifyMfa, null);
+  const [result, action] = useFormState<LoginResult | null, FormData>(verifyMfa, null);
   const [code, setCode] = useState('');
   useEffect(() => {
     if (result && result.state !== 'error') onAdvance(result);
@@ -135,9 +143,7 @@ function MfaStep({
         />
       </label>
       {result?.state === 'error' && <p style={errorStyle}>{result.message}</p>}
-      <button type="submit" disabled={pending || code.length !== 6} style={buttonStyle}>
-        {pending ? 'Verifying…' : 'Verify'}
-      </button>
+      <SubmitButton label="Verify" pendingLabel="Verifying…" disabled={code.length !== 6} />
     </form>
   );
 }
@@ -149,10 +155,7 @@ function NewPasswordStep({
   state: Extract<LoginResult, { state: 'newPassword' }>;
   onAdvance: (r: LoginResult) => void;
 }) {
-  const [result, action, pending] = useActionState<LoginResult | null, FormData>(
-    setNewPassword,
-    null,
-  );
+  const [result, action] = useFormState<LoginResult | null, FormData>(setNewPassword, null);
   useEffect(() => {
     if (result && result.state !== 'error') onAdvance(result);
   }, [result, onAdvance]);
@@ -178,9 +181,7 @@ function NewPasswordStep({
         />
       </label>
       {result?.state === 'error' && <p style={errorStyle}>{result.message}</p>}
-      <button type="submit" disabled={pending} style={buttonStyle}>
-        {pending ? 'Saving…' : 'Save and continue'}
-      </button>
+      <SubmitButton label="Save and continue" pendingLabel="Saving…" />
     </form>
   );
 }
@@ -192,10 +193,7 @@ function MfaSetupStep({
   state: Extract<LoginResult, { state: 'mfaSetup' }>;
   onAdvance: (r: LoginResult) => void;
 }) {
-  const [result, action, pending] = useActionState<LoginResult | null, FormData>(
-    verifyMfaSetup,
-    null,
-  );
+  const [result, action] = useFormState<LoginResult | null, FormData>(verifyMfaSetup, null);
   const [code, setCode] = useState('');
   const [qrSvg, setQrSvg] = useState<string | null>(null);
   useEffect(() => {
@@ -203,9 +201,7 @@ function MfaSetupStep({
   }, [result, onAdvance]);
 
   // Render the QR client-side. `qrcode` is dynamically imported so the
-  // module isn't evaluated until we actually reach this step — keeps the
-  // initial /login bundle lean and avoids whatever was making qrcode
-  // crash the login page on hydration.
+  // module isn't evaluated until we actually reach this step.
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -283,9 +279,11 @@ function MfaSetupStep({
         />
       </label>
       {result?.state === 'error' && <p style={errorStyle}>{result.message}</p>}
-      <button type="submit" disabled={pending || code.length !== 6} style={buttonStyle}>
-        {pending ? 'Confirming…' : 'Confirm and finish'}
-      </button>
+      <SubmitButton
+        label="Confirm and finish"
+        pendingLabel="Confirming…"
+        disabled={code.length !== 6}
+      />
     </form>
   );
 }
