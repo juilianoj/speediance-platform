@@ -1,14 +1,32 @@
 /**
  * Discriminated union the login Server Action returns. The client renders
  * different UI per `state`:
- *   - 'mfa' — show TOTP input; the session string round-trips back to
- *             the second Server Action so it can resume the Cognito challenge
- *   - 'ok'  — login finished; redirect happens server-side, this is for
- *             completeness in case the client wants to know
- *   - 'error' — display the message; never display the cause in production
+ *   - 'mfa'         — existing user with MFA already registered; show TOTP input
+ *   - 'newPassword' — invited user signing in for the first time with the
+ *                     temporary password; show "set permanent password" form
+ *   - 'mfaSetup'    — user with no MFA registered yet; show TOTP QR code and
+ *                     prompt for a confirmation code
+ *   - 'ok'          — terminal success state (a redirect normally happens
+ *                     server-side; this is for completeness)
+ *   - 'error'       — display message; never display the cause in production
+ *
+ * `session` round-trips the Cognito continuation token between Server Actions
+ * so each step can resume the same auth flow. `username` is the email — we
+ * need it for some `RespondToAuthChallenge` payloads that require it even
+ * when a Session is present.
  */
 export type LoginResult =
-  | { state: 'mfa'; session: string }
+  | { state: 'mfa'; session: string; username: string }
+  | { state: 'newPassword'; session: string; username: string }
+  | {
+      state: 'mfaSetup';
+      session: string;
+      username: string;
+      /** Base32 TOTP secret — show as a manual-entry fallback. */
+      secretCode: string;
+      /** otpauth:// URI suitable for rendering as a QR code. */
+      otpauthUri: string;
+    }
   | { state: 'ok' }
   | { state: 'error'; message: string };
 
