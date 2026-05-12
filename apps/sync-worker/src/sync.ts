@@ -24,11 +24,13 @@ function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-function isoMinusDays(n: number): string {
-  const d = new Date();
-  d.setUTCDate(d.getUTCDate() - n);
-  return d.toISOString().slice(0, 10);
-}
+/**
+ * Floor for "all of history" syncs when the user hasn't picked a start date
+ * — Speediance launched in 2021, this is safely before any user could
+ * possibly have data. The records endpoint returns [] for empty ranges so
+ * over-reaching costs us one round-trip per sync.
+ */
+const ALL_HISTORY_START = '2018-01-01';
 
 function stage(): string {
   return process.env.SST_STAGE ?? 'dev';
@@ -110,7 +112,7 @@ export async function syncUser(userId: string): Promise<SyncSummary> {
     const secret = await secrets.get(userId);
     if (!secret) throw new Error('no Speediance credentials in Secrets Manager');
 
-    rangeStart = profile.syncStartDate ?? isoMinusDays(30);
+    rangeStart = profile.syncStartDate ?? ALL_HISTORY_START;
 
     // -- 2. Init client with re-login-on-401 hook
     const client = createSpeedianceClient(userId, secret, secrets);
