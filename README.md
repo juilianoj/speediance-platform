@@ -44,6 +44,14 @@ pnpm --filter infra exec sst deploy --stage dev
 
 > The first deploy creates Cognito, DynamoDB, the SyncWorker Lambda, and an empty Next.js shell. Allow ~10 minutes.
 
+After the first stage exists, the recommended path for subsequent deploys is via GitHub Actions (uses OIDC, no local credentials needed):
+
+1. **Actions** → **Deploy** → **Run workflow** → select stage (`dev` or `prod`)
+
+Local `pnpm --filter infra exec sst deploy --stage <stage>` still works for fast iteration on infra changes — it skips the ~2-minute GH runner spin-up.
+
+> **Note:** the workflow is manual-trigger only. Merging to `main` does **not** deploy automatically. When a real prod environment exists, add a `push:` trigger scoped to a `release/*` branch or tag, not `main` itself.
+
 ### Setting up GitHub Actions OIDC (one-time per AWS account)
 
 The `deploy.yml` workflow uses OIDC federation instead of long-lived AWS keys. Bootstrap the IAM role and provider once:
