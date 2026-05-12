@@ -56,7 +56,15 @@ export async function signIn(_prev: LoginResult | null, formData: FormData): Pro
 
   try {
     // -- 1. SRP_A: client-side random + g^a derived; sent as USER_SRP_AUTH.
-    const srpSession = createSrpSession(email, password, userPoolId);
+    //
+    // The 4th arg is `isHashed` and **defaults to `true`** in
+    // cognito-srp-helper — a surprising default. We're passing plaintext
+    // from the form, so we set it to `false` and the library hashes the
+    // password during signSrpSession. With the default, the library would
+    // treat the plaintext bytes as the password hash, the SRP signature
+    // would be wrong, and Cognito returns the generic
+    // "Incorrect username or password" error.
+    const srpSession = createSrpSession(email, password, userPoolId, false);
     const initResp = await client.send(
       new InitiateAuthCommand(
         wrapInitiateAuth(srpSession, {
