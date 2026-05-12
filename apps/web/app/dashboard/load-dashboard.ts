@@ -13,6 +13,7 @@ export interface DashboardWorkout {
   isCardio?: boolean;
   speedianceTrainingType?: string;
   courseCategoryName?: string;
+  courseId?: number;
   weekIso?: string;
   muscleGroupSets?: MuscleGroupSets;
 }

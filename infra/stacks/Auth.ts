@@ -5,9 +5,12 @@
 export function Auth() {
   const userPool = new sst.aws.CognitoUserPool('UserPool', {
     usernames: ['email'],
-    // TOTP-based MFA (no SMS — cost, SIM-swap risk). Required for all users
-    // since this group holds health/training data for a small known set.
-    mfa: 'on',
+    // TOTP-based MFA (no SMS — cost, SIM-swap risk). Optional per-user:
+    // workout data isn't HIPAA-sensitive and the friction of MFA on every
+    // sign-in during early dogfooding was rough. Users can still opt in
+    // via /profile → Enable MFA. Existing users with MFA already enrolled
+    // keep it until they disable it.
+    mfa: 'optional',
     softwareToken: true,
     transform: {
       userPool: {

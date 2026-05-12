@@ -42,5 +42,6 @@ export const config = {
     '/adherence/:path*',
     '/coach/:path*',
     '/admin/:path*',
+    '/workouts/:path*',
   ],
 };

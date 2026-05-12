@@ -1,9 +1,11 @@
 import { redirect } from 'next/navigation';
 
-import { cardStyle, PageShell } from '@/app/(authed)/page-shell';
+import { cardHeadingStyle, cardStyle, PageShell } from '@/app/(authed)/page-shell';
+import { getMyMfaStatus } from '@/lib/admin/actions';
 import { verifyIdTokenFromCookies } from '@/lib/auth/session';
 
 import { loadProfile } from './load-profile';
+import { MfaToggle } from './mfa-toggle';
 import { ProfileForm } from './profile-form';
 
 export const metadata = {
@@ -14,7 +16,7 @@ export default async function ProfilePage() {
   const claims = await verifyIdTokenFromCookies();
   if (!claims) redirect('/login');
 
-  const existing = await loadProfile(claims.sub);
+  const [existing, mfa] = await Promise.all([loadProfile(claims.sub), getMyMfaStatus()]);
   const hasSpeedianceCreds = Boolean(existing?.speedianceSecretArn);
 
   return (
@@ -36,6 +38,11 @@ export default async function ProfilePage() {
           }}
           hasSpeedianceCreds={hasSpeedianceCreds}
         />
+      </section>
+
+      <section style={cardStyle}>
+        <h2 style={{ ...cardHeadingStyle, marginBottom: '0.75rem' }}>Security</h2>
+        <MfaToggle enabled={mfa.enabled} />
       </section>
     </PageShell>
   );

@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 
 import { Nav } from '@/app/(authed)/nav';
 import { verifyIdTokenFromCookies } from '@/lib/auth/session';
+import { loadNextWorkoutPlan, type NextWorkoutPlan } from '@/lib/data/load-next-workout';
 import { loadDashboard, type DashboardData, type DashboardWorkout } from './load-dashboard';
 import { MuscleGroupChart } from './muscle-group-chart';
 import { WeeklyChart } from './weekly-chart';
@@ -15,7 +16,10 @@ export default async function DashboardPage() {
   if (!claims) redirect('/login');
 
   const display = claims.email ?? claims['cognito:username'] ?? claims.sub;
-  const data = await loadDashboard(claims.sub);
+  const [data, nextPlan] = await Promise.all([
+    loadDashboard(claims.sub),
+    loadNextWorkoutPlan(claims.sub),
+  ]);
 
   return (
     <div style={pageWrapStyle}>
@@ -25,7 +29,7 @@ export default async function DashboardPage() {
         {!data.hasCreds ? (
           <SetupCallout hasProfile={data.hasProfile} />
         ) : (
-          <DashboardBody data={data} />
+          <DashboardBody data={data} nextPlan={nextPlan} />
         )}
       </main>
     </div>
@@ -76,7 +80,13 @@ function SetupCallout({ hasProfile }: { hasProfile: boolean }) {
   );
 }
 
-function DashboardBody({ data }: { data: DashboardData }) {
+function DashboardBody({
+  data,
+  nextPlan,
+}: {
+  data: DashboardData;
+  nextPlan: NextWorkoutPlan | null;
+}) {
   const { thisWeek, weeks, workouts, kpis30d, muscleGroupSets } = data;
 
   return (
@@ -123,6 +133,89 @@ function DashboardBody({ data }: { data: DashboardData }) {
           }
         />
       </section>
+
+      {nextPlan && nextPlan.lifts.length > 0 && (
+        <section style={cardStyle}>
+          <div style={cardHeaderStyle}>
+            <h2 style={cardHeadingStyle}>Next session</h2>
+            <p style={mutedStyle}>
+              Projected from your most recent workout (
+              <a
+                href={`/workouts/${encodeURIComponent(nextPlan.basedOn.startTime)}`}
+                style={{ color: '#0b78d1', textDecoration: 'none' }}
+              >
+                {nextPlan.basedOn.title} · {formatDate(nextPlan.basedOn.startTime)}
+              </a>
+              ). Last weight + a recommended next weight per lift.
+            </p>
+          </div>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={tableStyle}>
+              <thead>
+                <tr>
+                  <th style={thStyle}>Exercise</th>
+                  <th style={{ ...thStyle, textAlign: 'right' }}>Last</th>
+                  <th style={{ ...thStyle, textAlign: 'right' }}>Reps last</th>
+                  <th style={{ ...thStyle, textAlign: 'right' }}>Best</th>
+                  <th style={{ ...thStyle, textAlign: 'right' }}>Suggest</th>
+                  <th style={thStyle}>Why</th>
+                </tr>
+              </thead>
+              <tbody>
+                {nextPlan.lifts.map((lift) => {
+                  const flagged = (lift.lastFormFlags?.length ?? 0) > 0;
+                  return (
+                    <tr key={lift.exerciseId}>
+                      <td style={tdStyle}>
+                        <a
+                          href={`/exercises/${encodeURIComponent(lift.exerciseId)}`}
+                          style={{ color: '#0b78d1', textDecoration: 'none', fontWeight: 500 }}
+                        >
+                          {lift.name}
+                        </a>
+                        <div style={{ color: '#888', fontSize: '0.75rem' }}>
+                          {lift.muscleGroup ?? '—'}
+                          {lift.isUnilateral && ' · L/R'}
+                        </div>
+                      </td>
+                      <td style={{ ...tdStyle, textAlign: 'right' }}>
+                        {lift.lastWeight ? `${lift.lastWeight}` : '—'}
+                      </td>
+                      <td style={{ ...tdStyle, textAlign: 'right', color: '#666' }}>
+                        {lift.lastReps !== undefined
+                          ? `${lift.lastReps}${lift.lastTargetReps ? `/${lift.lastTargetReps}` : ''}`
+                          : '—'}
+                      </td>
+                      <td style={{ ...tdStyle, textAlign: 'right', color: '#666' }}>
+                        {lift.bestWeight ? `${lift.bestWeight}` : '—'}
+                      </td>
+                      <td
+                        style={{
+                          ...tdStyle,
+                          textAlign: 'right',
+                          fontWeight: 600,
+                          color: '#0b78d1',
+                        }}
+                      >
+                        {lift.recommendedWeight !== undefined ? `${lift.recommendedWeight}` : '—'}
+                      </td>
+                      <td
+                        style={{
+                          ...tdStyle,
+                          color: flagged ? '#b91c1c' : '#666',
+                          fontSize: '0.82rem',
+                        }}
+                      >
+                        {lift.recommendNote ?? '—'}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
 
       <section style={cardStyle}>
         <div style={cardHeaderStyle}>
@@ -199,19 +292,24 @@ function DashboardBody({ data }: { data: DashboardData }) {
 
 function WorkoutRow({ w }: { w: DashboardWorkout }) {
   const isCardio = w.isCardio ?? w.speedianceTrainingType === 'cardio';
+  const detailHref = `/workouts/${encodeURIComponent(w.startTime)}`;
   return (
-    <tr style={trStyle}>
+    <tr style={{ ...trStyle, cursor: 'pointer' }}>
       <td style={tdStyle}>
-        <div style={{ fontWeight: 500 }}>{formatDate(w.startTime)}</div>
-        <div style={{ color: '#888', fontSize: '0.8rem' }}>{formatTime(w.startTime)}</div>
+        <a href={detailHref} style={rowLinkStyle}>
+          <div style={{ fontWeight: 500 }}>{formatDate(w.startTime)}</div>
+          <div style={{ color: '#888', fontSize: '0.8rem' }}>{formatTime(w.startTime)}</div>
+        </a>
       </td>
       <td style={tdStyle}>
-        <div>{w.title ?? (isCardio ? 'Cardio' : 'Untitled workout')}</div>
-        <div style={{ color: '#888', fontSize: '0.8rem' }}>
-          {isCardio
-            ? `${w.distanceMiles?.toFixed(2) ?? '—'} mi`
-            : (w.courseCategoryName ?? w.speedianceTrainingType ?? '—')}
-        </div>
+        <a href={detailHref} style={rowLinkStyle}>
+          <div>{w.title ?? (isCardio ? 'Cardio' : 'Untitled workout')}</div>
+          <div style={{ color: '#888', fontSize: '0.8rem' }}>
+            {isCardio
+              ? `${w.distanceMiles?.toFixed(2) ?? '—'} mi`
+              : (w.courseCategoryName ?? w.speedianceTrainingType ?? '—')}
+          </div>
+        </a>
       </td>
       <td style={{ ...tdStyle, textAlign: 'right' }}>
         {w.totalCapacity ? fmtInt(w.totalCapacity) : '—'}
@@ -278,6 +376,12 @@ function Row({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
+
+const rowLinkStyle: React.CSSProperties = {
+  color: 'inherit',
+  textDecoration: 'none',
+  display: 'block',
+};
 
 function fmtInt(n: number): string {
   return Math.round(n).toLocaleString();

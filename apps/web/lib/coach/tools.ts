@@ -5,6 +5,7 @@ import { createDb } from '@speediance/db';
 import type { DashboardWorkout } from '@/app/dashboard/load-dashboard';
 
 import type { ExerciseSet, ExerciseSummary } from '@/lib/data/load-exercises';
+import { loadNextWorkoutPlan } from '@/lib/data/load-next-workout';
 
 /**
  * Tools the AI coach can call. Each tool is a pure function of (userId,
@@ -22,6 +23,7 @@ export type ToolName =
   | 'list_exercises'
   | 'get_exercise_history'
   | 'get_weekly_summary'
+  | 'get_next_session_plan'
   | 'propose_workout';
 
 export interface ToolSpec {
@@ -84,6 +86,12 @@ export const COACH_TOOLS: ToolSpec[] = [
         },
       },
     },
+  },
+  {
+    name: 'get_next_session_plan',
+    description:
+      'Pre-computed recommendation for the user\'s next workout, projected from their most recent session. Returns the workout title, when it was last done, and for each lift: last weight, last reps vs target, lifetime best, suggested next weight, and a short note ("+5 lb · clean last set", "hold — form flag", etc.). Use when the user asks "what should I do next session", "what weight should I use for X", or anything about progression. Always prefer this over inventing recommendations.',
+    input_schema: { type: 'object', properties: {} },
   },
   {
     name: 'propose_workout',
@@ -189,6 +197,30 @@ export async function runTool(
         formFlags: s.formFlags,
         leftRight: s.leftRight,
       }));
+    }
+    case 'get_next_session_plan': {
+      const plan = await loadNextWorkoutPlan(userId);
+      if (!plan) return { message: 'No prior workouts to project from.' };
+      return {
+        basedOn: {
+          title: plan.basedOn.title,
+          startTime: plan.basedOn.startTime,
+          durationMinutes: plan.basedOn.durationSeconds
+            ? Math.round(plan.basedOn.durationSeconds / 60)
+            : undefined,
+        },
+        lifts: plan.lifts.map((l) => ({
+          name: l.name,
+          muscleGroup: l.muscleGroup,
+          lastWeight: l.lastWeight,
+          lastReps: l.lastReps,
+          lastTargetReps: l.lastTargetReps,
+          formFlagged: (l.lastFormFlags?.length ?? 0) > 0,
+          bestWeight: l.bestWeight,
+          suggestedWeight: l.recommendedWeight,
+          note: l.recommendNote,
+        })),
+      };
     }
     case 'propose_workout': {
       const programId = `prog-${Date.now()}`;

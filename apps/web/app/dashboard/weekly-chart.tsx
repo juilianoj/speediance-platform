@@ -39,11 +39,14 @@ export function WeeklyChart({ weeks }: { weeks: WeekBucket[] }) {
 
   const values = weeks.map((w) => weekValue(w, metric));
   const max = Math.max(...values, 1);
-  const barWidth = 38;
-  const gap = 12;
+  const barWidth = 36;
+  const gap = 14;
   const height = 180;
-  const labelGap = 30;
-  const totalWidth = weeks.length * (barWidth + gap);
+  const dateLabelY = height + 14;
+  const valueLabelY = height + 30;
+  const labelArea = 36;
+  const padL = 8;
+  const totalWidth = padL + weeks.length * (barWidth + gap);
 
   return (
     <div>
@@ -73,48 +76,72 @@ export function WeeklyChart({ weeks }: { weeks: WeekBucket[] }) {
       <div style={{ overflowX: 'auto' }}>
         <svg
           width={totalWidth}
-          height={height + labelGap}
-          viewBox={`0 0 ${totalWidth} ${height + labelGap}`}
+          height={height + labelArea}
+          viewBox={`0 0 ${totalWidth} ${height + labelArea}`}
           aria-label={`Weekly ${METRIC_LABELS[metric]} bar chart`}
           role="img"
         >
+          {/* Faint baseline so the eye knows where zero is */}
+          <line x1={0} y1={height} x2={totalWidth} y2={height} stroke="#e5e7eb" />
+          {/* Quartile guide lines */}
+          {[0.25, 0.5, 0.75].map((q) => {
+            const y = height - q * height;
+            return (
+              <line
+                key={q}
+                x1={0}
+                y1={y}
+                x2={totalWidth}
+                y2={y}
+                stroke="#f1f4f8"
+                strokeDasharray="2 4"
+              />
+            );
+          })}
+
           {weeks.map((w, i) => {
             const v = weekValue(w, metric);
-            const h = Math.max(2, (v / max) * height);
-            const x = i * (barWidth + gap);
+            const isZero = v === 0;
+            const h = isZero ? 0 : Math.max(3, (v / max) * (height - 4));
+            const x = padL + i * (barWidth + gap);
             const y = height - h;
             return (
               <g key={w.weekIso}>
                 <title>{`${w.label}: ${formatValue(v, metric)}`}</title>
-                <rect
-                  x={x}
-                  y={y}
-                  width={barWidth}
-                  height={h}
-                  rx={3}
-                  fill={METRIC_FILLS[metric]}
-                  opacity={0.85}
-                />
+                {isZero ? (
+                  // Tiny gray tick at the baseline to make the empty week
+                  // obvious without confusing it for a missing bar.
+                  <rect x={x} y={height - 3} width={barWidth} height={3} rx={1.5} fill="#d1d5db" />
+                ) : (
+                  <rect
+                    x={x}
+                    y={y}
+                    width={barWidth}
+                    height={h}
+                    rx={3}
+                    fill={METRIC_FILLS[metric]}
+                    opacity={0.85}
+                  />
+                )}
                 <text
                   x={x + barWidth / 2}
-                  y={height + 12}
+                  y={dateLabelY}
                   textAnchor="middle"
                   fontSize="10"
                   fill="#999"
                 >
                   {w.label}
                 </text>
-                {v > 0 && (
-                  <text
-                    x={x + barWidth / 2}
-                    y={height + labelGap - 4}
-                    textAnchor="middle"
-                    fontSize="10"
-                    fill="#666"
-                  >
-                    {compactNumber(v)}
-                  </text>
-                )}
+                <text
+                  x={x + barWidth / 2}
+                  y={valueLabelY}
+                  textAnchor="middle"
+                  fontSize="10"
+                  fontWeight={isZero ? 400 : 600}
+                  fill={isZero ? '#bbb' : '#444'}
+                >
+                  {isZero ? '0' : compactNumber(v)}
+                </text>
               </g>
             );
           })}

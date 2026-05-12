@@ -25,11 +25,6 @@ interface WebArgs {
 export function Web({ api, auth, database, syncWorker }: WebArgs) {
   const stage = $app.stage;
   const region = 'us-west-2';
-  // SST secret — set via `npx sst secret set AnthropicApiKey <value>`.
-  // If the secret hasn't been set, .value resolves to undefined at deploy
-  // time and ANTHROPIC_API_KEY ends up unset on the Lambda, which the
-  // coach page handles gracefully with a banner.
-  const anthropicSecret = new sst.Secret('AnthropicApiKey');
   // ARN pattern for this stage's per-user Speediance secrets. Cannot use a
   // fully-resolved account id here without an STS lookup; the wildcard
   // covers the account the deploy is targeting.
@@ -58,13 +53,12 @@ export function Web({ api, auth, database, syncWorker }: WebArgs) {
       // Client + server: API base for Phase 1.x mutations. Public is fine —
       // CloudFront URL is already known to anyone with the site URL.
       NEXT_PUBLIC_API_URL: api.url,
-      // Anthropic API key for the /coach AI page (Phase 3). Set via SST
-      // secret: `npx sst secret set AnthropicApiKey <key> --stage dev`.
-      // If unset, the coach page renders a "not configured" banner instead
-      // of crashing. Wrapped in a sst.Secret so the value never lands in
-      // the env file at deploy time — it's resolved at runtime from
-      // Parameter Store.
-      ANTHROPIC_API_KEY: anthropicSecret.value,
+      // AI coach uses Bedrock instead of the Anthropic API directly so we
+      // don't have to manage an API key — the Lambda's IAM role authorizes
+      // model invocations. Override the model id here if Sonnet 4 isn't
+      // available in your region; the `us.` prefix is a cross-region
+      // inference profile that improves availability.
+      BEDROCK_MODEL_ID: 'us.anthropic.claude-sonnet-4-20250514-v1:0',
     },
     permissions: [
       {
@@ -92,14 +86,25 @@ export function Web({ api, auth, database, syncWorker }: WebArgs) {
         resources: [syncWorker.functionArn],
       },
       // Cognito admin actions for the /admin invite + list-users flow
-      // (Phase 4.1). Scoped to this stage's user pool.
+      // (Phase 4.1) and for the per-user MFA toggle. Scoped to this
+      // stage's user pool.
       {
         actions: [
           'cognito-idp:AdminCreateUser',
           'cognito-idp:ListUsers',
           'cognito-idp:AdminGetUser',
+          'cognito-idp:AdminSetUserMFAPreference',
         ],
         resources: [auth.userPool.arn],
+      },
+      // Bedrock invocations for the AI coach (Phase 3). Resource '*'
+      // because Bedrock model ARNs are partition-scoped and cross-region
+      // inference profiles route across multiple resources; the
+      // bedrock:InvokeModel action alone has no side effects beyond
+      // billing.
+      {
+        actions: ['bedrock:InvokeModel'],
+        resources: ['*'],
       },
     ],
   });

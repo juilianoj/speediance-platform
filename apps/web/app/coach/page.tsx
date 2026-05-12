@@ -30,7 +30,6 @@ export default async function CoachPage() {
   const claims = await verifyIdTokenFromCookies();
   if (!claims) redirect('/login');
 
-  const apiKeyConfigured = Boolean(process.env.ANTHROPIC_API_KEY);
   const programs = await loadPrograms(claims.sub);
 
   return (
@@ -39,21 +38,6 @@ export default async function CoachPage() {
         Ask plain-English questions about your training. The coach reads your DynamoDB workout
         history via tool calls and answers from real data — not guesses.
       </p>
-
-      {!apiKeyConfigured && (
-        <div
-          style={{
-            ...cardStyle,
-            background: '#fef3c7',
-            borderColor: '#fde68a',
-            color: '#78350f',
-          }}
-        >
-          <strong>Coach is not configured yet.</strong> The Lambda is missing an{' '}
-          <code>ANTHROPIC_API_KEY</code> env var. Set one in SST and redeploy — see{' '}
-          <code>infra/stacks/Web.ts</code>.
-        </div>
-      )}
 
       <section style={cardStyle}>
         <CoachChat />
