@@ -1,17 +1,24 @@
 import 'server-only';
 
+import { cache } from 'react';
+
 import { createDb } from '@speediance/db';
 
 import type { DashboardWorkout } from '@/app/dashboard/load-dashboard';
 import type { ExerciseSet, ExerciseSummary } from './load-exercises';
 
-export async function loadAllWorkouts(userId: string): Promise<DashboardWorkout[]> {
+/**
+ * React `cache()` dedupes calls within a single request. Loading the dashboard
+ * already calls both loadAllWorkouts (via cardio/muscles/adherence loaders)
+ * and loadDashboard separately — cache makes the second call free.
+ */
+export const loadAllWorkouts = cache(async (userId: string): Promise<DashboardWorkout[]> => {
   const tableName = process.env.DYNAMO_TABLE_NAME;
   if (!tableName) return [];
   const me = createDb({ tableName }).forUser(userId);
   const result = (await me.workouts.list()) as { data: DashboardWorkout[] };
   return (result.data ?? []).sort((a, b) => (a.startTime > b.startTime ? -1 : 1));
-}
+});
 
 /** One workout + every set logged within it, in (exercise, set#) order. */
 export async function loadWorkoutDetail(

@@ -3,7 +3,9 @@ import 'server-only';
 import { createDb } from '@speediance/db';
 
 import type { DashboardWorkout } from '@/app/dashboard/load-dashboard';
+
 import type { ExerciseSet, ExerciseSummary } from './load-exercises';
+import { loadAllWorkouts } from './load-workouts';
 
 export interface PlannedLift {
   exerciseId: string;
@@ -49,13 +51,12 @@ export async function loadNextWorkoutPlan(
   if (!tableName) return null;
   const me = createDb({ tableName }).forUser(userId);
 
-  const [workoutsRes, exercisesRes, setsRes] = await Promise.all([
-    me.workouts.list() as Promise<{ data: DashboardWorkout[] }>,
+  const [allWorkouts, exercisesRes] = await Promise.all([
+    loadAllWorkouts(userId),
     me.exercises.list() as Promise<{ data: ExerciseSummary[] }>,
-    me.sets.listAll() as Promise<{ data: ExerciseSet[] }>,
   ]);
 
-  const workouts = (workoutsRes.data ?? [])
+  const workouts = allWorkouts
     .filter((w) => !(w.isCardio || w.speedianceTrainingType === 'cardio'))
     .sort((a, b) => (a.startTime > b.startTime ? -1 : 1));
 
@@ -79,9 +80,13 @@ export async function loadNextWorkoutPlan(
 
   const exById = new Map((exercisesRes.data ?? []).map((e) => [e.exerciseId, e]));
 
-  // Pull the sets from the reference workout only — those are the
-  // exercises we'll plan for next session.
-  const referenceSets = (setsRes.data ?? []).filter((s) => s.startTime === reference.startTime);
+  // Only fetch sets for the reference workout — previously we loaded every
+  // set the user ever logged (3000+ items) just to filter to one workout.
+  // The new query hits the primary index with a tight SK prefix.
+  const referenceSetsRes = (await me.sets.forWorkout(reference.startTime)) as {
+    data: ExerciseSet[];
+  };
+  const referenceSets = referenceSetsRes?.data ?? [];
   if (referenceSets.length === 0) {
     return { plan: { basedOn: reference, lifts: [] }, options };
   }

@@ -2,6 +2,8 @@ import 'server-only';
 
 import { createDb } from '@speediance/db';
 
+import { loadAllWorkouts } from '@/lib/data/load-workouts';
+
 export interface DashboardWorkout {
   startTime: string;
   title?: string;
@@ -86,13 +88,13 @@ export async function loadDashboard(userId: string): Promise<DashboardData> {
   const db = createDb({ tableName });
   const me = db.forUser(userId);
 
-  const [profileResult, workoutsResult] = await Promise.all([
+  const [profileResult, workouts] = await Promise.all([
     me.profiles.get() as Promise<{ data: { speedianceSecretArn?: string } | null } | null>,
-    me.workouts.list() as Promise<{ data: DashboardWorkout[] }>,
+    // Shared, cached across all loaders in this request.
+    loadAllWorkouts(userId),
   ]);
 
   const profile = profileResult?.data;
-  const workouts = workoutsResult.data ?? [];
 
   const sorted = [...workouts].sort((a, b) => (a.startTime < b.startTime ? 1 : -1));
 

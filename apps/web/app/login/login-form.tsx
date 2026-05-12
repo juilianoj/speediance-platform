@@ -315,37 +315,52 @@ const formStyle: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   gap: '1rem',
-  marginTop: '2rem',
-  fontFamily: 'system-ui, sans-serif',
+  marginTop: '1.75rem',
 };
 
 const labelStyle: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   gap: '0.4rem',
-  fontSize: '0.95rem',
+  fontSize: '0.82rem',
+  fontWeight: 600,
+  color: '#475569',
+  textTransform: 'uppercase',
+  letterSpacing: '0.05em',
 };
 
 const inputStyle: React.CSSProperties = {
-  padding: '0.6rem 0.75rem',
-  fontSize: '1rem',
-  border: '1px solid #d0d0d0',
-  borderRadius: '6px',
+  padding: '0.7rem 0.85rem',
+  fontSize: '0.95rem',
+  border: '1px solid #cbd5e1',
+  borderRadius: '10px',
+  background: '#fff',
+  color: '#0f172a',
+  fontFamily: 'inherit',
+  outline: 'none',
+  transition: 'border-color 120ms, box-shadow 120ms',
 };
 
 const buttonStyle: React.CSSProperties = {
-  padding: '0.7rem 1rem',
-  fontSize: '1rem',
-  fontWeight: 600,
-  background: '#0b78d1',
+  padding: '0.8rem 1rem',
+  fontSize: '0.95rem',
+  fontWeight: 700,
+  letterSpacing: '0.01em',
+  background: 'linear-gradient(135deg, #0b78d1 0%, #0b5fa8 100%)',
   color: 'white',
   border: 'none',
-  borderRadius: '6px',
+  borderRadius: '10px',
   cursor: 'pointer',
+  boxShadow: '0 4px 12px rgba(11,120,209,0.35)',
+  marginTop: '0.3rem',
 };
 
 const errorStyle: React.CSSProperties = {
-  color: '#a00',
-  fontSize: '0.9rem',
+  padding: '0.6rem 0.8rem',
+  background: '#fef2f2',
+  border: '1px solid #fecaca',
+  borderRadius: '8px',
+  color: '#b91c1c',
+  fontSize: '0.88rem',
   margin: 0,
 };
