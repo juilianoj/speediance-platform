@@ -20,7 +20,7 @@ import {
   NewPasswordInputSchema,
 } from './schemas.js';
 import { clearSessionCookies, COOKIE_NAMES, setSessionCookies } from './session.js';
-import type { LoginResult } from './types.js';
+import { SESSION_EXPIRED_MARKER, type LoginResult } from './types.js';
 
 const TOTP_ISSUER = 'speediance-platform';
 
@@ -118,6 +118,7 @@ export async function verifyMfa(
     return await routeChallenge(resp, username);
   } catch (err: unknown) {
     if (isNextRedirect(err)) throw err;
+    if (isSessionExpired(err)) return SESSION_EXPIRED_ERROR;
     console.error('verifyMfa failed', err);
     return { state: 'error', message: 'Invalid MFA code. Try again.' };
   }
@@ -157,6 +158,7 @@ export async function setNewPassword(
     return await routeChallenge(resp, username);
   } catch (err: unknown) {
     if (isNextRedirect(err)) throw err;
+    if (isSessionExpired(err)) return SESSION_EXPIRED_ERROR;
     console.error('setNewPassword failed', err);
     // Cognito's password policy errors come back as InvalidPasswordException —
     // surface a generic message; the form-side hint already says what's required.
@@ -210,6 +212,7 @@ export async function verifyMfaSetup(
     return await routeChallenge(resp, username);
   } catch (err: unknown) {
     if (isNextRedirect(err)) throw err;
+    if (isSessionExpired(err)) return SESSION_EXPIRED_ERROR;
     console.error('verifyMfaSetup failed', err);
     return { state: 'error', message: 'MFA setup failed. Try again.' };
   }
@@ -323,4 +326,26 @@ async function persistTokens(result: {
  *  to halt rendering. Don't swallow it in our generic catch blocks. */
 function isNextRedirect(err: unknown): err is Error {
   return err instanceof Error && err.message.includes('NEXT_REDIRECT');
+}
+
+/**
+ * Cognito challenge `Session` tokens are valid for ~3 minutes. On a first-time
+ * MFA setup the user can easily blow that budget while scanning the QR and
+ * waiting for the next TOTP cycle. When that happens, Cognito returns
+ * `NotAuthorizedException: Invalid session for the user, session is expired.`
+ * We special-case it so the UI can kick the user back to the password step
+ * with a clear message instead of leaving them stuck on the MFA screen.
+ */
+const SESSION_EXPIRED_ERROR: LoginResult = {
+  state: 'error',
+  message: `Your ${SESSION_EXPIRED_MARKER}. Please sign in again to continue.`,
+};
+
+function isSessionExpired(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  // Cognito uses `NotAuthorizedException` for both bad-credentials and
+  // expired-session; the message is what disambiguates. We match on
+  // "session is expired" rather than the class name so a future Cognito
+  // tweak that renames the exception class still works.
+  return /session\s+is\s+expired/i.test(err.message);
 }

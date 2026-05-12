@@ -4,7 +4,18 @@ import { useEffect, useMemo, useState } from 'react';
 import { useFormState, useFormStatus } from 'react-dom';
 
 import { setNewPassword, signIn, verifyMfa, verifyMfaSetup } from '@/lib/auth/actions';
-import type { LoginResult } from '@/lib/auth/types';
+import { SESSION_EXPIRED_MARKER, type LoginResult } from '@/lib/auth/types';
+
+// An error result that means "the Cognito Session timed out — drop back to
+// the password step." Lets the inner steps escalate this specific failure to
+// the top-level state machine instead of trapping the user on the MFA screen.
+function isSessionExpiredResult(result: LoginResult | null): boolean {
+  return (
+    result?.state === 'error' &&
+    typeof result.message === 'string' &&
+    result.message.includes(SESSION_EXPIRED_MARKER)
+  );
+}
 
 // `useActionState` is a React 19 hook. We're on React 18 + Next.js 14.2, so
 // we use `useFormState` from `react-dom` for the [state, action] pair and a
@@ -120,7 +131,9 @@ function MfaStep({
   const [result, action] = useFormState<LoginResult | null, FormData>(verifyMfa, null);
   const [code, setCode] = useState('');
   useEffect(() => {
-    if (result && result.state !== 'error') onAdvance(result);
+    if (!result) return;
+    if (result.state !== 'error') onAdvance(result);
+    else if (isSessionExpiredResult(result)) onAdvance(result);
   }, [result, onAdvance]);
 
   return (
@@ -157,7 +170,9 @@ function NewPasswordStep({
 }) {
   const [result, action] = useFormState<LoginResult | null, FormData>(setNewPassword, null);
   useEffect(() => {
-    if (result && result.state !== 'error') onAdvance(result);
+    if (!result) return;
+    if (result.state !== 'error') onAdvance(result);
+    else if (isSessionExpiredResult(result)) onAdvance(result);
   }, [result, onAdvance]);
 
   return (
@@ -197,7 +212,9 @@ function MfaSetupStep({
   const [code, setCode] = useState('');
   const [qrSvg, setQrSvg] = useState<string | null>(null);
   useEffect(() => {
-    if (result && result.state !== 'error') onAdvance(result);
+    if (!result) return;
+    if (result.state !== 'error') onAdvance(result);
+    else if (isSessionExpiredResult(result)) onAdvance(result);
   }, [result, onAdvance]);
 
   // Render the QR client-side. `qrcode` is dynamically imported so the
@@ -232,6 +249,10 @@ function MfaSetupStep({
       <p>
         Add this account to your authenticator app (1Password, Authy, Google Authenticator). Scan
         the QR or type the secret in manually, then enter the 6-digit code your app shows.
+      </p>
+      <p style={{ fontSize: '0.85rem', color: '#a06000', margin: 0 }}>
+        Finish within about 3 minutes — the setup link expires and you&rsquo;ll need to sign in
+        again.
       </p>
       <div
         style={{
