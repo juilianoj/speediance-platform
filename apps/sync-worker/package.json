@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@speediance/db": "workspace:*",
+    "@speediance/secrets-store": "workspace:*",
     "@speediance/speediance-client": "workspace:*"
   },
   "devDependencies": {

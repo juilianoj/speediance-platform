@@ -1,0 +1,39 @@
+{
+  "name": "@speediance/secrets-store",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Per-user Speediance credential storage in AWS Secrets Manager. One secret per Cognito user; KMS-encrypted at rest.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "clean": "rm -rf dist *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@aws-sdk/client-secrets-manager": "^3.717.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@speediance/eslint-config": "workspace:*",
+    "@types/node": "^22.10.5",
+    "eslint": "^9.18.0",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
+  }
+}
