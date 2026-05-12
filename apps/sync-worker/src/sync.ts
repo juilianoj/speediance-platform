@@ -217,15 +217,12 @@ export async function syncUser(userId: string): Promise<SyncSummary> {
       }
     }
 
-    // -- 5. Mark profile synced
-    await me.profiles.upsert({
-      // upsert is full-record put; carry over the values we know are stable
-      email: undefined,
-      syncStartDate: profile.syncStartDate,
-      speedianceSecretArn: profile.speedianceSecretArn,
-      // Note: we don't track lastSyncedAt on the Profile entity yet — the
-      // SyncRun audit item below is the source of truth. Future enhancement.
-    });
+    // No profile write here. Earlier versions called `profiles.upsert(...)`
+    // to "mark synced", but ElectroDB upsert is a full-record put — it wiped
+    // every field not passed (email, deviceType, allowMonsterMoves, bodyweight,
+    // gender, …) and broke the profile page on the next render. The SyncRun
+    // audit log is enough; the user's profile is set on /profile and shouldn't
+    // be touched by the worker.
   } catch (err) {
     ok = false;
     errorMsg = err instanceof Error ? err.message : String(err);
