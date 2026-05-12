@@ -32,7 +32,10 @@ declare global {
       class Function {
         constructor(name: string, args?: any);
         readonly name: any;
-        readonly functionArn: any;
+        // `arn` is what the real `sst.aws.Function` exposes. Don't add
+        // `functionArn` back to this stub — it doesn't exist on the real
+        // class, and references that compile against the stub will explode
+        // at deploy time (the value resolves to `undefined`).
         readonly arn: any;
       }
       class Cron {
