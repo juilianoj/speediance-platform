@@ -2,17 +2,20 @@
 const nextConfig = {
   reactStrictMode: true,
 
+  // Workspace packages export from `src/index.ts` directly (not from a
+  // pre-built `dist/`) so `tsc --noEmit` resolves their types without a
+  // build step. `transpilePackages` tells Next.js to compile those source
+  // files through SWC instead of expecting pre-compiled JS.
+  transpilePackages: [
+    '@speediance/db',
+    '@speediance/secrets-store',
+    '@speediance/speediance-client',
+  ],
+
   // Our tsconfig uses `moduleResolution: "Bundler"`, which makes the
   // TypeScript-ESM convention `import './foo.js'` legal even when `foo.ts`
-  // is the source file. `tsc --noEmit` is fine with this; Next.js's webpack
-  // is not, by default. The extensionAlias below tells webpack to resolve
-  // `.js`/`.mjs`/`.cjs` import specifiers against their TypeScript siblings
-  // — same trick the broader TS ecosystem uses.
-  //
-  // Why we keep the `.js` in source: the rest of our workspace
-  // (packages/db, packages/speediance-client) emits real .js artifacts and
-  // those imports must keep the extension to satisfy ESM at runtime. We'd
-  // rather have one consistent pattern than divergent rules per package.
+  // is the source file. The extensionAlias below tells webpack to resolve
+  // `.js`/`.mjs`/`.cjs` import specifiers against their TypeScript siblings.
   webpack: (config) => {
     config.resolve.extensionAlias = {
       ...config.resolve.extensionAlias,

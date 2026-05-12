@@ -30,7 +30,7 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  // Protect everything under /dashboard. Add other authenticated route trees
-  // here (e.g. '/admin/:path*') as they land.
-  matcher: ['/dashboard/:path*'],
+  // Protect authenticated route trees. Add new ones here (e.g. '/admin/:path*')
+  // as they land.
+  matcher: ['/dashboard/:path*', '/profile/:path*'],
 };
