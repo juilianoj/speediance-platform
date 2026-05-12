@@ -1,19 +1,26 @@
 name: Deploy
 
+# Manual-only. Previously this workflow auto-deployed on every push to main
+# (defaulting to `prod`), but we don't have a real `prod` stage set up, so
+# every merge silently triggered a failing prod deploy. Trigger explicitly
+# from the Actions tab → "Deploy" → "Run workflow" → pick a stage.
+#
+# When a real prod environment exists, re-enable an auto-deploy by adding a
+# `push:` trigger here scoped to the stage you want — ideally a dedicated
+# `release/*` branch or git tag, not `main`, so day-to-day merges don't
+# trigger production releases.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
     inputs:
       stage:
         description: 'SST stage to deploy'
         required: true
-        default: 'prod'
+        default: 'dev'
         type: choice
         options: [dev, prod]
 
 concurrency:
-  group: deploy-${{ github.event.inputs.stage || 'prod' }}
+  group: deploy-${{ github.event.inputs.stage }}
   cancel-in-progress: false
 
 # OIDC requires `id-token: write`. We keep contents read-only to limit blast
@@ -27,7 +34,7 @@ jobs:
     name: sst deploy
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    environment: ${{ github.event.inputs.stage || 'prod' }}
+    environment: ${{ github.event.inputs.stage }}
 
     steps:
       - uses: actions/checkout@v4
@@ -56,4 +63,4 @@ jobs:
           aws-region: us-west-2
 
       - name: SST deploy
-        run: pnpm --filter infra exec sst deploy --stage ${{ github.event.inputs.stage || 'prod' }}
+        run: pnpm --filter infra exec sst deploy --stage ${{ github.event.inputs.stage }}
