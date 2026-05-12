@@ -4,14 +4,15 @@
  * emphasis — more darkly saturated for muscle groups the user works
  * hard, faded for the neglected ones.
  *
- * Two variants per gender (traditional norms):
- *   - male: broad-shouldered, narrow-waisted, narrow-hipped, visible
- *     pec block + ab segmentation.
- *   - female: narrower shoulders, hourglass with pinched waist and
- *     hips wider than shoulders, two soft bust mounds, no ab
- *     segmentation, short hair tucked behind the head.
+ * Two variants per gender (traditional norms). They share the same
+ * arm/leg skeleton — only the upper-body proportions differ — so the
+ * figure stays recognisable from either side of the toggle:
+ *   - male: broad shoulders, pec block, ab segmentation, narrow hips
+ *   - female: narrower shoulders, single soft bust shape in place of
+ *     pecs, slight waist taper, slightly wider hips, no ab segmentation
  *
- * When gender is omitted we render the male variant.
+ * No hair shape: the previous attempts (sweeping helmet, side tufts)
+ * looked worse than nothing. The body proportions are gendered enough.
  */
 import type { MuscleGroupSets } from '@/app/dashboard/load-dashboard';
 
@@ -70,36 +71,20 @@ export function BodyFigure({ sets, width = 240, gender = 'male' }: Props) {
           </linearGradient>
         </defs>
 
-        {/* Hair (female only) — short, sits behind the head and barely
-            extends past the jaw. Two small wisps tuck under the ears. No
-            sweeping helmet that swallowed the figure last time. */}
-        {isFemale && (
-          <path
-            d="M 88 36 Q 84 60 90 80 Q 96 72 96 60 Q 96 30 110 26 Q 124 30 124 60 Q 124 72 130 80 Q 136 60 132 36 Q 124 16 110 16 Q 96 16 88 36 Z"
-            fill="rgba(80,90,110,0.55)"
-            stroke="rgba(15,23,42,0.2)"
-            strokeWidth={STROKE_W}
-          />
-        )}
-
-        {/* Head */}
+        {/* Head — same size for both variants; gender reads from the body */}
         <ellipse
           cx={110}
           cy={42}
-          rx={isFemale ? 18 : 24}
-          ry={isFemale ? 22 : 28}
+          rx={24}
+          ry={28}
           fill="#eef2f7"
           stroke={STROKE}
           strokeWidth={STROKE_W}
         />
 
-        {/* Neck — narrower for female */}
+        {/* Neck */}
         <path
-          d={
-            isFemale
-              ? 'M 104 64 Q 110 74 116 64 L 116 88 Q 110 92 104 88 Z'
-              : 'M 96 68 Q 110 82 124 68 L 124 84 Q 110 90 96 84 Z'
-          }
+          d="M 96 68 Q 110 82 124 68 L 124 84 Q 110 90 96 84 Z"
           fill="#eef2f7"
           stroke={STROKE}
           strokeWidth={STROKE_W}
@@ -313,74 +298,113 @@ function MaleBody({ fill, stroke, strokeW }: BodyVariantProps) {
 }
 
 /**
- * Female silhouette — clean version.
- *
- * Geometry landmarks (220×480 viewBox):
- *   Shoulders   y=92..108, x=88..132  (44 wide)
- *   Bust        y=110..156, x=90..130
- *   Waist       y=180..200, x=100..120 (pinched)
- *   Hips        y=225..268, x=78..142 (wider than shoulders)
- *   Quads       y=268..388
- *   Calves      y=388..452
- *
- * Arms sit BESIDE the torso (x outside the body) and end at hip level.
+ * Female variant — same arm/leg skeleton as MaleBody so the figure reads
+ * the same from either side of the toggle. Differences:
+ *   - Shoulders narrower (66..154 vs male 56..164)
+ *   - Pec block replaced with a single rounded bust shape
+ *   - No ab segmentation lines
+ *   - Waist taper at the bottom of the core (subtle hourglass)
+ *   - Hip patch slightly wider for a feminine curve
  */
 function FemaleBody({ fill, stroke, strokeW }: BodyVariantProps) {
   return (
     <>
-      {/* Shoulders — small soft caps */}
-      <ellipse
-        cx={94}
-        cy={104}
-        rx={10}
-        ry={10}
+      {/* Trapezius / upper neck — small slivers */}
+      <path
+        d="M 96 84 Q 90 92 84 100 L 96 96 Z"
+        fill={fill('back')}
+        stroke={stroke}
+        strokeWidth={strokeW}
+        opacity={0.6}
+      />
+      <path
+        d="M 124 84 Q 130 92 136 100 L 124 96 Z"
+        fill={fill('back')}
+        stroke={stroke}
+        strokeWidth={strokeW}
+        opacity={0.6}
+      />
+
+      {/* Shoulders (delts) — narrower than male's */}
+      <path
+        d="M 84 100 Q 70 104 66 124 Q 70 132 80 130 Q 88 118 90 104 Z"
         fill={fill('shoulders')}
         stroke={stroke}
         strokeWidth={strokeW}
       />
-      <ellipse
-        cx={126}
-        cy={104}
-        rx={10}
-        ry={10}
+      <path
+        d="M 136 100 Q 150 104 154 124 Q 150 132 140 130 Q 132 118 130 104 Z"
         fill={fill('shoulders')}
         stroke={stroke}
         strokeWidth={strokeW}
       />
 
-      {/* Bust — one rounded shape with a soft cleavage indent at top.
-          Two slight bumps on the lower edge suggest mounds without being
-          explicit. */}
+      {/* Bust — single rounded shape replacing the male pec block. Two soft
+          lower-edge dips suggest mounds without being explicit, and a faint
+          centerline hints at cleavage. */}
       <path
-        d="M 90 110 Q 88 130 94 150 Q 102 158 110 154 Q 118 158 126 150 Q 132 130 130 110 Q 120 116 110 116 Q 100 116 90 110 Z"
+        d="M 86 102
+           Q 78 120 80 152
+           Q 96 164 110 158
+           Q 124 164 140 152
+           Q 142 120 134 102
+           Q 124 116 110 116
+           Q 96 116 86 102 Z"
         fill={fill('chest')}
         stroke={stroke}
         strokeWidth={strokeW}
       />
-      {/* Cleavage hint */}
-      <path d="M 110 118 L 110 152" stroke="rgba(15,23,42,0.18)" strokeWidth={0.9} fill="none" />
+      <path d="M 110 118 L 110 156" stroke="rgba(15,23,42,0.18)" strokeWidth={0.9} fill="none" />
 
-      {/* Lats — tiny slivers behind the upper arms */}
+      {/* Upper arms — same position and shape as male */}
       <path
-        d="M 90 120 Q 88 144 92 168 L 96 158 Q 94 142 94 122 Z"
+        d="M 66 124 Q 56 158 60 196 Q 74 200 80 196 Q 84 158 84 130 Z"
+        fill={fill('arms')}
+        stroke={stroke}
+        strokeWidth={strokeW}
+      />
+      <path
+        d="M 154 124 Q 164 158 160 196 Q 146 200 140 196 Q 136 158 136 130 Z"
+        fill={fill('arms')}
+        stroke={stroke}
+        strokeWidth={strokeW}
+      />
+
+      {/* Forearms */}
+      <path
+        d="M 60 196 Q 56 232 62 268 Q 70 272 78 268 Q 82 232 80 196 Z"
+        fill={fill('arms')}
+        stroke={stroke}
+        strokeWidth={strokeW}
+        opacity={0.92}
+      />
+      <path
+        d="M 160 196 Q 164 232 158 268 Q 150 272 142 268 Q 138 232 140 196 Z"
+        fill={fill('arms')}
+        stroke={stroke}
+        strokeWidth={strokeW}
+        opacity={0.92}
+      />
+
+      {/* Lats slivers — between arm and torso */}
+      <path
+        d="M 84 130 Q 80 150 86 180 L 88 168 Q 86 150 86 130 Z"
         fill={fill('back')}
         stroke={stroke}
         strokeWidth={strokeW}
       />
       <path
-        d="M 130 120 Q 132 144 128 168 L 124 158 Q 126 142 126 122 Z"
+        d="M 136 130 Q 140 150 134 180 L 132 168 Q 134 150 134 130 Z"
         fill={fill('back')}
         stroke={stroke}
         strokeWidth={strokeW}
       />
 
-      {/* Core / waist — hourglass: starts at bust width, pinches dramatically
-          at the waist (~y=190), flares back at the hips. */}
+      {/* Core / abs — wide top, tapered to a narrow waist. No segmentation. */}
       <path
-        d="M 94 154
-           Q 110 162 126 154
-           L 122 184 Q 122 196 118 220 L 114 232
-           L 106 232 Q 102 220 102 196 L 98 184 Z"
+        d="M 84 168
+           Q 96 174 110 174 Q 124 174 136 168
+           L 130 220 Q 120 240 110 240 Q 100 240 90 220 Z"
         fill={fill('core')}
         stroke={stroke}
         strokeWidth={strokeW}
@@ -388,24 +412,25 @@ function FemaleBody({ fill, stroke, strokeW }: BodyVariantProps) {
       {/* Belly-button hint */}
       <circle cx={110} cy={210} r={1.6} fill="rgba(15,23,42,0.22)" />
 
-      {/* Hips — flare wider than shoulders, signature hourglass */}
+      {/* Hip transition — slightly wider than male (signature curve) but
+          still well inside the figure width so it doesn't look like a skirt */}
       <path
-        d="M 102 226 Q 110 234 118 226 L 142 268 L 78 268 Z"
+        d="M 90 232 Q 110 242 130 232 L 144 268 L 76 268 Z"
         fill={fill('legs')}
         stroke={stroke}
         strokeWidth={strokeW}
-        opacity={0.85}
+        opacity={0.82}
       />
 
-      {/* Quads — slight outward flare at the top */}
+      {/* Quads */}
       <path
-        d="M 82 268 Q 78 336 92 388 L 108 388 Q 112 336 108 268 Z"
+        d="M 82 268 Q 78 340 92 388 L 108 388 Q 112 340 108 268 Z"
         fill={fill('legs')}
         stroke={stroke}
         strokeWidth={strokeW}
       />
       <path
-        d="M 138 268 Q 142 336 128 388 L 112 388 Q 108 336 112 268 Z"
+        d="M 138 268 Q 142 340 128 388 L 112 388 Q 108 340 112 268 Z"
         fill={fill('legs')}
         stroke={stroke}
         strokeWidth={strokeW}
@@ -425,36 +450,6 @@ function FemaleBody({ fill, stroke, strokeW }: BodyVariantProps) {
         stroke={stroke}
         strokeWidth={strokeW}
         opacity={0.85}
-      />
-
-      {/* Arms — slim, BESIDE the body, ending at hip level (y≈268). Drawn
-          after the body so they sit on top of the lats but don't overshoot. */}
-      <path
-        d="M 84 108 Q 78 150 80 196 Q 86 200 92 196 Q 94 150 94 116 Z"
-        fill={fill('arms')}
-        stroke={stroke}
-        strokeWidth={strokeW}
-      />
-      <path
-        d="M 136 108 Q 142 150 140 196 Q 134 200 128 196 Q 126 150 126 116 Z"
-        fill={fill('arms')}
-        stroke={stroke}
-        strokeWidth={strokeW}
-      />
-      {/* Forearms */}
-      <path
-        d="M 80 196 Q 76 230 80 264 Q 86 268 92 264 Q 94 230 92 196 Z"
-        fill={fill('arms')}
-        stroke={stroke}
-        strokeWidth={strokeW}
-        opacity={0.92}
-      />
-      <path
-        d="M 140 196 Q 144 230 140 264 Q 134 268 128 264 Q 126 230 128 196 Z"
-        fill={fill('arms')}
-        stroke={stroke}
-        strokeWidth={strokeW}
-        opacity={0.92}
       />
     </>
   );
