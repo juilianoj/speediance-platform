@@ -1,15 +1,16 @@
 name: Deploy
 
-# Manual-only. Previously this workflow auto-deployed on every push to main
-# (defaulting to `prod`), but we don't have a real `prod` stage set up, so
-# every merge silently triggered a failing prod deploy. Trigger explicitly
-# from the Actions tab → "Deploy" → "Run workflow" → pick a stage.
+# Push to main → auto-deploy to `dev`. Dev is the only environment that
+# actually exists today; there is no real `prod` separation. When prod
+# becomes a thing, *don't* auto-deploy it from `main` — gate prod behind a
+# dedicated `release/*` branch, a git tag, or workflow_dispatch only.
 #
-# When a real prod environment exists, re-enable an auto-deploy by adding a
-# `push:` trigger here scoped to the stage you want — ideally a dedicated
-# `release/*` branch or git tag, not `main`, so day-to-day merges don't
-# trigger production releases.
+# Manual workflow_dispatch is still available for ad-hoc runs (e.g. forcing
+# a re-deploy after a manual AWS state change) and for one-off prod deploys
+# once that stage exists.
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       stage:
@@ -20,7 +21,9 @@ on:
         options: [dev, prod]
 
 concurrency:
-  group: deploy-${{ github.event.inputs.stage }}
+  # Push events have no `inputs.stage`, so fall back to 'dev'. Manual runs
+  # use their selection. Two different stages can deploy concurrently.
+  group: deploy-${{ github.event.inputs.stage || 'dev' }}
   cancel-in-progress: false
 
 # OIDC requires `id-token: write`. We keep contents read-only to limit blast
@@ -34,7 +37,7 @@ jobs:
     name: sst deploy
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    environment: ${{ github.event.inputs.stage }}
+    environment: ${{ github.event.inputs.stage || 'dev' }}
 
     steps:
       - uses: actions/checkout@v4
@@ -63,4 +66,4 @@ jobs:
           aws-region: us-west-2
 
       - name: SST deploy
-        run: pnpm --filter infra exec sst deploy --stage ${{ github.event.inputs.stage }}
+        run: pnpm --filter infra exec sst deploy --stage ${{ github.event.inputs.stage || 'dev' }}
