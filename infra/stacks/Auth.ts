@@ -16,8 +16,12 @@ export function Auth() {
           allowAdminCreateUserOnly: true,
         },
         autoVerifiedAttributes: ['email'],
-        // Compromised-credential checking, IP-based risk scoring, etc.
-        // Costs ~$0.05/MAU. Worth it for a family of ~5.
+        // PLUS tier is required for Cognito Threat Protection (compromised
+        // credentials, IP risk scoring). ~$0.05/MAU, so ~$0.25/mo for a
+        // family of 5 — well within budget. ESSENTIALS (the default) rejects
+        // `userPoolAddOns.advancedSecurityMode: 'ENFORCED'` with
+        // FeatureUnavailableInTierException.
+        userPoolTier: 'PLUS',
         userPoolAddOns: { advancedSecurityMode: 'ENFORCED' },
         passwordPolicy: {
           minimumLength: 12,
