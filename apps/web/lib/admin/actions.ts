@@ -2,6 +2,8 @@
 
 import {
   AdminCreateUserCommand,
+  AdminGetUserCommand,
+  AdminSetUserMFAPreferenceCommand,
   CognitoIdentityProviderClient,
   ListUsersCommand,
 } from '@aws-sdk/client-cognito-identity-provider';
@@ -106,6 +108,66 @@ export interface AdminUser {
  * List users in the pool — for the admin page. Maps Cognito's verbose
  * shape to the shape we want to render.
  */
+export interface MfaStatus {
+  enabled: boolean;
+  preferred: boolean;
+}
+
+/**
+ * Returns the current TOTP MFA state for the signed-in user. Used by the
+ * /profile MFA toggle to know whether to show "Enable" or "Disable".
+ */
+export async function getMyMfaStatus(): Promise<MfaStatus> {
+  const claims = await verifyIdTokenFromCookies();
+  if (!claims) return { enabled: false, preferred: false };
+  const userPoolId = process.env.COGNITO_USER_POOL_ID;
+  if (!userPoolId) return { enabled: false, preferred: false };
+  try {
+    const result = await new CognitoIdentityProviderClient({ region }).send(
+      new AdminGetUserCommand({ UserPoolId: userPoolId, Username: claims.sub }),
+    );
+    const settings = result.UserMFASettingList ?? [];
+    const enabled = settings.includes('SOFTWARE_TOKEN_MFA');
+    const preferred = result.PreferredMfaSetting === 'SOFTWARE_TOKEN_MFA';
+    return { enabled, preferred };
+  } catch {
+    return { enabled: false, preferred: false };
+  }
+}
+
+/**
+ * Toggles TOTP MFA for the signed-in user. Disable simply un-enrolls; if
+ * the user later re-enables it, they'll go through the standard MFA_SETUP
+ * QR-scan flow again because the previous TOTP secret was discarded by
+ * Cognito the moment they disabled it.
+ *
+ * Authorization: any signed-in user can toggle their own MFA, scoped via
+ * `claims.sub` — they cannot toggle anyone else's.
+ */
+export async function setMyMfa(enabled: boolean): Promise<{ ok: boolean; message: string }> {
+  const claims = await verifyIdTokenFromCookies();
+  if (!claims) return { ok: false, message: 'Sign in first.' };
+  const userPoolId = process.env.COGNITO_USER_POOL_ID;
+  if (!userPoolId) return { ok: false, message: 'COGNITO_USER_POOL_ID not set.' };
+  try {
+    await new CognitoIdentityProviderClient({ region }).send(
+      new AdminSetUserMFAPreferenceCommand({
+        UserPoolId: userPoolId,
+        Username: claims.sub,
+        SoftwareTokenMfaSettings: { Enabled: enabled, PreferredMfa: enabled },
+      }),
+    );
+    return {
+      ok: true,
+      message: enabled
+        ? 'MFA enabled — you will be prompted to set up a new authenticator on next sign-in.'
+        : 'MFA disabled. Sign-ins will only require email + password.',
+    };
+  } catch (err: unknown) {
+    return { ok: false, message: err instanceof Error ? err.message : 'MFA toggle failed.' };
+  }
+}
+
 export async function listUsers(): Promise<AdminUser[]> {
   const userPoolId = process.env.COGNITO_USER_POOL_ID;
   if (!userPoolId) return [];

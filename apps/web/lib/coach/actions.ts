@@ -1,12 +1,25 @@
 'use server';
 
-import Anthropic from '@anthropic-ai/sdk';
+import {
+  BedrockRuntimeClient,
+  ConverseCommand,
+  type ConverseCommandInput,
+  type ContentBlock,
+  type Message,
+  type Tool,
+  type ToolResultContentBlock,
+} from '@aws-sdk/client-bedrock-runtime';
 
 import { verifyIdTokenFromCookies } from '@/lib/auth/session';
 
 import { COACH_TOOLS, runTool, type ToolName } from './tools';
 
-const MODEL = 'claude-sonnet-4-6';
+// Bedrock cross-region inference profile for Claude Sonnet 4.6. The "us."
+// prefix routes through the US inference profile which gives better
+// availability than a single-region model id. The actual model ARN is
+// resolved by Bedrock at invoke time.
+const MODEL_ID = process.env.BEDROCK_MODEL_ID ?? 'us.anthropic.claude-sonnet-4-20250514-v1:0';
+const REGION = process.env.AWS_REGION ?? 'us-west-2';
 const MAX_TOOL_ITERATIONS = 6;
 
 export interface CoachMessage {
@@ -28,11 +41,14 @@ interface AskError {
 }
 
 /**
- * One round of conversation. The model gets the full history plus the tool
- * spec, and may call tools up to MAX_TOOL_ITERATIONS times before the
- * server returns a final reply. We don't stream — the chat is server-
- * rendered with a refresh on each turn, which keeps the Lambda dumb and
- * avoids long-poll connections.
+ * One round of conversation against Bedrock's Converse API. The model gets
+ * the full history plus the tool spec, and may call tools up to
+ * MAX_TOOL_ITERATIONS times before the server returns a final reply.
+ *
+ * Bedrock authenticates via the Lambda's IAM role (`bedrock:InvokeModel`),
+ * so there's no API key to manage. Region is the same as the rest of the
+ * stack — us-west-2 has Claude Sonnet 4 available via the cross-region
+ * inference profile.
  */
 export async function askCoach(
   history: CoachMessage[],
@@ -40,20 +56,16 @@ export async function askCoach(
 ): Promise<AskResult | AskError> {
   const claims = await verifyIdTokenFromCookies();
   if (!claims) return { ok: false, message: 'Sign in to chat.' };
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    return {
-      ok: false,
-      message:
-        'Coach is not configured yet. The ANTHROPIC_API_KEY env var is missing on the Lambda. Set it in SST and redeploy.',
-    };
-  }
 
-  const client = new Anthropic({ apiKey });
-  // Build messages from prior history + new question.
-  const messages: Anthropic.MessageParam[] = [
-    ...history.map((m) => ({ role: m.role, content: m.content })),
-    { role: 'user' as const, content: question },
+  const client = new BedrockRuntimeClient({ region: REGION });
+  const toolsUsed: ToolName[] = [];
+
+  const messages: Message[] = [
+    ...history.map((m) => ({
+      role: m.role,
+      content: [{ text: m.content }],
+    })),
+    { role: 'user', content: [{ text: question }] },
   ];
 
   const systemPrompt = [
@@ -65,42 +77,82 @@ export async function askCoach(
     "factual questions about the user's training — never guess at numbers.",
     'If you cannot answer with the tools provided, say so plainly.',
     '',
+    'When recommending a next-session weight, default progression rules:',
+    '• If the last working set hit all target reps with no form flags, +5 lb',
+    '  for compound lifts, +2.5 lb for isolation / single-arm work.',
+    '• If reps fell short OR form flags are present, hold the weight.',
+    '• If the user is at a fresh PR, suggest holding for 1–2 sessions before',
+    '  pushing.',
+    '',
     "Today's date: " + new Date().toISOString().slice(0, 10),
   ].join('\n');
 
-  const toolsUsed: ToolName[] = [];
-
   for (let iter = 0; iter < MAX_TOOL_ITERATIONS; iter++) {
-    const resp = await client.messages.create({
-      model: MODEL,
-      max_tokens: 1024,
-      system: systemPrompt,
-      tools: COACH_TOOLS as unknown as Anthropic.Tool[],
+    const input: ConverseCommandInput = {
+      modelId: MODEL_ID,
+      system: [{ text: systemPrompt }],
       messages,
-    });
+      inferenceConfig: { maxTokens: 1024, temperature: 0.4 },
+      toolConfig: {
+        // Bedrock's discriminated `Tool` union has an implicit `$unknown`
+        // variant for forward compatibility — cast through unknown so we
+        // don't have to fabricate it. The shape matches at runtime.
+        tools: COACH_TOOLS.map(
+          (t) =>
+            ({
+              toolSpec: {
+                name: t.name,
+                description: t.description,
+                inputSchema: { json: t.input_schema },
+              },
+            }) as unknown as Tool,
+        ),
+      },
+    };
 
-    if (resp.stop_reason === 'tool_use') {
-      // Collect the assistant's tool-use turn into history, then resolve
-      // each tool_use block and feed the results back.
-      messages.push({ role: 'assistant', content: resp.content });
-      const toolResults: Anthropic.ToolResultBlockParam[] = [];
-      for (const block of resp.content) {
-        if (block.type === 'tool_use') {
-          const tname = block.name as ToolName;
+    let resp;
+    try {
+      resp = await client.send(new ConverseCommand(input));
+    } catch (err) {
+      console.error('Bedrock Converse failed', err);
+      const msg = err instanceof Error ? err.message : 'Bedrock call failed';
+      // AccessDenied / model-not-enabled is the most common cause; surface
+      // it raw so the operator can see the actual reason.
+      return { ok: false, message: `Coach error: ${msg}` };
+    }
+
+    const out = resp.output?.message;
+    if (!out) return { ok: false, message: 'Bedrock returned no message.' };
+
+    if (resp.stopReason === 'tool_use') {
+      messages.push(out);
+      const toolResults: ContentBlock[] = [];
+      for (const block of out.content ?? []) {
+        if (block.toolUse) {
+          const tname = block.toolUse.name as ToolName;
+          const tuseId = block.toolUse.toolUseId ?? 'unknown';
           toolsUsed.push(tname);
           try {
-            const result = await runTool(claims.sub, tname, block.input as Record<string, unknown>);
+            const result = await runTool(
+              claims.sub,
+              tname,
+              (block.toolUse.input ?? {}) as Record<string, unknown>,
+            );
+            const content: ToolResultContentBlock[] = [{ json: result as never }];
             toolResults.push({
-              type: 'tool_result',
-              tool_use_id: block.id,
-              content: JSON.stringify(result),
+              toolResult: {
+                toolUseId: tuseId,
+                content,
+                status: 'success',
+              },
             });
           } catch (err) {
             toolResults.push({
-              type: 'tool_result',
-              tool_use_id: block.id,
-              is_error: true,
-              content: err instanceof Error ? err.message : 'tool failed',
+              toolResult: {
+                toolUseId: tuseId,
+                content: [{ text: err instanceof Error ? err.message : 'tool failed' }],
+                status: 'error',
+              },
             });
           }
         }
@@ -109,10 +161,8 @@ export async function askCoach(
       continue;
     }
 
-    // Terminal — assistant returned text. Concat all text blocks.
-    const text = resp.content
-      .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-      .map((b) => b.text)
+    const text = (out.content ?? [])
+      .map((b) => b.text ?? '')
       .join('\n')
       .trim();
     return { ok: true, reply: text || '(no answer)', toolsUsed };
