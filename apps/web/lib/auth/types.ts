@@ -15,6 +15,16 @@
  * need it for some `RespondToAuthChallenge` payloads that require it even
  * when a Session is present.
  */
+/**
+ * Marker substring embedded in the `error` LoginResult message when a Cognito
+ * challenge Session has expired (the ~3-minute hard limit). The login form
+ * matches on this to decide whether to reset back to the password step
+ * instead of leaving the user stuck on the MFA / new-password screen. Kept
+ * in a shared types module so both the Server Action and the client form
+ * import it without pulling 'use server' code into the client bundle.
+ */
+export const SESSION_EXPIRED_MARKER = 'sign-in session expired';
+
 export type LoginResult =
   | { state: 'mfa'; session: string; username: string }
   | { state: 'newPassword'; session: string; username: string }
