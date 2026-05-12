@@ -54,6 +54,7 @@ export async function saveProfile(
     deviceType: formData.get('deviceType'),
     allowMonsterMoves: formData.get('allowMonsterMoves') === 'on',
     bodyweight: formData.get('bodyweight') || undefined,
+    gender: formData.get('gender') || undefined,
     unit: formData.get('unit'),
     syncStartDate: formData.get('syncStartDate') || undefined,
   });
@@ -135,6 +136,7 @@ export async function saveProfile(
     await me.profiles.upsert({
       email: claims.email,
       bodyweight: input.bodyweight,
+      gender: input.gender,
       unit: input.unit,
       region: input.region,
       deviceType: input.deviceType,

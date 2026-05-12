@@ -22,6 +22,10 @@ export function profileEntity(config: EntityConfiguration) {
         email: { type: 'string' },
         displayName: { type: 'string' },
         bodyweight: { type: 'number' },
+        /** Self-reported gender. Used purely to render an appropriate
+         *  silhouette on the muscle-balance figure — traditional norms,
+         *  optional. */
+        gender: { type: ['male', 'female'] as const },
         unit: { type: 'number' }, // 0 = metric, 1 = imperial (matches Speediance)
         region: {
           type: ['Global', 'EU'] as const,

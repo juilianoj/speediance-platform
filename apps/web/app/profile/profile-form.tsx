@@ -11,6 +11,7 @@ interface InitialValues {
   deviceType: number;
   allowMonsterMoves: boolean;
   bodyweight?: number;
+  gender?: 'male' | 'female';
   unit: number;
   syncStartDate?: string;
 }
@@ -104,6 +105,17 @@ export function ProfileForm({
             <option value="1">Imperial (lb)</option>
             <option value="0">Metric (kg)</option>
           </select>
+        </label>
+        <label style={labelStyle}>
+          Gender
+          <select name="gender" defaultValue={initial.gender ?? ''} style={inputStyle}>
+            <option value="">Prefer not to say</option>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+          </select>
+          <span style={hintStyle}>
+            Used to render the silhouette on the Muscles page. Traditional norms.
+          </span>
         </label>
         <label style={labelStyle}>
           Sync history from

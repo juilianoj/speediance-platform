@@ -8,6 +8,7 @@ export interface LoadedProfile {
   email?: string;
   bodyweight?: number;
   unit?: number;
+  gender?: 'male' | 'female';
   region?: 'Global' | 'EU';
   deviceType?: number;
   allowMonsterMoves?: boolean;

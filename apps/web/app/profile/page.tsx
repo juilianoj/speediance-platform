@@ -33,6 +33,7 @@ export default async function ProfilePage() {
             deviceType: existing?.deviceType ?? 1,
             allowMonsterMoves: existing?.allowMonsterMoves ?? false,
             bodyweight: existing?.bodyweight,
+            gender: existing?.gender,
             unit: existing?.unit ?? 1, // imperial by default for US users
             syncStartDate: existing?.syncStartDate ?? defaultSyncStart(),
           }}

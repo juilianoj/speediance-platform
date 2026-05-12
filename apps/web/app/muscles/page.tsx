@@ -5,6 +5,7 @@ import { MUSCLE_GROUP_ORDER, type MuscleGroupSets } from '@/app/dashboard/load-d
 import { verifyIdTokenFromCookies } from '@/lib/auth/session';
 import { loadAllWorkouts } from '@/lib/data/load-workouts';
 
+import { loadProfile } from '../profile/load-profile';
 import { BodyFigure } from './body-figure';
 
 export const metadata = { title: 'Muscle balance — speediance-platform' };
@@ -22,7 +23,7 @@ export default async function MusclesPage() {
   const claims = await verifyIdTokenFromCookies();
   if (!claims) redirect('/login');
 
-  const all = await loadAllWorkouts(claims.sub);
+  const [all, profile] = await Promise.all([loadAllWorkouts(claims.sub), loadProfile(claims.sub)]);
   const now = new Date();
   const thirtyAgo = new Date(now);
   thirtyAgo.setUTCDate(thirtyAgo.getUTCDate() - 30);
@@ -66,7 +67,7 @@ export default async function MusclesPage() {
             marginTop: '0.75rem',
           }}
         >
-          <BodyFigure sets={m30} />
+          <BodyFigure sets={m30} gender={profile?.gender} />
           <div>
             <Bars sets={m30} />
             <Gaps sets={m30} />
