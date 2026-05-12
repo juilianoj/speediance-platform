@@ -6,11 +6,14 @@ import {
   AssociateSoftwareTokenCommand,
   AuthFlowType,
   ChallengeNameType,
+  ConfirmForgotPasswordCommand,
+  ForgotPasswordCommand,
   GlobalSignOutCommand,
   InitiateAuthCommand,
   RespondToAuthChallengeCommand,
   VerifySoftwareTokenCommand,
 } from '@aws-sdk/client-cognito-identity-provider';
+import { z } from 'zod';
 
 import { getCognitoClient, getCognitoConfig } from './cognito.js';
 import {
@@ -215,6 +218,107 @@ export async function verifyMfaSetup(
     if (isSessionExpired(err)) return SESSION_EXPIRED_ERROR;
     console.error('verifyMfaSetup failed', err);
     return { state: 'error', message: 'MFA setup failed. Try again.' };
+  }
+}
+
+/**
+ * Self-service password reset: step 1. Triggers Cognito to email a 6-digit
+ * verification code to the user. Cognito's `preventUserExistenceErrors`
+ * setting (enabled on the pool) means the response is identical whether
+ * or not the email is registered — we never leak account existence.
+ */
+const ForgotInputSchema = z.object({
+  email: z.string().email().max(320),
+});
+
+export interface ForgotPasswordResult {
+  state: 'sent' | 'error';
+  message?: string;
+}
+
+export async function requestPasswordReset(
+  _prev: ForgotPasswordResult | null,
+  formData: FormData,
+): Promise<ForgotPasswordResult> {
+  const parsed = ForgotInputSchema.safeParse({ email: formData.get('email') });
+  if (!parsed.success) {
+    return { state: 'error', message: 'Enter a valid email address.' };
+  }
+  const { userPoolClientId } = getCognitoConfig();
+  try {
+    await getCognitoClient().send(
+      new ForgotPasswordCommand({ ClientId: userPoolClientId, Username: parsed.data.email }),
+    );
+    return { state: 'sent' };
+  } catch (err: unknown) {
+    // Cognito returns LimitExceeded on rapid retries — surface that
+    // separately so the user knows to wait.
+    if (err instanceof Error && /LimitExceeded/i.test(err.name)) {
+      return {
+        state: 'error',
+        message: 'Too many attempts. Wait a few minutes and try again.',
+      };
+    }
+    // For everything else, return success-shaped to avoid revealing whether
+    // the email exists.
+    return { state: 'sent' };
+  }
+}
+
+/**
+ * Self-service password reset: step 2. Confirms the code Cognito emailed
+ * and sets the new password. After success the user signs in normally.
+ */
+const ConfirmResetSchema = z.object({
+  email: z.string().email().max(320),
+  code: z.string().regex(/^\d{6}$/, 'Code must be 6 digits'),
+  newPassword: z.string().min(12).max(256),
+});
+
+export interface ConfirmResetResult {
+  state: 'done' | 'error';
+  message?: string;
+}
+
+export async function confirmPasswordReset(
+  _prev: ConfirmResetResult | null,
+  formData: FormData,
+): Promise<ConfirmResetResult> {
+  const parsed = ConfirmResetSchema.safeParse({
+    email: formData.get('email'),
+    code: formData.get('code'),
+    newPassword: formData.get('newPassword'),
+  });
+  if (!parsed.success) {
+    return {
+      state: 'error',
+      message:
+        parsed.error.errors[0]?.message ??
+        'Check the form — email, 6-digit code, and a password of at least 12 characters are required.',
+    };
+  }
+  const { userPoolClientId } = getCognitoConfig();
+  try {
+    await getCognitoClient().send(
+      new ConfirmForgotPasswordCommand({
+        ClientId: userPoolClientId,
+        Username: parsed.data.email,
+        ConfirmationCode: parsed.data.code,
+        Password: parsed.data.newPassword,
+      }),
+    );
+    return { state: 'done' };
+  } catch (err: unknown) {
+    if (err instanceof Error && /CodeMismatch|ExpiredCode/i.test(err.name)) {
+      return { state: 'error', message: 'That code is wrong or expired. Request a new one.' };
+    }
+    if (err instanceof Error && /InvalidPassword/i.test(err.name)) {
+      return {
+        state: 'error',
+        message: 'Password rejected. Must be 12+ chars with mixed case, a number, and a symbol.',
+      };
+    }
+    return { state: 'error', message: 'Reset failed. Double-check your email and code.' };
   }
 }
 

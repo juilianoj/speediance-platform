@@ -43,5 +43,6 @@ export const config = {
     '/coach/:path*',
     '/admin/:path*',
     '/workouts/:path*',
+    '/feedback/:path*',
   ],
 };

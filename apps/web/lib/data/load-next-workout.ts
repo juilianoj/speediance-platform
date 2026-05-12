@@ -1,10 +1,14 @@
 import 'server-only';
 
+import { createSecretsStore } from '@speediance/secrets-store';
+import { SpeedianceClient, type Credentials } from '@speediance/speediance-client';
+
 import { createDb } from '@speediance/db';
 
 import type { DashboardWorkout } from '@/app/dashboard/load-dashboard';
 
 import type { ExerciseSet, ExerciseSummary } from './load-exercises';
+import { loadNextScheduledWorkout, type ScheduledItem } from './load-scheduled';
 import { loadAllWorkouts } from './load-workouts';
 
 export interface PlannedLift {
@@ -19,29 +23,95 @@ export interface PlannedLift {
   bestWeight?: number;
   recommendedWeight?: number;
   recommendNote?: string;
+  /** Date of the session the "last weight" came from. May be from a
+   *  different workout — we use lifetime-latest per exercise. */
+  lastSessionDate?: string;
 }
 
 export interface NextWorkoutPlan {
-  /** The reference workout (the most recent occurrence of the suggested
-   *  title) we're projecting forward. */
-  basedOn: DashboardWorkout;
+  /** Where the recommendations are derived from — describes the scheduled
+   *  workout when one is found, otherwise the most-recent matching session. */
+  source:
+    | { kind: 'scheduled'; date: string; title?: string }
+    | { kind: 'completed'; date: string; title?: string };
+  /** The user's last completed session of this workout title, if any —
+   *  used for the "back history" link. */
+  lastCompleted: DashboardWorkout | null;
   lifts: PlannedLift[];
+  /** Workout title we're planning for, for the dashboard header. */
+  title?: string;
 }
 
 export interface WorkoutOption {
-  title: string;
-  lastDone: string;
-  count: number;
+  /** Distinct title from the user's history (or "Upcoming: X" for scheduled). */
+  value: string;
+  label: string;
+  scheduled?: boolean;
+  scheduledDate?: string;
+  count?: number;
+  lastDone?: string;
+}
+
+const COURSE_INFO_CACHE = new Map<number, Array<{ id: number; title: string }>>();
+
+/**
+ * Pull the exercise list from Speediance's course curriculum (the authoritative
+ * actionLibraryList for a courseId). Cached per-process; results don't change
+ * mid-deploy.
+ */
+async function getCourseCurriculum(
+  userId: string,
+  courseId: number,
+): Promise<Array<{ id: number; title: string }>> {
+  const cached = COURSE_INFO_CACHE.get(courseId);
+  if (cached) return cached;
+  const stage = process.env.SST_STAGE ?? 'dev';
+  const secret = await createSecretsStore({ stage }).get(userId);
+  if (!secret?.token || !secret.appUserId) return [];
+  const creds: Credentials = {
+    userId: secret.appUserId,
+    token: secret.token,
+    region: secret.region,
+    unit: 0,
+    deviceType: secret.deviceType,
+    allowMonsterMoves: secret.allowMonsterMoves,
+  };
+  const client = new SpeedianceClient(creds, {
+    region: secret.region,
+    deviceType: secret.deviceType,
+    allowMonsterMoves: secret.allowMonsterMoves,
+  });
+  try {
+    const r = (client as unknown as { req: <T>(m: string, p: string) => Promise<T> }).req;
+    const info = await r<Record<string, unknown>>(
+      'GET',
+      `/api/app/v2/course/info/${courseId}?weightConfig=1`,
+    );
+    const list = Array.isArray(info?.actionLibraryList)
+      ? (info.actionLibraryList as Array<Record<string, unknown>>)
+      : [];
+    const out = list
+      .map((e) => ({ id: Number(e.id), title: String(e.title ?? '') }))
+      .filter((e) => Number.isFinite(e.id) && e.title);
+    COURSE_INFO_CACHE.set(courseId, out);
+    return out;
+  } catch {
+    return [];
+  }
 }
 
 /**
- * Build a recommendation table for the next session of a chosen workout
- * title. Pulls the user's most recent session of that title (or the most
- * recent workout overall if no title is given) and projects each lift
- * forward using the progression rules.
+ * Build a recommendation table for the user's next workout.
  *
- * Also returns the full list of workout-titles in the user's history so the
- * dashboard can render a picker.
+ * Default behaviour: pull the next scheduled workout from Speediance's
+ * calendar API. For each exercise in that workout's curriculum, look up
+ * the user's MOST RECENT set across ALL prior sessions (any workout) to
+ * derive a "last weight" and a progression suggestion. This is much more
+ * useful than projecting last-workout-of-same-title because the user's
+ * heaviest data for a given lift may live in a totally different course.
+ *
+ * If a preferredTitle is passed via querystring, we honour it: either it
+ * matches a scheduled item ("Upcoming: …") or a past workout title.
  */
 export async function loadNextWorkoutPlan(
   userId: string,
@@ -51,89 +121,188 @@ export async function loadNextWorkoutPlan(
   if (!tableName) return null;
   const me = createDb({ tableName }).forUser(userId);
 
-  const [allWorkouts, exercisesRes] = await Promise.all([
+  const [allWorkouts, exercisesRes, allSetsRes, scheduled] = await Promise.all([
     loadAllWorkouts(userId),
     me.exercises.list() as Promise<{ data: ExerciseSummary[] }>,
+    me.sets.listAll() as Promise<{ data: ExerciseSet[] }>,
+    loadNextScheduledWorkout(userId),
   ]);
 
   const workouts = allWorkouts
     .filter((w) => !(w.isCardio || w.speedianceTrainingType === 'cardio'))
     .sort((a, b) => (a.startTime > b.startTime ? -1 : 1));
 
-  // Build the option list (one per distinct title, sorted by recency).
-  const optionMap = new Map<string, WorkoutOption>();
-  for (const w of workouts) {
-    if (!w.title) continue;
-    if (!optionMap.has(w.title)) {
-      optionMap.set(w.title, { title: w.title, lastDone: w.startTime, count: 0 });
-    }
-    const o = optionMap.get(w.title)!;
-    o.count += 1;
-    if (w.startTime > o.lastDone) o.lastDone = w.startTime;
+  // Build option list: scheduled item up top (if any), then distinct prior
+  // workout titles sorted by recency.
+  const options: WorkoutOption[] = [];
+  if (scheduled?.title) {
+    options.push({
+      value: `scheduled:${scheduled.date}`,
+      label: `Next up: ${scheduled.title} (${shortDate(scheduled.date)})`,
+      scheduled: true,
+      scheduledDate: scheduled.date,
+    });
   }
-  const options = [...optionMap.values()].sort((a, b) => (a.lastDone > b.lastDone ? -1 : 1));
+  const seen = new Set<string>();
+  for (const w of workouts) {
+    if (!w.title || seen.has(w.title)) continue;
+    seen.add(w.title);
+    const count = workouts.filter((x) => x.title === w.title).length;
+    options.push({
+      value: w.title,
+      label: `${w.title} (${count}×, last ${shortDate(w.startTime)})`,
+      count,
+      lastDone: w.startTime,
+    });
+  }
 
-  // Pick the reference workout: the latest session of `preferredTitle` if
-  // supplied, otherwise the very most recent workout.
-  const reference = preferredTitle ? workouts.find((w) => w.title === preferredTitle) : workouts[0];
-  if (!reference) return { plan: null, options };
-
+  // Pre-index by-exercise sets across the user's lifetime: for each
+  // exerciseId, the most recent set with non-zero weight wins.
+  type LifetimeSet = {
+    startTime: string;
+    weight: number;
+    finishedReps?: number;
+    targetReps?: number;
+    formFlags?: string[];
+  };
+  const lifetimeByExercise = new Map<string, LifetimeSet>();
+  for (const s of allSetsRes.data ?? []) {
+    if (!s.weight || s.weight <= 0) continue;
+    const cur = lifetimeByExercise.get(s.exerciseId);
+    if (!cur || s.startTime > cur.startTime) {
+      lifetimeByExercise.set(s.exerciseId, {
+        startTime: s.startTime,
+        weight: s.weight,
+        finishedReps: s.finishedReps,
+        targetReps: s.targetReps,
+        formFlags: s.formFlags,
+      });
+    }
+  }
   const exById = new Map((exercisesRes.data ?? []).map((e) => [e.exerciseId, e]));
 
-  // Only fetch sets for the reference workout — previously we loaded every
-  // set the user ever logged (3000+ items) just to filter to one workout.
-  // The new query hits the primary index with a tight SK prefix.
-  const referenceSetsRes = (await me.sets.forWorkout(reference.startTime)) as {
-    data: ExerciseSet[];
+  // Resolve the active source: scheduled (preferred) → matching past
+  // session by title → most recent past session.
+  type Source = {
+    kind: 'scheduled' | 'completed';
+    date: string;
+    title?: string;
+    courseId?: number;
   };
-  const referenceSets = referenceSetsRes?.data ?? [];
-  if (referenceSets.length === 0) {
-    return { plan: { basedOn: reference, lifts: [] }, options };
-  }
-
-  // Order: first occurrence in the workout.
-  const order: string[] = [];
-  const byEx = new Map<string, ExerciseSet[]>();
-  for (const s of referenceSets) {
-    if (!byEx.has(s.exerciseId)) {
-      byEx.set(s.exerciseId, []);
-      order.push(s.exerciseId);
+  let source: Source | null = null;
+  if (preferredTitle?.startsWith('scheduled:') && scheduled) {
+    source = {
+      kind: 'scheduled',
+      date: scheduled.date,
+      title: scheduled.title,
+      courseId: scheduled.courseId,
+    };
+  } else if (preferredTitle) {
+    const matching = workouts.find((w) => w.title === preferredTitle);
+    if (matching) {
+      source = {
+        kind: 'completed',
+        date: matching.startTime,
+        title: matching.title,
+        courseId: matching.courseId,
+      };
     }
-    byEx.get(s.exerciseId)!.push(s);
+  }
+  if (!source) {
+    // No preferred; default to scheduled if available, else most recent.
+    if (scheduled) {
+      source = {
+        kind: 'scheduled',
+        date: scheduled.date,
+        title: scheduled.title,
+        courseId: scheduled.courseId,
+      };
+    } else if (workouts[0]) {
+      source = {
+        kind: 'completed',
+        date: workouts[0].startTime,
+        title: workouts[0].title,
+        courseId: workouts[0].courseId,
+      };
+    }
+  }
+  if (!source) return { plan: null, options };
+
+  // Resolve the exercise list for the source:
+  //   - Prefer course curriculum for the scheduled / matched courseId
+  //     (correct, ordered, regardless of prior detail availability).
+  //   - Fall back to the previously-stored set rows from a matching past
+  //     session (good for custom templates without a course).
+  let curriculum: Array<{ id: string; name: string }> = [];
+  if (source.courseId) {
+    const c = await getCourseCurriculum(userId, source.courseId);
+    curriculum = c.map((e) => ({ id: String(e.id), name: e.title }));
+  }
+  // Find the most-recent past session of the SAME course (or title) so we
+  // can also report "this was the last time you did this workout".
+  const lastCompleted: DashboardWorkout | null =
+    workouts.find((w) =>
+      source!.courseId !== undefined ? w.courseId === source!.courseId : w.title === source!.title,
+    ) ?? null;
+
+  if (curriculum.length === 0 && lastCompleted) {
+    // Fall back: use whatever exercises we synced for the most-recent
+    // completed session.
+    const lastSets = (await me.sets.forWorkout(lastCompleted.startTime)) as {
+      data: ExerciseSet[];
+    };
+    const order: string[] = [];
+    const named = new Map<string, string>();
+    for (const s of lastSets.data ?? []) {
+      if (!order.includes(s.exerciseId)) {
+        order.push(s.exerciseId);
+        named.set(s.exerciseId, exById.get(s.exerciseId)?.name ?? `Exercise ${s.exerciseId}`);
+      }
+    }
+    curriculum = order.map((id) => ({ id, name: named.get(id) ?? `Exercise ${id}` }));
   }
 
-  const lifts: PlannedLift[] = order.map((exerciseId) => {
-    const sets = byEx.get(exerciseId)!.sort((a, b) => a.setNum - b.setNum);
-    const ex = exById.get(exerciseId);
-    const lastWeight = Math.max(0, ...sets.map((s) => s.weight ?? 0));
-    const lastRepsTotal = sets.reduce((s, x) => s + (x.finishedReps ?? 0), 0);
-    const lastTargetTotal = sets.reduce((s, x) => s + (x.targetReps ?? 0), 0);
-    const flags = sets.flatMap((s) => s.formFlags ?? []);
-    const hitAllTarget = lastTargetTotal === 0 || lastRepsTotal >= lastTargetTotal;
-    const isolation = detectIsolation(ex?.name ?? '', ex?.isUnilateral ?? false);
-    const reco = recommend({
-      lastWeight,
-      hitAllTarget,
-      flagged: flags.length > 0,
-      isolation,
-    });
-
+  const lifts: PlannedLift[] = curriculum.map(({ id, name }) => {
+    const exMeta = exById.get(id);
+    const lifetime = lifetimeByExercise.get(id);
+    const hitAllTarget =
+      !lifetime ||
+      !lifetime.targetReps ||
+      (lifetime.finishedReps ?? 0) >= (lifetime.targetReps ?? 0);
+    const flagged = (lifetime?.formFlags?.length ?? 0) > 0;
+    const isolation = detectIsolation(name, Boolean(exMeta?.isUnilateral));
+    const reco = lifetime
+      ? recommend({ lastWeight: lifetime.weight, hitAllTarget, flagged, isolation })
+      : null;
     return {
-      exerciseId,
-      name: ex?.name ?? `Exercise ${exerciseId}`,
-      muscleGroup: ex?.muscleGroup,
-      isUnilateral: ex?.isUnilateral,
-      lastWeight: lastWeight > 0 ? lastWeight : undefined,
-      lastReps: lastRepsTotal > 0 ? lastRepsTotal : undefined,
-      lastTargetReps: lastTargetTotal > 0 ? lastTargetTotal : undefined,
-      lastFormFlags: flags,
-      bestWeight: ex?.bestWeight,
+      exerciseId: id,
+      name,
+      muscleGroup: exMeta?.muscleGroup,
+      isUnilateral: exMeta?.isUnilateral,
+      lastWeight: lifetime?.weight,
+      lastReps: lifetime?.finishedReps,
+      lastTargetReps: lifetime?.targetReps,
+      lastFormFlags: lifetime?.formFlags,
+      lastSessionDate: lifetime?.startTime,
+      bestWeight: exMeta?.bestWeight,
       recommendedWeight: reco?.weight,
       recommendNote: reco?.note,
     };
   });
 
-  return { plan: { basedOn: reference, lifts }, options };
+  return {
+    plan: {
+      source: {
+        kind: source.kind,
+        date: source.date,
+        title: source.title,
+      },
+      lastCompleted,
+      lifts,
+      title: source.title,
+    },
+    options,
+  };
 }
 
 function recommend(opts: {
@@ -172,3 +341,15 @@ function detectIsolation(name: string, isUnilateral: boolean): boolean {
   if (COMPOUND.some((k) => lower.includes(k))) return false;
   return true;
 }
+
+function shortDate(iso: string): string {
+  const d = iso.length === 10 ? new Date(iso + 'T00:00:00Z') : new Date(iso);
+  const m = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][
+    d.getUTCMonth()
+  ];
+  return `${m} ${d.getUTCDate()}`;
+}
+
+// Keep `ScheduledItem` re-export for callers that imported it through this
+// module (next-session-card etc.). Unused locally is fine.
+export type { ScheduledItem };

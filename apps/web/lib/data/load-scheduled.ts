@@ -6,19 +6,29 @@ import { createSecretsStore } from '@speediance/secrets-store';
 import { SpeedianceClient, type Credentials } from '@speediance/speediance-client';
 
 /**
- * Pull Speediance's training calendar for the current month + the next two,
- * extract scheduled dates. Returns a Set of YYYY-MM-DD strings.
- *
- * This is a non-cached real-time call into Speediance — kept off the
- * critical render path of the dashboard via `Promise.allSettled` upstream,
- * and gated by React `cache()` so concurrent renders in the same request
- * don't fan out. Caller treats failure as "no scheduled data".
+ * Scheduled-workout item returned by Speediance's calendar API for a
+ * specific date. The API doesn't have a documented schema; we extract a
+ * handful of likely-named fields defensively so the dashboard can show
+ * the user's actual upcoming workout (not just "something is scheduled").
  */
-export const loadScheduledDates = cache(async (userId: string): Promise<Set<string>> => {
+export interface ScheduledItem {
+  date: string; // YYYY-MM-DD
+  title?: string;
+  courseId?: number;
+  templateCode?: string | number;
+}
+
+/**
+ * Pull Speediance's training calendar for this month + the next two.
+ * Returns a list of scheduled items per upcoming date. Best-effort: any
+ * failure (expired token, schema drift) yields an empty list so callers
+ * can render without scheduled overlays.
+ */
+export const loadScheduledWorkouts = cache(async (userId: string): Promise<ScheduledItem[]> => {
   const stage = process.env.SST_STAGE ?? 'dev';
   const secrets = createSecretsStore({ stage });
   const secret = await secrets.get(userId);
-  if (!secret || !secret.token || !secret.appUserId) return new Set();
+  if (!secret || !secret.token || !secret.appUserId) return [];
 
   const creds: Credentials = {
     userId: secret.appUserId,
@@ -32,44 +42,72 @@ export const loadScheduledDates = cache(async (userId: string): Promise<Set<stri
     region: secret.region,
     deviceType: secret.deviceType,
     allowMonsterMoves: secret.allowMonsterMoves,
-    // No onUnauthorized handler — if the token is expired we silently
-    // skip; the next nightly sync will refresh it.
   });
 
   const months = nextThreeMonths();
-  const dates = new Set<string>();
+  const items: ScheduledItem[] = [];
+
   for (const ym of months) {
     try {
-      const month = (await client.getCalendarMonth(ym)) as
-        | Array<Record<string, unknown>>
-        | { dayList?: Array<Record<string, unknown>> }
-        | null;
+      const month = (await client.getCalendarMonth(ym)) as unknown;
       const days = Array.isArray(month)
-        ? month
-        : Array.isArray(month?.dayList)
-          ? month.dayList
+        ? (month as Array<Record<string, unknown>>)
+        : Array.isArray((month as { dayList?: unknown[] })?.dayList)
+          ? (month as { dayList: Array<Record<string, unknown>> }).dayList
           : [];
+
       for (const day of days) {
         if (typeof day !== 'object' || day === null) continue;
         const d = day as Record<string, unknown>;
-        // The calendar response is undocumented; defensively try a few
-        // common field names. We accept anything that decodes to a
-        // YYYY-MM-DD date with at least one scheduled item.
-        const raw = (d.date ?? d.day ?? d.thatDay ?? d.dateStr) as string | undefined;
-        if (typeof raw !== 'string') continue;
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) continue;
-        const reservations = (d.reservationList ?? d.templateList ?? d.list) as unknown;
-        const hasScheduled = Array.isArray(reservations)
-          ? reservations.length > 0
-          : Boolean(reservations);
-        if (hasScheduled) dates.add(raw);
+        const dateRaw = (d.date ?? d.day ?? d.thatDay ?? d.dateStr) as string | undefined;
+        if (typeof dateRaw !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(dateRaw)) continue;
+        const reservations = collectReservations(d);
+        for (const r of reservations) {
+          items.push({
+            date: dateRaw,
+            title: (r.courseTitle ?? r.title ?? r.name ?? r.templateName) as string | undefined,
+            courseId: typeof r.courseId === 'number' ? (r.courseId as number) : undefined,
+            templateCode: r.templateCode as string | number | undefined,
+          });
+        }
       }
     } catch {
-      // ignore — calendar is best-effort; dashboard still renders
+      // Best-effort; skip month on error.
     }
   }
-  return dates;
+  return items;
 });
+
+/** Convenience wrapper used by the heatmap. */
+export async function loadScheduledDates(userId: string): Promise<Set<string>> {
+  const items = await loadScheduledWorkouts(userId);
+  return new Set(items.map((i) => i.date));
+}
+
+/**
+ * Find the next scheduled session strictly *after* today (inclusive of
+ * today if there's a scheduled workout for today that hasn't been
+ * completed). Returns null if nothing's scheduled in the lookahead.
+ */
+export async function loadNextScheduledWorkout(userId: string): Promise<ScheduledItem | null> {
+  const items = await loadScheduledWorkouts(userId);
+  if (items.length === 0) return null;
+  const today = new Date().toISOString().slice(0, 10);
+  const sorted = [...items].sort((a, b) => (a.date < b.date ? -1 : 1));
+  return sorted.find((i) => i.date >= today) ?? null;
+}
+
+function collectReservations(day: Record<string, unknown>): Array<Record<string, unknown>> {
+  const candidates = [day.reservationList, day.templateList, day.list, day.items];
+  for (const c of candidates) {
+    if (Array.isArray(c) && c.length > 0) {
+      return c.filter((x) => typeof x === 'object' && x !== null) as Array<Record<string, unknown>>;
+    }
+  }
+  // No reservation list found — emit a single placeholder so the date is
+  // still flagged as "scheduled" without a title.
+  return [{}];
+}
 
 function nextThreeMonths(): string[] {
   const out: string[] = [];
