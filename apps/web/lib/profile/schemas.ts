@@ -16,6 +16,7 @@ export const ProfileInputSchema = z.object({
   allowMonsterMoves: z.coerce.boolean(),
   bodyweight: z.coerce.number().positive().max(2000).optional(),
   gender: z.enum(['male', 'female']).optional(),
+  hideCardio: z.coerce.boolean().optional(),
   unit: z.coerce.number().int().min(0).max(1),
   /** ISO `YYYY-MM-DD`. The sync worker pulls Speediance records from here forward. */
   syncStartDate: z

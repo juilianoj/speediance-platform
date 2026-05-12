@@ -12,6 +12,7 @@ interface InitialValues {
   allowMonsterMoves: boolean;
   bodyweight?: number;
   gender?: 'male' | 'female';
+  hideCardio?: boolean;
   unit: number;
   syncStartDate?: string;
 }
@@ -127,6 +128,13 @@ export function ProfileForm({
           />
           <span style={hintStyle}>
             The sync worker pulls Speediance records from this date forward. Default is 30 days ago.
+          </span>
+        </label>
+        <label style={checkboxLabelStyle}>
+          <input type="checkbox" name="hideCardio" defaultChecked={initial.hideCardio ?? false} />
+          Hide the Cardio section
+          <span style={{ ...hintStyle, marginLeft: '0.4rem' }}>
+            (uncheck to re-enable once you&apos;ve connected Apple Health / Google Fit)
           </span>
         </label>
       </section>

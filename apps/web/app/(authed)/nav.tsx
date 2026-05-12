@@ -1,9 +1,22 @@
 /**
- * Top nav rendered on all authed pages. Server component — no client JS
- * just for nav links.
+ * Top nav rendered on all authed pages. Reads the user's profile so it
+ * can drop the Cardio link when the user has hidden that section (no
+ * Apple Health / Google Fit feed → no cardio data → opted out).
+ *
+ * Items live in main nav vs the user-menu dropdown based on frequency:
+ *   - main: Dashboard, Coach, Lift log, Muscles, Cardio (when shown),
+ *     Adherence — daily-use pages
+ *   - dropdown (avatar): Profile, Feedback, Admin, Sign out — chrome
+ *
+ * Coach sits up front (right after Dashboard) because the AI coach is the
+ * primary value-add of this platform and where users will spend most of
+ * their time.
  */
-import { SignOutButton } from '@/app/dashboard/signout-button';
+import { loadProfile } from '@/app/profile/load-profile';
 import { SpeedianceMark } from '@/app/speediance-mark';
+import { verifyIdTokenFromCookies } from '@/lib/auth/session';
+
+import { UserMenu } from './user-menu';
 
 type Key =
   | 'dashboard'
@@ -16,18 +29,35 @@ type Key =
   | 'feedback'
   | 'profile';
 
-const ITEMS: Array<{ key: Key; label: string; href: string }> = [
+interface Item {
+  key: Key;
+  label: string;
+  href: string;
+}
+
+const ALL_ITEMS: Item[] = [
   { key: 'dashboard', label: 'Dashboard', href: '/dashboard' },
-  { key: 'liftlog', label: 'Lift log', href: '/lift-log' },
-  { key: 'cardio', label: 'Cardio', href: '/cardio' },
-  { key: 'muscles', label: 'Muscles', href: '/muscles' },
-  { key: 'adherence', label: 'Adherence', href: '/adherence' },
   { key: 'coach', label: 'Coach', href: '/coach' },
-  { key: 'feedback', label: 'Feedback', href: '/feedback' },
-  { key: 'admin', label: 'Admin', href: '/admin' },
+  { key: 'liftlog', label: 'Lift log', href: '/lift-log' },
+  { key: 'muscles', label: 'Muscles', href: '/muscles' },
+  { key: 'cardio', label: 'Cardio', href: '/cardio' },
+  { key: 'adherence', label: 'Adherence', href: '/adherence' },
 ];
 
-export function Nav({ current, userLabel }: { current: Key; userLabel: string }) {
+const USER_MENU_ITEMS = [
+  { label: 'Profile', href: '/profile' },
+  { label: 'Feedback', href: '/feedback' },
+  { label: 'Admin', href: '/admin' },
+];
+
+export async function Nav({ current, userLabel }: { current: Key; userLabel: string }) {
+  // Read profile to decide if we should hide the Cardio link. Cached via
+  // React.cache so other server components on the same page reuse the
+  // result for free.
+  const claims = await verifyIdTokenFromCookies();
+  const profile = claims ? await loadProfile(claims.sub) : null;
+  const items = profile?.hideCardio ? ALL_ITEMS.filter((i) => i.key !== 'cardio') : ALL_ITEMS;
+
   return (
     <header
       style={{
@@ -65,7 +95,7 @@ export function Nav({ current, userLabel }: { current: Key; userLabel: string })
             marginLeft: '0.5rem',
           }}
         >
-          {ITEMS.map((i) => (
+          {items.map((i) => (
             <a
               key={i.key}
               href={i.href}
@@ -84,10 +114,7 @@ export function Nav({ current, userLabel }: { current: Key; userLabel: string })
             </a>
           ))}
         </nav>
-        <a href="/profile" style={userLinkStyle}>
-          {userLabel}
-        </a>
-        <SignOutButton />
+        <UserMenu email={userLabel} items={USER_MENU_ITEMS} />
       </div>
     </header>
   );
@@ -99,13 +126,4 @@ const brandStyle: React.CSSProperties = {
   color: '#0f172a',
   textDecoration: 'none',
   letterSpacing: '-0.02em',
-};
-
-const userLinkStyle: React.CSSProperties = {
-  fontSize: '0.85rem',
-  color: '#64748b',
-  textDecoration: 'none',
-  padding: '0.4rem 0.7rem',
-  borderRadius: '8px',
-  border: '1px solid #e5e7eb',
 };

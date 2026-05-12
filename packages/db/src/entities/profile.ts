@@ -26,6 +26,10 @@ export function profileEntity(config: EntityConfiguration) {
          *  silhouette on the muscle-balance figure — traditional norms,
          *  optional. */
         gender: { type: ['male', 'female'] as const },
+        /** When true, the user has opted out of the Cardio section — nav
+         *  link is hidden and /cardio redirects to /dashboard. Default
+         *  (undefined/false) shows the section. */
+        hideCardio: { type: 'boolean' },
         unit: { type: 'number' }, // 0 = metric, 1 = imperial (matches Speediance)
         region: {
           type: ['Global', 'EU'] as const,
