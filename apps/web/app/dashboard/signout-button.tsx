@@ -21,16 +21,17 @@ export function SignOutButton() {
         type="submit"
         disabled={pending}
         style={{
-          padding: '0.4rem 0.8rem',
-          fontSize: '0.9rem',
+          padding: '0.4rem 0.85rem',
+          fontSize: '0.85rem',
           background: 'transparent',
-          color: '#444',
-          border: '1px solid #ccc',
-          borderRadius: '6px',
+          color: '#64748b',
+          border: '1px solid #e5e7eb',
+          borderRadius: '8px',
           cursor: 'pointer',
+          fontWeight: 500,
         }}
       >
-        {pending ? 'Signing out…' : 'Sign out'}
+        {pending ? '…' : 'Sign out'}
       </button>
     </form>
   );
