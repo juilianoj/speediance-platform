@@ -23,7 +23,7 @@ This project is **not affiliated with, endorsed by, or sponsored by Speediance I
 
 ## Quick start
 
-Requirements: **Node ≥ 20**, **pnpm ≥ 9** (`brew install pnpm`), **gitleaks** for the pre-commit hook (`brew install gitleaks`). The hook hard-fails if gitleaks is missing — install before committing.
+Requirements: **Node ≥ 22.13** (pnpm 11 uses `node:sqlite`), **pnpm ≥ 11** (`brew install pnpm`), **gitleaks** for the pre-commit hook (`brew install gitleaks`). The hook hard-fails if gitleaks is missing — install before committing.
 
 ```bash
 git clone https://github.com/juilianoj/speediance-platform.git
