@@ -3,6 +3,7 @@
  * just for nav links.
  */
 import { SignOutButton } from '@/app/dashboard/signout-button';
+import { SpeedianceMark } from '@/app/speediance-mark';
 
 type Key =
   | 'dashboard'
@@ -52,19 +53,8 @@ export function Nav({ current, userLabel }: { current: Key; userLabel: string })
         }}
       >
         <a href="/dashboard" style={brandStyle}>
-          <span
-            style={{
-              display: 'inline-block',
-              width: 26,
-              height: 26,
-              borderRadius: '7px',
-              background: 'linear-gradient(135deg, #0b78d1 0%, #7c3aed 100%)',
-              marginRight: '0.55rem',
-              verticalAlign: 'middle',
-              boxShadow: '0 2px 6px rgba(11,120,209,0.35)',
-            }}
-          />
-          <span style={{ verticalAlign: 'middle' }}>speediance</span>
+          <SpeedianceMark size={28} />
+          <span style={{ verticalAlign: 'middle', marginLeft: '0.45rem' }}>speediance</span>
         </a>
         <nav
           style={{
