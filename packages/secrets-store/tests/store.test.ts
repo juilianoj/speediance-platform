@@ -1,8 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import {
-  ResourceExistsException,
-  ResourceNotFoundException,
-} from '@aws-sdk/client-secrets-manager';
+import { ResourceNotFoundException } from '@aws-sdk/client-secrets-manager';
 
 import { createSecretsStore } from '../src/store.js';
 
@@ -93,27 +90,13 @@ describe('get', () => {
 });
 
 describe('put', () => {
-  it('creates the secret on first call', async () => {
-    const { client, calls } = mockClient({
-      CreateSecretCommand: () => ({
-        ARN: 'arn:aws:secretsmanager:us-west-2:1:secret:speediance-platform/dev/users/alice/speediance-abc',
-      }),
-    });
-    const store = createSecretsStore({ stage: 'dev', client });
-    const result = await store.put('alice', VALID_SECRET);
-    expect(result.arn).toContain('alice');
-    expect(calls[0]?.command).toBe('CreateSecretCommand');
-    const input = calls[0]?.input as { Name: string; SecretString: string };
-    expect(input.Name).toBe('speediance-platform/dev/users/alice/speediance');
-    const stored = JSON.parse(input.SecretString) as { email: string };
-    expect(stored.email).toBe('user@example.com');
-  });
+  // Put-first ordering, not create-first: the SyncWorker only has IAM for
+  // PutSecretValue (no CreateSecret), so we try the update path first and
+  // fall back to CreateSecret on ResourceNotFoundException (the only path
+  // that reaches CreateSecret is the initial profile save from /profile).
 
-  it('falls back to PutSecretValue when the secret already exists', async () => {
+  it('updates an existing secret in one call', async () => {
     const { client, calls } = mockClient({
-      CreateSecretCommand: () => {
-        throw new ResourceExistsException({ message: 'exists', $metadata: {} });
-      },
       PutSecretValueCommand: () => ({
         ARN: 'arn:aws:secretsmanager:us-west-2:1:secret:speediance-platform/dev/users/alice/speediance-abc',
       }),
@@ -121,7 +104,28 @@ describe('put', () => {
     const store = createSecretsStore({ stage: 'dev', client });
     const result = await store.put('alice', VALID_SECRET);
     expect(result.arn).toContain('alice');
-    expect(calls.map((c) => c.command)).toEqual(['CreateSecretCommand', 'PutSecretValueCommand']);
+    expect(calls.map((c) => c.command)).toEqual(['PutSecretValueCommand']);
+    const input = calls[0]?.input as { SecretId: string; SecretString: string };
+    expect(input.SecretId).toBe('speediance-platform/dev/users/alice/speediance');
+    const stored = JSON.parse(input.SecretString) as { email: string };
+    expect(stored.email).toBe('user@example.com');
+  });
+
+  it('falls back to CreateSecret when the secret does not yet exist', async () => {
+    const { client, calls } = mockClient({
+      PutSecretValueCommand: () => {
+        throw new ResourceNotFoundException({ message: 'not found', $metadata: {} });
+      },
+      CreateSecretCommand: () => ({
+        ARN: 'arn:aws:secretsmanager:us-west-2:1:secret:speediance-platform/dev/users/alice/speediance-abc',
+      }),
+    });
+    const store = createSecretsStore({ stage: 'dev', client });
+    const result = await store.put('alice', VALID_SECRET);
+    expect(result.arn).toContain('alice');
+    expect(calls.map((c) => c.command)).toEqual(['PutSecretValueCommand', 'CreateSecretCommand']);
+    const createInput = calls[1]?.input as { Name: string };
+    expect(createInput.Name).toBe('speediance-platform/dev/users/alice/speediance');
   });
 
   it('rejects invalid secret payloads at validation time', async () => {
