@@ -122,7 +122,16 @@ async function getCourseCurriculum(userId: string, courseId: number): Promise<Cu
       : [];
     const out = list
       .map((e): CurriculumEntry | null => {
-        const id = Number(e.id);
+        // CRITICAL: use `groupId` (= actionLibraryGroupId), NOT `id`.
+        //
+        // Speediance's course-info response gives every exercise both an
+        // `id` (variant/relation id — e.g. 246 for Barbell Deadlift in this
+        // course's recommended config) AND a `groupId` (the action-library
+        // group id — 455 — shared across courses for the same exercise).
+        // Our sync writes Set rows keyed by `actionLibraryGroupId` from the
+        // detail endpoints, so the curriculum must report `groupId` if we
+        // want the lifetime-history lookup to find anything.
+        const id = Number(e.groupId);
         const title = String(e.title ?? '');
         if (!Number.isFinite(id) || !title) return null;
         // Prefer `myRecommendedWeight2` (per-user personalised) over `weight`
