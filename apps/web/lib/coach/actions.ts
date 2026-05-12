@@ -115,10 +115,25 @@ export async function askCoach(
       resp = await client.send(new ConverseCommand(input));
     } catch (err) {
       console.error('Bedrock Converse failed', err);
-      const msg = err instanceof Error ? err.message : 'Bedrock call failed';
-      // AccessDenied / model-not-enabled is the most common cause; surface
-      // it raw so the operator can see the actual reason.
-      return { ok: false, message: `Coach error: ${msg}` };
+      const raw = err instanceof Error ? err.message : 'Bedrock call failed';
+      // Most likely first-time-setup error: AWS requires submitting an
+      // Anthropic use-case form per account before invoking Claude on
+      // Bedrock. Translate the raw message into something actionable.
+      if (/use case details have not been submitted/i.test(raw)) {
+        return {
+          ok: false,
+          message:
+            'Bedrock requires a one-time use-case form before Anthropic models can be invoked from this AWS account. Submit it at https://us-west-2.console.aws.amazon.com/bedrock/home?region=us-west-2#/modelaccess and try again in ~15 minutes.',
+        };
+      }
+      if (/AccessDenied|not authorized/i.test(raw)) {
+        return {
+          ok: false,
+          message:
+            "Bedrock denied the request. Check the Lambda's IAM role has `bedrock:InvokeModel` and that the configured model is approved for this account.",
+        };
+      }
+      return { ok: false, message: `Coach error: ${raw}` };
     }
 
     const out = resp.output?.message;
