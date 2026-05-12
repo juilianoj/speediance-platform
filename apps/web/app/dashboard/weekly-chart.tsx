@@ -61,6 +61,12 @@ export function WeeklyChart({ weeks }: { weeks: WeekBucket[] }) {
   const chartH = H - padT - padB;
   const slot = (W - padL - padR) / view.length;
   const barWidth = Math.min(slot * 0.7, 64);
+  // At wider ranges there isn't room to print a date + value under every
+  // bar without overlap. Keep every Nth label readable. For 6m/1y drop the
+  // per-bar value label entirely — the hover tooltip still has it.
+  const labelStride = view.length <= 12 ? 1 : view.length <= 16 ? 2 : view.length <= 30 ? 4 : 8;
+  const showValueLabels = view.length <= 16;
+  const labelArea = showValueLabels ? 36 : 22;
 
   return (
     <div>
@@ -157,6 +163,10 @@ export function WeeklyChart({ weeks }: { weeks: WeekBucket[] }) {
             const cx = padL + i * slot + slot / 2;
             const x = cx - barWidth / 2;
             const y = padT + chartH - h;
+            // Show date label for every Nth bar (right-aligned to end so
+            // the most recent week is always visible). Skip values
+            // entirely at 6m+ to avoid overlap; tooltip still has them.
+            const showDate = (view.length - 1 - i) % labelStride === 0;
             return (
               <g key={w.weekIso}>
                 <title>{`${w.label}: ${formatValue(v, metric)}`}</title>
@@ -173,19 +183,23 @@ export function WeeklyChart({ weeks }: { weeks: WeekBucket[] }) {
                     opacity={0.92}
                   />
                 )}
-                <text x={cx} y={dateLabelY} textAnchor="middle" fontSize="11" fill="#999">
-                  {w.label}
-                </text>
-                <text
-                  x={cx}
-                  y={valueLabelY}
-                  textAnchor="middle"
-                  fontSize="11"
-                  fontWeight={isZero ? 400 : 700}
-                  fill={isZero ? '#bbb' : '#1a1a1a'}
-                >
-                  {isZero ? '0' : compactNumber(v)}
-                </text>
+                {showDate && (
+                  <text x={cx} y={dateLabelY} textAnchor="middle" fontSize="11" fill="#999">
+                    {w.label}
+                  </text>
+                )}
+                {showValueLabels && (
+                  <text
+                    x={cx}
+                    y={valueLabelY}
+                    textAnchor="middle"
+                    fontSize="11"
+                    fontWeight={isZero ? 400 : 700}
+                    fill={isZero ? '#bbb' : '#1a1a1a'}
+                  >
+                    {isZero ? '0' : compactNumber(v)}
+                  </text>
+                )}
               </g>
             );
           })}

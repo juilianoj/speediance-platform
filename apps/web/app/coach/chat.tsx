@@ -1,27 +1,35 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useRef, useState, useTransition } from 'react';
 
 import { askCoach, type CoachMessage } from '@/lib/coach/actions';
+
+const SUGGESTED_PROMPTS = [
+  'When did I last train chest?',
+  'What is my best bench press?',
+  'How was last week compared to the week before?',
+  'Which muscle group have I been neglecting?',
+  'Plan me a push day based on my last few sessions.',
+];
 
 export function CoachChat() {
   const [messages, setMessages] = useState<CoachMessage[]>([]);
   const [input, setInput] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
 
-  const onSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const question = input.trim();
-    if (!question) return;
+  const submit = (question: string) => {
+    if (!question.trim()) return;
     setInput('');
     setError(null);
     setMessages((m) => [...m, { role: 'user', content: question }]);
     startTransition(async () => {
-      const res = await askCoach(messages, question);
+      // Use the ref so we capture any messages added since startTransition began.
+      const res = await askCoach(messagesRef.current, question);
       if (!res.ok) {
         setError(res.message);
-        // Roll back the user message so they can retry with the same input.
         setMessages((m) => m.slice(0, -1));
         setInput(question);
         return;
@@ -33,62 +41,103 @@ export function CoachChat() {
     });
   };
 
+  const onSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    submit(input.trim());
+  };
+
   return (
     <div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', minHeight: '120px' }}>
-        {messages.length === 0 && !pending && (
-          <p style={{ color: '#888', margin: 0 }}>
-            Say something to get started — try one of the prompts below.
-          </p>
-        )}
-        {messages.map((m, i) => (
-          <Bubble key={i} m={m} />
-        ))}
-        {pending && <div style={{ ...bubbleAssistant, color: '#888' }}>Thinking…</div>}
-        {error && (
-          <div
-            style={{
-              padding: '0.6rem 0.8rem',
-              background: '#fee2e2',
-              border: '1px solid #fecaca',
-              borderRadius: '6px',
-              color: '#b91c1c',
-              fontSize: '0.9rem',
-            }}
-          >
-            {error}
+      {/* Suggestion chips show when chat is empty — click to auto-submit. */}
+      {messages.length === 0 && !pending && (
+        <div
+          style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginBottom: '1rem' }}
+        >
+          <span style={chipsHeadingStyle}>Try asking</span>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+            {SUGGESTED_PROMPTS.map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => submit(p)}
+                disabled={pending}
+                style={chipStyle}
+              >
+                {p}
+              </button>
+            ))}
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
-      <form onSubmit={onSubmit} style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
+      {(messages.length > 0 || pending || error) && (
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.7rem',
+            padding: '0.85rem',
+            background: '#f8fafc',
+            border: '1px solid #e5e7eb',
+            borderRadius: '12px',
+            marginBottom: '1rem',
+            minHeight: '120px',
+          }}
+        >
+          {messages.map((m, i) => (
+            <Bubble key={i} m={m} />
+          ))}
+          {pending && <div style={{ ...bubbleAssistant, color: '#94a3b8' }}>Thinking…</div>}
+          {error && (
+            <div
+              style={{
+                padding: '0.6rem 0.8rem',
+                background: '#fef2f2',
+                border: '1px solid #fecaca',
+                borderRadius: '8px',
+                color: '#b91c1c',
+                fontSize: '0.88rem',
+              }}
+            >
+              {error}
+            </div>
+          )}
+        </div>
+      )}
+
+      <form onSubmit={onSubmit} style={{ display: 'flex', gap: '0.55rem' }}>
         <input
           type="text"
           name="question"
-          placeholder="Ask the coach…"
+          placeholder="Ask anything about your training…"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           disabled={pending}
+          autoFocus
           style={{
             flex: 1,
-            padding: '0.55rem 0.75rem',
-            border: '1px solid #d0d0d0',
-            borderRadius: '6px',
+            padding: '0.65rem 0.9rem',
+            border: '1px solid #cbd5e1',
+            borderRadius: '10px',
             fontSize: '0.95rem',
+            color: '#0f172a',
+            outline: 'none',
+            background: '#fff',
           }}
         />
         <button
           type="submit"
           disabled={pending || !input.trim()}
           style={{
-            padding: '0.55rem 1.1rem',
-            background: pending ? '#88b8e0' : '#0b78d1',
+            padding: '0.65rem 1.3rem',
+            background: pending ? '#cbd5e1' : 'linear-gradient(135deg, #0b78d1 0%, #0b5fa8 100%)',
             color: 'white',
             border: 'none',
-            borderRadius: '6px',
+            borderRadius: '10px',
             cursor: pending ? 'wait' : 'pointer',
-            fontWeight: 600,
+            fontWeight: 700,
             fontSize: '0.95rem',
+            boxShadow: pending ? 'none' : '0 4px 12px rgba(11,120,209,0.30)',
           }}
         >
           {pending ? '…' : 'Ask'}
@@ -104,7 +153,13 @@ function Bubble({ m }: { m: CoachMessage }) {
     <div style={isUser ? bubbleUser : bubbleAssistant}>
       <div style={{ whiteSpace: 'pre-wrap' }}>{m.content}</div>
       {m.toolsUsed && m.toolsUsed.length > 0 && (
-        <div style={{ marginTop: '0.4rem', color: '#888', fontSize: '0.75rem' }}>
+        <div
+          style={{
+            marginTop: '0.4rem',
+            color: isUser ? 'rgba(255,255,255,0.7)' : '#94a3b8',
+            fontSize: '0.72rem',
+          }}
+        >
           tools: {m.toolsUsed.join(', ')}
         </div>
       )}
@@ -112,24 +167,48 @@ function Bubble({ m }: { m: CoachMessage }) {
   );
 }
 
+const chipsHeadingStyle: React.CSSProperties = {
+  color: '#64748b',
+  fontSize: '0.72rem',
+  fontWeight: 700,
+  textTransform: 'uppercase',
+  letterSpacing: '0.08em',
+};
+
+const chipStyle: React.CSSProperties = {
+  padding: '0.5rem 0.85rem',
+  border: '1px solid #cbd5e1',
+  borderRadius: '999px',
+  background: '#ffffff',
+  color: '#0f172a',
+  fontSize: '0.88rem',
+  cursor: 'pointer',
+  fontFamily: 'inherit',
+  transition: 'border-color 120ms, background 120ms',
+};
+
 const bubbleBase: React.CSSProperties = {
-  padding: '0.6rem 0.9rem',
-  borderRadius: '10px',
+  padding: '0.7rem 1rem',
+  borderRadius: '12px',
   maxWidth: '85%',
   fontSize: '0.95rem',
+  lineHeight: 1.45,
 };
 
 const bubbleUser: React.CSSProperties = {
   ...bubbleBase,
-  background: '#0b78d1',
+  background: 'linear-gradient(135deg, #0b78d1 0%, #0b5fa8 100%)',
   color: 'white',
   alignSelf: 'flex-end',
   marginLeft: 'auto',
+  boxShadow: '0 2px 6px rgba(11,120,209,0.25)',
 };
 
 const bubbleAssistant: React.CSSProperties = {
   ...bubbleBase,
-  background: '#f1f4f8',
-  color: '#1a1a1a',
+  background: '#ffffff',
+  color: '#0f172a',
   alignSelf: 'flex-start',
+  border: '1px solid #e5e7eb',
+  boxShadow: '0 1px 2px rgba(15,23,42,0.04)',
 };

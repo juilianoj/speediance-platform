@@ -5,6 +5,8 @@ import { MUSCLE_GROUP_ORDER, type MuscleGroupSets } from '@/app/dashboard/load-d
 import { verifyIdTokenFromCookies } from '@/lib/auth/session';
 import { loadAllWorkouts } from '@/lib/data/load-workouts';
 
+import { BodyFigure } from './body-figure';
+
 export const metadata = { title: 'Muscle balance — speediance-platform' };
 
 const LABELS: Record<(typeof MUSCLE_GROUP_ORDER)[number], string> = {
@@ -55,8 +57,21 @@ export default async function MusclesPage() {
       <section style={cardStyle}>
         <h2 style={cardHeadingStyle}>30-day balance</h2>
         <p style={mutedStyle}>Set counts by muscle group, with gap callouts.</p>
-        <Bars sets={m30} />
-        <Gaps sets={m30} />
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'minmax(220px, 280px) 1fr',
+            gap: '2rem',
+            alignItems: 'flex-start',
+            marginTop: '0.75rem',
+          }}
+        >
+          <BodyFigure sets={m30} />
+          <div>
+            <Bars sets={m30} />
+            <Gaps sets={m30} />
+          </div>
+        </div>
       </section>
 
       <section style={cardStyle}>
