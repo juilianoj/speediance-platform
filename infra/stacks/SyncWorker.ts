@@ -9,6 +9,10 @@ interface SyncWorkerArgs {
 }
 
 export function SyncWorker({ database }: SyncWorkerArgs) {
+  const stage = $app.stage;
+  const region = 'us-west-2';
+  const secretsArnPattern = `arn:aws:secretsmanager:${region}:*:secret:speediance-platform/${stage}/users/*`;
+
   const fn = new sst.aws.Function('SyncWorker', {
     // Paths resolve relative to sst.config.ts (this file lives in infra/),
     // so we walk up to the repo root before descending into apps/.
@@ -18,7 +22,22 @@ export function SyncWorker({ database }: SyncWorkerArgs) {
     memory: '512 MB',
     environment: {
       LOG_LEVEL: 'info',
+      SST_STAGE: stage,
     },
+    // Read-only access to per-user Speediance secrets. We also need
+    // PutSecretValue to refresh the persisted Speediance token on 401 —
+    // the worker re-logs in and writes the new token back without ever
+    // surfacing the password to the application layer above DynamoDB.
+    permissions: [
+      {
+        actions: [
+          'secretsmanager:GetSecretValue',
+          'secretsmanager:DescribeSecret',
+          'secretsmanager:PutSecretValue',
+        ],
+        resources: [secretsArnPattern],
+      },
+    ],
   });
 
   // 5am ET (= 09:00 UTC during DST, 10:00 UTC standard). EventBridge cron

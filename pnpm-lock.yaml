@@ -51,6 +51,9 @@ importers:
       '@speediance/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@speediance/secrets-store':
+        specifier: workspace:*
+        version: link:../../packages/secrets-store
       '@speediance/speediance-client':
         specifier: workspace:*
         version: link:../../packages/speediance-client
@@ -76,6 +79,15 @@ importers:
       '@aws-sdk/client-cognito-identity-provider':
         specifier: ^3.717.0
         version: 3.1045.0
+      '@speediance/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@speediance/secrets-store':
+        specifier: workspace:*
+        version: link:../../packages/secrets-store
+      '@speediance/speediance-client':
+        specifier: workspace:*
+        version: link:../../packages/speediance-client
       aws-jwt-verify:
         specifier: ^5.0.0
         version: 5.1.1
@@ -187,6 +199,31 @@ importers:
         specifier: ^8.20.0
         version: 8.59.2(eslint@9.39.4)(typescript@5.9.3)
 
+  packages/secrets-store:
+    dependencies:
+      '@aws-sdk/client-secrets-manager':
+        specifier: ^3.717.0
+        version: 3.1045.0
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
+    devDependencies:
+      '@speediance/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
+      '@types/node':
+        specifier: ^22.10.5
+        version: 22.19.18
+      eslint:
+        specifier: ^9.18.0
+        version: 9.39.4
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.19.18)
+
   packages/speediance-client:
     dependencies:
       zod:
@@ -234,6 +271,10 @@ packages:
 
   '@aws-sdk/client-dynamodb@3.1045.0':
     resolution: {integrity: sha512-TxZmhpziFxWD3pdXGbuwntKOX5OkW14yvCITYsRz+QDM5EUL4cIygu2xRGHiKDvKmb3QUOA4yKetAQcIMLe2zw==}
+    engines: {node: '>=20.0.0'}
+
+  '@aws-sdk/client-secrets-manager@3.1045.0':
+    resolution: {integrity: sha512-ceXmaTE/3j7bHgVzUrpL/ECjQQ+aE/x8wNbblC/SIb020OxYRMj0DscFimnI5kEjutGHQ+A68bbX2A+bZuAMEA==}
     engines: {node: '>=20.0.0'}
 
   '@aws-sdk/core@3.974.8':
@@ -2557,6 +2598,50 @@ snapshots:
       '@smithy/util-retry': 4.4.0
       '@smithy/util-utf8': 4.3.0
       '@smithy/util-waiter': 4.4.0
+      tslib: 2.8.1
+    transitivePeerDependencies:
+      - aws-crt
+
+  '@aws-sdk/client-secrets-manager@3.1045.0':
+    dependencies:
+      '@aws-crypto/sha256-browser': 5.2.0
+      '@aws-crypto/sha256-js': 5.2.0
+      '@aws-sdk/core': 3.974.8
+      '@aws-sdk/credential-provider-node': 3.972.39
+      '@aws-sdk/middleware-host-header': 3.972.10
+      '@aws-sdk/middleware-logger': 3.972.10
+      '@aws-sdk/middleware-recursion-detection': 3.972.11
+      '@aws-sdk/middleware-user-agent': 3.972.38
+      '@aws-sdk/region-config-resolver': 3.972.13
+      '@aws-sdk/types': 3.973.8
+      '@aws-sdk/util-endpoints': 3.996.8
+      '@aws-sdk/util-user-agent-browser': 3.972.10
+      '@aws-sdk/util-user-agent-node': 3.973.24
+      '@smithy/config-resolver': 4.5.0
+      '@smithy/core': 3.24.0
+      '@smithy/fetch-http-handler': 5.4.0
+      '@smithy/hash-node': 4.3.0
+      '@smithy/invalid-dependency': 4.3.0
+      '@smithy/middleware-content-length': 4.3.0
+      '@smithy/middleware-endpoint': 4.5.0
+      '@smithy/middleware-retry': 4.6.0
+      '@smithy/middleware-serde': 4.3.0
+      '@smithy/middleware-stack': 4.3.0
+      '@smithy/node-config-provider': 4.4.0
+      '@smithy/node-http-handler': 4.7.0
+      '@smithy/protocol-http': 5.4.0
+      '@smithy/smithy-client': 4.13.0
+      '@smithy/types': 4.14.1
+      '@smithy/url-parser': 4.3.0
+      '@smithy/util-base64': 4.4.0
+      '@smithy/util-body-length-browser': 4.3.0
+      '@smithy/util-body-length-node': 4.3.0
+      '@smithy/util-defaults-mode-browser': 4.4.0
+      '@smithy/util-defaults-mode-node': 4.3.0
+      '@smithy/util-endpoints': 3.5.0
+      '@smithy/util-middleware': 4.3.0
+      '@smithy/util-retry': 4.4.0
+      '@smithy/util-utf8': 4.3.0
       tslib: 2.8.1
     transitivePeerDependencies:
       - aws-crt
