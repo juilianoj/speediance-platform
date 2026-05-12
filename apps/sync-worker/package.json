@@ -11,6 +11,7 @@
     "test": "echo 'no sync-worker tests yet' && exit 0"
   },
   "dependencies": {
+    "@speediance/db": "workspace:*",
     "@speediance/speediance-client": "workspace:*"
   },
   "devDependencies": {
