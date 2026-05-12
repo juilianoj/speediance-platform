@@ -213,13 +213,14 @@ function DashboardBody({
         <div style={cardHeaderStyle}>
           <h2 style={cardHeadingStyle}>Next session</h2>
           <p style={mutedStyle}>
-            Pick a workout to see recommended weights for next time. Each lift uses your last
-            session of that workout.
+            Defaults to your next scheduled workout from the Speediance calendar. The suggested
+            weight per lift comes from the most recent set you logged for that exercise — across any
+            workout.
           </p>
         </div>
         <NextSessionCard
           options={nextOptions}
-          selected={preferredTitle ?? nextPlan?.basedOn.title ?? null}
+          selected={preferredTitle ?? nextOptions[0]?.value ?? null}
           plan={nextPlan}
         />
       </section>

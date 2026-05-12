@@ -1,19 +1,10 @@
-import { redirect } from 'next/navigation';
-
-import { verifyIdTokenFromCookies } from '@/lib/auth/session';
-import { LoginForm } from './login-form';
+import { ForgotPasswordForm } from './forgot-form';
 
 export const metadata = {
-  title: 'Sign in — speediance-platform',
+  title: 'Reset password — speediance-platform',
 };
 
-// Server component. If the user already has a valid id_token cookie we
-// short-circuit and send them to /dashboard so the back button doesn't
-// strand them on the login screen.
-export default async function LoginPage() {
-  const claims = await verifyIdTokenFromCookies();
-  if (claims) redirect('/dashboard');
-
+export default function ForgotPasswordPage() {
   return (
     <div style={wrapStyle}>
       <div style={panelStyle}>
@@ -21,22 +12,12 @@ export default async function LoginPage() {
           <span style={badgeStyle} />
           <span style={brandTextStyle}>speediance</span>
         </div>
-        <div style={eyebrowStyle}>Invite-only</div>
-        <h1 style={h1Style}>Welcome back</h1>
+        <h1 style={h1Style}>Reset your password</h1>
         <p style={subStyle}>
-          Sign in to see your training history, progression, and what to do next.
+          Enter your email and we&rsquo;ll send a 6-digit code. The code expires in 15 minutes.
         </p>
-        <LoginForm />
+        <ForgotPasswordForm />
       </div>
-      <p style={footnoteStyle}>
-        <a
-          href="/forgot-password"
-          style={{ color: '#0b78d1', textDecoration: 'none', fontWeight: 600 }}
-        >
-          Forgot your password?
-        </a>{' '}
-        · New here? You need an emailed invite — invite-only platform.
-      </p>
     </div>
   );
 }
@@ -89,25 +70,11 @@ const brandTextStyle: React.CSSProperties = {
   letterSpacing: '-0.02em',
 };
 
-const eyebrowStyle: React.CSSProperties = {
-  display: 'inline-block',
-  padding: '0.18rem 0.6rem',
-  background: '#eef2ff',
-  color: '#4338ca',
-  fontSize: '0.7rem',
-  fontWeight: 700,
-  letterSpacing: '0.08em',
-  textTransform: 'uppercase',
-  borderRadius: '999px',
-  marginBottom: '0.65rem',
-};
-
 const h1Style: React.CSSProperties = {
   margin: 0,
-  fontSize: '1.9rem',
+  fontSize: '1.7rem',
   fontWeight: 800,
   letterSpacing: '-0.02em',
-  color: '#0f172a',
 };
 
 const subStyle: React.CSSProperties = {
@@ -115,13 +82,4 @@ const subStyle: React.CSSProperties = {
   color: '#64748b',
   fontSize: '0.92rem',
   lineHeight: 1.5,
-};
-
-const footnoteStyle: React.CSSProperties = {
-  marginTop: '1.5rem',
-  maxWidth: 420,
-  fontSize: '0.78rem',
-  color: '#94a3b8',
-  textAlign: 'center',
-  lineHeight: 1.6,
 };

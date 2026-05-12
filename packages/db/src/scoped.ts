@@ -91,6 +91,11 @@ export interface UserScopedDb {
     list: () => Promise<unknown>;
     put: (input: Put<'memories'>) => Promise<unknown>;
   };
+
+  feedback: {
+    list: () => Promise<unknown>;
+    put: (input: Put<'feedback'>) => Promise<unknown>;
+  };
 }
 
 export interface CreatedDb {
@@ -212,6 +217,14 @@ export function createDb(opts: DbConfig): CreatedDb {
           put: (input) =>
             entities.memories
               .put({ ...input, userId } as CreateEntityItem<Entities['memories']>)
+              .go(),
+        },
+
+        feedback: {
+          list: () => entities.feedback.query.primary({ userId }).go({ pages: 'all' }),
+          put: (input) =>
+            entities.feedback
+              .put({ ...input, userId } as CreateEntityItem<Entities['feedback']>)
               .go(),
         },
       };

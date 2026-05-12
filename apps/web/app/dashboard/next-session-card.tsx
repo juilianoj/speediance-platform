@@ -6,8 +6,8 @@ import type { NextWorkoutPlan, WorkoutOption } from '@/lib/data/load-next-workou
 
 /**
  * Recommendation panel for the user's next workout. Server-rendered table
- * with a client-side picker (router.push + revalidate) so changing the
- * selection drives a real re-render with fresh recommendations.
+ * with a client-side picker (router.push) so changing the selection drives
+ * a real re-render with fresh recommendations.
  */
 export function NextSessionCard({
   options,
@@ -34,6 +34,9 @@ export function NextSessionCard({
     );
   }
 
+  const source = plan?.source;
+  const lastCompleted = plan?.lastCompleted ?? null;
+
   return (
     <>
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
@@ -53,14 +56,14 @@ export function NextSessionCard({
             borderRadius: '8px',
             fontSize: '0.95rem',
             background: '#fff',
-            minWidth: '260px',
-            flex: '1 1 320px',
-            maxWidth: '480px',
+            minWidth: '320px',
+            flex: '1 1 360px',
+            maxWidth: '560px',
           }}
         >
           {options.map((o) => (
-            <option key={o.title} value={o.title}>
-              {o.title} ({o.count}×, last {shortDate(o.lastDone)})
+            <option key={o.value} value={o.value}>
+              {o.label}
             </option>
           ))}
         </select>
@@ -68,26 +71,38 @@ export function NextSessionCard({
 
       {!plan || plan.lifts.length === 0 ? (
         <p style={{ color: '#94a3b8', marginTop: '1rem' }}>
-          No detail data is available for this workout. Either Speediance didn&rsquo;t record set
-          info for it, or sync is still backfilling.
+          No exercise data is available for this workout yet — try again after the next sync.
         </p>
       ) : (
         <>
           <p style={{ margin: '0.85rem 0 0.75rem 0', color: '#64748b', fontSize: '0.85rem' }}>
-            Based on{' '}
-            <a
-              href={`/workouts/${encodeURIComponent(plan.basedOn.startTime)}`}
-              style={{ color: '#0b78d1', textDecoration: 'none' }}
-            >
-              {shortDate(plan.basedOn.startTime)} session
-            </a>{' '}
-            ·{' '}
-            <a
-              href={`/workouts/by-title/${encodeURIComponent(plan.basedOn.title ?? '')}`}
-              style={{ color: '#0b78d1', textDecoration: 'none' }}
-            >
-              full history
-            </a>
+            {source?.kind === 'scheduled' ? (
+              <>
+                Up next: <strong style={{ color: '#0f172a' }}>{plan.title}</strong> · scheduled{' '}
+                {shortDate(source.date)}.
+              </>
+            ) : (
+              <>
+                Most recent: <strong style={{ color: '#0f172a' }}>{plan.title}</strong> ·{' '}
+                {shortDate(source?.date ?? '')}.
+              </>
+            )}
+            {lastCompleted && source?.kind === 'scheduled' && (
+              <>
+                {' '}
+                Last completed{' '}
+                <a
+                  href={`/workouts/${encodeURIComponent(lastCompleted.startTime)}`}
+                  style={{ color: '#0b78d1', textDecoration: 'none' }}
+                >
+                  {shortDate(lastCompleted.startTime)}
+                </a>
+                .
+              </>
+            )}{' '}
+            <span style={{ color: '#94a3b8' }}>
+              Last weight pulled from your lifetime history for each lift.
+            </span>
           </p>
           <div style={{ overflowX: 'auto' }}>
             <table style={tableStyle}>
@@ -116,6 +131,8 @@ export function NextSessionCard({
                         <div style={{ color: '#94a3b8', fontSize: '0.75rem' }}>
                           {lift.muscleGroup ?? '—'}
                           {lift.isUnilateral && ' · L/R'}
+                          {lift.lastSessionDate &&
+                            ` · last ${shortDate(lift.lastSessionDate.slice(0, 10))}`}
                         </div>
                       </td>
                       <td style={{ ...tdStyle, textAlign: 'right' }}>
@@ -163,11 +180,12 @@ export function NextSessionCard({
 }
 
 function shortDate(iso: string): string {
-  const d = new Date(iso);
+  if (!iso) return '';
+  const d = iso.length === 10 ? new Date(iso + 'T00:00:00Z') : new Date(iso);
   const m = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][
-    d.getMonth()
+    d.getUTCMonth()
   ];
-  return `${m} ${d.getDate()}`;
+  return `${m} ${d.getUTCDate()}`;
 }
 
 const tableStyle: React.CSSProperties = {

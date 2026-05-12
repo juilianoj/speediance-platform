@@ -214,33 +214,37 @@ export async function runTool(
       if (!result?.plan) {
         return {
           message: 'No prior workouts to project from.',
-          workouts: result?.options.map((o) => o.title) ?? [],
+          workouts: result?.options.map((o) => o.label) ?? [],
         };
       }
       const plan = result.plan;
       return {
-        basedOn: {
-          title: plan.basedOn.title,
-          startTime: plan.basedOn.startTime,
-          durationMinutes: plan.basedOn.durationSeconds
-            ? Math.round(plan.basedOn.durationSeconds / 60)
-            : undefined,
-        },
+        source: plan.source,
+        title: plan.title,
+        lastCompleted: plan.lastCompleted
+          ? {
+              startTime: plan.lastCompleted.startTime,
+              durationMinutes: plan.lastCompleted.durationSeconds
+                ? Math.round(plan.lastCompleted.durationSeconds / 60)
+                : undefined,
+            }
+          : null,
         lifts: plan.lifts.map((l) => ({
           name: l.name,
           muscleGroup: l.muscleGroup,
           lastWeight: l.lastWeight,
           lastReps: l.lastReps,
           lastTargetReps: l.lastTargetReps,
+          lastSessionDate: l.lastSessionDate,
           formFlagged: (l.lastFormFlags?.length ?? 0) > 0,
           bestWeight: l.bestWeight,
           suggestedWeight: l.recommendedWeight,
           note: l.recommendNote,
         })),
         availableWorkouts: result.options.map((o) => ({
-          title: o.title,
-          lastDone: o.lastDone,
-          count: o.count,
+          value: o.value,
+          label: o.label,
+          scheduled: o.scheduled,
         })),
       };
     }

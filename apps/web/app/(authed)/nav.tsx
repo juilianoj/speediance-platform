@@ -12,6 +12,7 @@ type Key =
   | 'adherence'
   | 'coach'
   | 'admin'
+  | 'feedback'
   | 'profile';
 
 const ITEMS: Array<{ key: Key; label: string; href: string }> = [
@@ -21,6 +22,7 @@ const ITEMS: Array<{ key: Key; label: string; href: string }> = [
   { key: 'muscles', label: 'Muscles', href: '/muscles' },
   { key: 'adherence', label: 'Adherence', href: '/adherence' },
   { key: 'coach', label: 'Coach', href: '/coach' },
+  { key: 'feedback', label: 'Feedback', href: '/feedback' },
   { key: 'admin', label: 'Admin', href: '/admin' },
 ];
 
