@@ -71,6 +71,14 @@ export async function signIn(_prev: LoginResult | null, formData: FormData): Pro
       return { state: 'error', message: 'Unexpected auth response.' };
     }
 
+    // When the pool uses email as an alias attribute (our case), Cognito's
+    // canonical username is a generated UUID — surfaced here in
+    // ChallengeParameters.USER_ID_FOR_SRP. SRP password-signature *and*
+    // every subsequent ChallengeResponses.USERNAME field must use that
+    // value, not the email the user typed. Mismatch → "Incorrect email
+    // or password" with no other hint.
+    const userIdForSrp = initResp.ChallengeParameters?.USER_ID_FOR_SRP ?? email;
+
     // -- 2. PASSWORD_VERIFIER: combine server SRP_B + salt + secret block,
     //       compute password proof, send back.
     const signed = signSrpSession(srpSession, initResp);
@@ -80,12 +88,12 @@ export async function signIn(_prev: LoginResult | null, formData: FormData): Pro
           ChallengeName: ChallengeNameType.PASSWORD_VERIFIER,
           ClientId: userPoolClientId,
           Session: initResp.Session,
-          ChallengeResponses: { USERNAME: email },
+          ChallengeResponses: { USERNAME: userIdForSrp },
         }),
       ),
     );
 
-    return await routeChallenge(challengeResp, email);
+    return await routeChallenge(challengeResp, userIdForSrp);
   } catch (err: unknown) {
     if (isNextRedirect(err)) throw err;
     // Cognito's "NotAuthorizedException" covers both wrong-password and
