@@ -1,5 +1,11 @@
 import { z } from 'zod';
 
+/** Cognito's canonical username when the pool uses email as an alias
+ *  is the user's `sub` UUID (e.g. `a801f3f0-b061-708f-0c24-8ca85277ed5f`).
+ *  Subsequent challenge responses carry that value verbatim in the
+ *  USERNAME field; treating it opaquely keeps the validation honest. */
+const UsernameSchema = z.string().min(1).max(320);
+
 /** Validation for the email+password form. Email length cap per RFC 5321. */
 export const LoginInputSchema = z.object({
   email: z.string().email().max(320),
@@ -11,7 +17,7 @@ export const LoginInputSchema = z.object({
  *  but failing locally is faster and avoids a wasted Cognito request. */
 export const MfaInputSchema = z.object({
   session: z.string().min(1),
-  username: z.string().email().max(320),
+  username: UsernameSchema,
   code: z.string().regex(/^\d{6}$/, '6-digit code'),
 });
 
@@ -22,7 +28,7 @@ export const MfaInputSchema = z.object({
  *  the rest server-side. */
 export const NewPasswordInputSchema = z.object({
   session: z.string().min(1),
-  username: z.string().email().max(320),
+  username: UsernameSchema,
   newPassword: z.string().min(12).max(256),
 });
 
@@ -30,7 +36,7 @@ export const NewPasswordInputSchema = z.object({
  *  authenticator app and is sending the first 6-digit code to prove it. */
 export const MfaSetupInputSchema = z.object({
   session: z.string().min(1),
-  username: z.string().email().max(320),
+  username: UsernameSchema,
   code: z.string().regex(/^\d{6}$/, '6-digit code'),
 });
 
