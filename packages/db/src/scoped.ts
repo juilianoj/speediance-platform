@@ -51,6 +51,10 @@ export interface UserScopedDb {
      *  when this becomes hot. */
     listAll: () => Promise<unknown>;
     put: (input: Put<'sets'>) => Promise<unknown>;
+    /** Remove every Set item for a workout — used by the sync worker so a
+     *  re-pull cleans up exercises that no longer appear in the upstream
+     *  response (otherwise prior writes accumulate as ghost rows). */
+    deleteForWorkout: (startTime: string) => Promise<void>;
   };
 
   exercises: {
@@ -135,6 +139,27 @@ export function createDb(opts: DbConfig): CreatedDb {
           listAll: () => entities.sets.query.primary({ userId }).go({ pages: 'all' }),
           put: (input) =>
             entities.sets.put({ ...input, userId } as CreateEntityItem<Entities['sets']>).go(),
+          deleteForWorkout: async (startTime) => {
+            // ElectroDB doesn't have a Query+Delete chain, so we fetch the
+            // primary keys and BatchWrite delete them. Set count per
+            // workout is small (~30 max) so a single batch is enough.
+            const result = (await entities.sets.query
+              .primary({ userId, startTime })
+              .go({ pages: 'all' })) as {
+              data: Array<{ exerciseId: string; setNum: number }>;
+            };
+            if (result.data.length === 0) return;
+            await entities.sets
+              .delete(
+                result.data.map((s) => ({
+                  userId,
+                  startTime,
+                  exerciseId: s.exerciseId,
+                  setNum: s.setNum,
+                })),
+              )
+              .go();
+          },
         },
 
         exercises: {

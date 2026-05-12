@@ -26,14 +26,25 @@ export interface NextWorkoutPlan {
   lifts: PlannedLift[];
 }
 
+export interface WorkoutOption {
+  title: string;
+  lastDone: string;
+  count: number;
+}
+
 /**
- * Find the user's most recent workout title and project the same exercise
- * list forward with progression recommendations. This is a placeholder for
- * the eventual "look at Speediance's scheduled calendar" approach — for now
- * we assume the next session is a repeat of the last one (which is usually
- * true mid-cycle on Speediance courses).
+ * Build a recommendation table for the next session of a chosen workout
+ * title. Pulls the user's most recent session of that title (or the most
+ * recent workout overall if no title is given) and projects each lift
+ * forward using the progression rules.
+ *
+ * Also returns the full list of workout-titles in the user's history so the
+ * dashboard can render a picker.
  */
-export async function loadNextWorkoutPlan(userId: string): Promise<NextWorkoutPlan | null> {
+export async function loadNextWorkoutPlan(
+  userId: string,
+  preferredTitle?: string,
+): Promise<{ plan: NextWorkoutPlan | null; options: WorkoutOption[] } | null> {
   const tableName = process.env.DYNAMO_TABLE_NAME;
   if (!tableName) return null;
   const me = createDb({ tableName }).forUser(userId);
@@ -47,8 +58,24 @@ export async function loadNextWorkoutPlan(userId: string): Promise<NextWorkoutPl
   const workouts = (workoutsRes.data ?? [])
     .filter((w) => !(w.isCardio || w.speedianceTrainingType === 'cardio'))
     .sort((a, b) => (a.startTime > b.startTime ? -1 : 1));
-  const reference = workouts[0];
-  if (!reference) return null;
+
+  // Build the option list (one per distinct title, sorted by recency).
+  const optionMap = new Map<string, WorkoutOption>();
+  for (const w of workouts) {
+    if (!w.title) continue;
+    if (!optionMap.has(w.title)) {
+      optionMap.set(w.title, { title: w.title, lastDone: w.startTime, count: 0 });
+    }
+    const o = optionMap.get(w.title)!;
+    o.count += 1;
+    if (w.startTime > o.lastDone) o.lastDone = w.startTime;
+  }
+  const options = [...optionMap.values()].sort((a, b) => (a.lastDone > b.lastDone ? -1 : 1));
+
+  // Pick the reference workout: the latest session of `preferredTitle` if
+  // supplied, otherwise the very most recent workout.
+  const reference = preferredTitle ? workouts.find((w) => w.title === preferredTitle) : workouts[0];
+  if (!reference) return { plan: null, options };
 
   const exById = new Map((exercisesRes.data ?? []).map((e) => [e.exerciseId, e]));
 
@@ -56,7 +83,7 @@ export async function loadNextWorkoutPlan(userId: string): Promise<NextWorkoutPl
   // exercises we'll plan for next session.
   const referenceSets = (setsRes.data ?? []).filter((s) => s.startTime === reference.startTime);
   if (referenceSets.length === 0) {
-    return { basedOn: reference, lifts: [] };
+    return { plan: { basedOn: reference, lifts: [] }, options };
   }
 
   // Order: first occurrence in the workout.
@@ -101,7 +128,7 @@ export async function loadNextWorkoutPlan(userId: string): Promise<NextWorkoutPl
     };
   });
 
-  return { basedOn: reference, lifts };
+  return { plan: { basedOn: reference, lifts }, options };
 }
 
 function recommend(opts: {

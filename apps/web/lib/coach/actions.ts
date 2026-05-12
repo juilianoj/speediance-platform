@@ -153,7 +153,14 @@ export async function askCoach(
               tname,
               (block.toolUse.input ?? {}) as Record<string, unknown>,
             );
-            const content: ToolResultContentBlock[] = [{ json: result as never }];
+            // Bedrock's tool_result `json` field MUST be a JSON object
+            // (not an array). Wrap raw arrays in { items: [...] } so the
+            // model still gets clean structured input regardless of what
+            // our tool returns. The model sees the structure either way.
+            const wrapped = Array.isArray(result)
+              ? { items: result }
+              : (result as Record<string, unknown>);
+            const content: ToolResultContentBlock[] = [{ json: wrapped as never }];
             toolResults.push({
               toolResult: {
                 toolUseId: tuseId,
