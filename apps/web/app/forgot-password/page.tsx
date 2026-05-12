@@ -1,3 +1,5 @@
+import { SpeedianceMark } from '@/app/speediance-mark';
+
 import { ForgotPasswordForm } from './forgot-form';
 
 export const metadata = {
@@ -9,7 +11,7 @@ export default function ForgotPasswordPage() {
     <div style={wrapStyle}>
       <div style={panelStyle}>
         <div style={brandRowStyle}>
-          <span style={badgeStyle} />
+          <SpeedianceMark size={32} />
           <span style={brandTextStyle}>speediance</span>
         </div>
         <h1 style={h1Style}>Reset your password</h1>
@@ -52,15 +54,6 @@ const brandRowStyle: React.CSSProperties = {
   alignItems: 'center',
   gap: '0.55rem',
   marginBottom: '1.25rem',
-};
-
-const badgeStyle: React.CSSProperties = {
-  display: 'inline-block',
-  width: 30,
-  height: 30,
-  borderRadius: '8px',
-  background: 'linear-gradient(135deg, #0b78d1 0%, #7c3aed 100%)',
-  boxShadow: '0 3px 10px rgba(11,120,209,0.45)',
 };
 
 const brandTextStyle: React.CSSProperties = {
