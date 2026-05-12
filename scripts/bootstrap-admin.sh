@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 # bootstrap-admin.sh — create the first invite-only user in Cognito and put
-# them in the `admin` group. Phase 0.3 adds an in-app invite flow that
-# replaces this script for subsequent users; for the very first admin
-# (the AWS account owner), this is the bootstrap path.
+# them in the `admin` group. Used only for the very first admin (the AWS
+# account owner) — Phase 0.3's in-app /admin invite flow handles everyone else.
 #
 # Usage:
 #   AWS_PROFILE=speediance USER_POOL_ID=us-west-2_… \
@@ -14,13 +13,10 @@
 #   3. Prompts for a permanent password and AdminSetUserPassword.
 #   4. AdminAddUserToGroup → admin.
 #
-# What it doesn't do:
-#   - Register MFA. Cognito requires MFA enrolment to happen via a signed-in
-#     session, which means doing the MFA_SETUP challenge dance after the
-#     password is set. The easiest path is the AWS Console:
-#       Cognito → User pools → {pool} → Users → {email} → "Multi-factor authentication"
-#         → Add MFA → Authenticator app → scan QR with 1Password/Authy
-#     Phase 0.3 (admin invite) bakes this into the web UI for new users.
+# MFA registration is *not* done here. Sign in at /login with the password
+# you just set; the web UI handles the MFA_SETUP challenge — it'll show a QR
+# you scan into 1Password / Authy / Google Authenticator, then ask for the
+# first 6-digit code to confirm.
 
 set -euo pipefail
 
@@ -105,13 +101,9 @@ echo "✓ Added to group '${GROUP_NAME}'"
 
 echo
 echo "==================================================================="
-echo "Almost done — register MFA before first sign-in."
+echo "Done. Sign in at /login with the password you just set."
+echo "The web UI will walk you through MFA enrolment (QR + first code)."
 echo
-echo "AWS Console path:"
-echo "  Cognito → User pools → ${USER_POOL_ID} → Users → ${EMAIL}"
-echo "    → 'Multi-factor authentication' → 'Add MFA factor'"
-echo "    → Authenticator app → scan QR with 1Password / Authy / Google Auth"
-echo
-echo "Then sign in at:"
-echo "  https://\${WEB_URL}/login   (sst output --stage dev webUrl)"
+echo "Web URL:"
+echo "  pnpm --filter infra exec sst output --stage dev webUrl"
 echo "==================================================================="
