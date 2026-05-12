@@ -135,9 +135,12 @@ export async function syncUser(userId: string): Promise<SyncSummary> {
     // Earlier versions of this worker assumed `templateName`/`duration`/
     // `calories` field names; those don't exist on the response, so every
     // workout was being saved with title/duration/output as undefined.
-    const records = (await client.getTrainingRecords(rangeStart, rangeEnd)) as Array<
-      Record<string, unknown>
-    >;
+    // Speediance's records endpoint silently truncates / nulls-out when the
+    // date range is too wide (saw `null` come back for a 7-year window).
+    // Chunk into 6-month windows and concat the results. The API returns
+    // [] for empty windows so this is safe over Speediance's pre-launch
+    // years too.
+    const records = await fetchAllRecords(client, rangeStart, rangeEnd);
     console.info(
       `syncUser ${userId}: ${records.length} training records in ${rangeStart}..${rangeEnd}`,
     );
@@ -283,6 +286,58 @@ function createSpeedianceClient(
     },
   });
   return client;
+}
+
+/**
+ * Pull all training records in [start, end] by chunking into 6-month
+ * windows. The Speediance API returns `null` (not `[]`) for ranges it
+ * can't satisfy in one response, so we treat null defensively and just
+ * skip the window. Records are merged in the order returned by the API.
+ */
+async function fetchAllRecords(
+  client: SpeedianceClient,
+  startIso: string,
+  endIso: string,
+): Promise<Array<Record<string, unknown>>> {
+  const out: Array<Record<string, unknown>> = [];
+  const seenIds = new Set<string>();
+  let cursor = new Date(`${startIso}T00:00:00Z`);
+  const end = new Date(`${endIso}T00:00:00Z`);
+
+  while (cursor <= end) {
+    const windowEnd = new Date(cursor);
+    windowEnd.setUTCMonth(windowEnd.getUTCMonth() + 6);
+    if (windowEnd > end) windowEnd.setTime(end.getTime());
+
+    const wStart = cursor.toISOString().slice(0, 10);
+    const wEnd = windowEnd.toISOString().slice(0, 10);
+    try {
+      const chunk = (await client.getTrainingRecords(wStart, wEnd)) as unknown;
+      if (Array.isArray(chunk)) {
+        for (const rec of chunk) {
+          if (typeof rec !== 'object' || rec === null) continue;
+          const r = rec as Record<string, unknown>;
+          // Dedup by (id, startTimestamp) — the API can return the same
+          // record on the seam between adjacent windows.
+          const key =
+            r.id !== undefined
+              ? `id-${r.id}`
+              : `t-${r.startTimestamp ?? r.startTime ?? Math.random()}`;
+          if (seenIds.has(key)) continue;
+          seenIds.add(key);
+          out.push(r);
+        }
+      }
+    } catch (err) {
+      console.warn(`getTrainingRecords ${wStart}..${wEnd} failed`, err);
+    }
+
+    // Step the cursor one day past the window end so the next iteration
+    // doesn't re-fetch the same end day.
+    cursor = new Date(windowEnd);
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return out;
 }
 
 /**
