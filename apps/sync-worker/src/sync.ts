@@ -201,7 +201,7 @@ export async function syncUser(userId: string): Promise<SyncSummary> {
       if (!isCardio && rec.trainingId !== undefined) {
         await me.sets.deleteForWorkout(startTimeIso);
         try {
-          const exercises = await fetchExercisesPreferCustom(client, rec);
+          const exercises = await fetchExercisesMerged(client, rec);
           if (exercises.length > 0) {
             setsProcessed += await upsertExercisesAndSets(me, startTimeIso, exercises);
           }
@@ -297,41 +297,68 @@ function createSpeedianceClient(
 }
 
 /**
- * Try the custom-template detail endpoint first; fall back to course when
- * custom returns zero or only-template entries. "Real" sets have at least
- * one rep with finishedCount > 0 or a non-zero weight in their
- * trainingInfoDetail.weights / leftWeights array.
+ * Speediance splits a workout's exercises across BOTH detail endpoints:
+ *
+ *   `cttTrainingInfoDetail` (custom)  — the barbell / cable / weighted
+ *      strength work. Has the heavy lifts with real per-rep weights.
+ *   `courseTrainingInfoDetail` (course) — the warmups, stretches, mobility
+ *      drills, and any course-prescribed exercises (which may also be
+ *      barbell lifts!). Stretches show finishedCount=0 because the device
+ *      doesn't count reps for them.
+ *
+ * Both endpoints return real user-completion data; they're just different
+ * "phases" of the same workout. So we fetch BOTH and merge — dedupe by
+ * actionLibraryGroupId, preferring the version with real completion data
+ * if the same exercise appears in both. (Verified with live probe: 5
+ * exercises from custom + 11 from course = 16 total for the same workout.)
  */
-async function fetchExercisesPreferCustom(
+async function fetchExercisesMerged(
   client: SpeedianceClient,
   rec: Record<string, unknown>,
 ): Promise<Array<Record<string, unknown>>> {
   const id = rec.trainingId as string | number;
-  const tryFetch = async (type: 'course' | 'custom') => {
-    const r = (await client.getTrainingDetail(id, type)) as unknown;
-    return Array.isArray(r) ? (r as Array<Record<string, unknown>>) : [];
+  const safeFetch = async (type: 'course' | 'custom') => {
+    try {
+      const r = (await client.getTrainingDetail(id, type)) as unknown;
+      return Array.isArray(r) ? (r as Array<Record<string, unknown>>) : [];
+    } catch (err) {
+      console.warn(`getTrainingDetail ${type} ${id} failed`, err);
+      return [];
+    }
   };
-  const custom = await tryFetch('custom');
-  if (hasRealCompletion(custom)) return custom;
-  const course = await tryFetch('course');
-  if (hasRealCompletion(course)) return course;
-  // Neither has completion data — prefer whichever is non-empty so the user
-  // at least sees the exercise list even if weights are missing.
-  return custom.length > 0 ? custom : course;
+
+  const [custom, course] = await Promise.all([safeFetch('custom'), safeFetch('course')]);
+
+  // Merge by actionLibraryGroupId, preserving the order the device played
+  // them (warmups first via course, then the strength work via custom).
+  const merged = new Map<string, Record<string, unknown>>();
+  const pushUnique = (list: Array<Record<string, unknown>>) => {
+    for (const ex of list) {
+      const id = String(ex.actionLibraryGroupId ?? '');
+      if (!id) continue;
+      const existing = merged.get(id);
+      if (!existing) {
+        merged.set(id, ex);
+      } else if (hasRealCompletion(ex) && !hasRealCompletion(existing)) {
+        merged.set(id, ex);
+      }
+    }
+  };
+  pushUnique(course);
+  pushUnique(custom);
+  return [...merged.values()];
 }
 
-function hasRealCompletion(exercises: Array<Record<string, unknown>>): boolean {
-  for (const ex of exercises) {
-    if (typeof ex.maxWeight === 'number' && ex.maxWeight > 0) return true;
-    if (typeof ex.totalCapacity === 'number' && ex.totalCapacity > 0) return true;
-    const reps = Array.isArray(ex.finishedReps) ? ex.finishedReps : [];
-    for (const r of reps) {
-      if (typeof r !== 'object' || r === null) continue;
-      const rr = r as Record<string, unknown>;
-      const fc = typeof rr.finishedCount === 'number' ? rr.finishedCount : 0;
-      const cap = typeof rr.capacity === 'number' ? rr.capacity : 0;
-      if (fc > 0 || cap > 0) return true;
-    }
+function hasRealCompletion(ex: Record<string, unknown>): boolean {
+  if (typeof ex.maxWeight === 'number' && ex.maxWeight > 0) return true;
+  if (typeof ex.totalCapacity === 'number' && ex.totalCapacity > 0) return true;
+  const reps = Array.isArray(ex.finishedReps) ? ex.finishedReps : [];
+  for (const r of reps) {
+    if (typeof r !== 'object' || r === null) continue;
+    const rr = r as Record<string, unknown>;
+    const fc = typeof rr.finishedCount === 'number' ? rr.finishedCount : 0;
+    const cap = typeof rr.capacity === 'number' ? rr.capacity : 0;
+    if (fc > 0 || cap > 0) return true;
   }
   return false;
 }
