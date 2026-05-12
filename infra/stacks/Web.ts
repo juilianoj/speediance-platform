@@ -58,7 +58,7 @@ export function Web({ api, auth, database, syncWorker }: WebArgs) {
       // model invocations. Override the model id here if Sonnet 4 isn't
       // available in your region; the `us.` prefix is a cross-region
       // inference profile that improves availability.
-      BEDROCK_MODEL_ID: 'us.anthropic.claude-sonnet-4-20250514-v1:0',
+      BEDROCK_MODEL_ID: 'us.anthropic.claude-sonnet-4-6',
     },
     permissions: [
       {
