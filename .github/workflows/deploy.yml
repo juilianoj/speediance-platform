@@ -38,7 +38,9 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          # pnpm 11 uses `node:sqlite` (added in Node 22.5) — Node 20 crashes
+          # at startup with ERR_UNKNOWN_BUILTIN_MODULE.
+          node-version: '22'
           cache: 'pnpm'
 
       - name: Install dependencies
