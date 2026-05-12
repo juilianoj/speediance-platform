@@ -35,6 +35,11 @@ export interface UserScopedDb {
   profiles: {
     get: () => Promise<unknown>;
     upsert: (input: Put<'profiles'>) => Promise<unknown>;
+    /** Partial update — preserves fields not present in `input`. Use this
+     *  for single-field toggles so we don't have to round-trip the full
+     *  profile through a read-then-put cycle (which historically clobbered
+     *  fields we forgot to carry over). */
+    patch: (input: Partial<Put<'profiles'>>) => Promise<unknown>;
   };
 
   workouts: {
@@ -126,6 +131,15 @@ export function createDb(opts: DbConfig): CreatedDb {
           upsert: (input) =>
             entities.profiles
               .put({ ...input, userId } as CreateEntityItem<Entities['profiles']>)
+              .go(),
+          patch: (input) =>
+            // ElectroDB `patch` updates only the supplied attributes,
+            // leaving the rest untouched. Casting the input here because
+            // ElectroDB's typed update signature is more restrictive than
+            // Partial<Put<>> at the type level.
+            entities.profiles
+              .patch({ userId })
+              .set(input as Partial<CreateEntityItem<Entities['profiles']>>)
               .go(),
         },
 

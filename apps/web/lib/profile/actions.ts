@@ -55,6 +55,7 @@ export async function saveProfile(
     allowMonsterMoves: formData.get('allowMonsterMoves') === 'on',
     bodyweight: formData.get('bodyweight') || undefined,
     gender: formData.get('gender') || undefined,
+    hideCardio: formData.get('hideCardio') === 'on',
     unit: formData.get('unit'),
     syncStartDate: formData.get('syncStartDate') || undefined,
   });
@@ -137,6 +138,7 @@ export async function saveProfile(
       email: claims.email,
       bodyweight: input.bodyweight,
       gender: input.gender,
+      hideCardio: input.hideCardio,
       unit: input.unit,
       region: input.region,
       deviceType: input.deviceType,
@@ -178,4 +180,24 @@ export async function saveProfile(
     message:
       'Saved. Pulling your Speediance training history now — refresh /dashboard in a minute.',
   };
+}
+
+/**
+ * Toggle `hideCardio` on the profile. Used by the empty-state on /cardio
+ * for users without an Apple Health / Google Fit connection — clicking
+ * "Hide cardio" drops the nav link and redirects /cardio.
+ */
+export async function setCardioHidden(hidden: boolean): Promise<{ ok: boolean }> {
+  const claims = await verifyIdTokenFromCookies();
+  if (!claims) return { ok: false };
+  const tableName = process.env.DYNAMO_TABLE_NAME;
+  if (!tableName) return { ok: false };
+  try {
+    const me = createDb({ tableName }).forUser(claims.sub);
+    await me.profiles.patch({ hideCardio: hidden });
+    return { ok: true };
+  } catch (err) {
+    console.error('setCardioHidden failed', err);
+    return { ok: false };
+  }
 }

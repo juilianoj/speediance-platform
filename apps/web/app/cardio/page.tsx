@@ -9,8 +9,11 @@ import {
   tdStyle,
   thStyle,
 } from '@/app/(authed)/page-shell';
+import { loadProfile } from '@/app/profile/load-profile';
 import { verifyIdTokenFromCookies } from '@/lib/auth/session';
 import { loadAllWorkouts } from '@/lib/data/load-workouts';
+
+import { HideCardioButton } from './hide-cardio-button';
 
 export const metadata = { title: 'Cardio — speediance-platform' };
 
@@ -18,8 +21,43 @@ export default async function CardioPage() {
   const claims = await verifyIdTokenFromCookies();
   if (!claims) redirect('/login');
 
-  const all = await loadAllWorkouts(claims.sub);
+  const [all, profile] = await Promise.all([loadAllWorkouts(claims.sub), loadProfile(claims.sub)]);
+
+  // User explicitly hid cardio — bounce them home.
+  if (profile?.hideCardio) redirect('/dashboard');
+
   const cardio = all.filter((w) => w.isCardio || w.speedianceTrainingType === 'cardio');
+
+  // Empty state — explain where cardio data comes from + offer to hide the
+  // section entirely. Avoids the dead-feeling page when the user hasn't
+  // hooked Apple Health / Google Fit into their Speediance app.
+  if (cardio.length === 0) {
+    return (
+      <PageShell current="cardio" userLabel={String(claims.email ?? claims.sub)} title="Cardio">
+        <section style={cardStyle}>
+          <h2 style={cardHeadingStyle}>No cardio sessions yet</h2>
+          <p style={{ margin: '0.4rem 0 0.8rem 0', color: '#475569', lineHeight: 1.55 }}>
+            Speediance only logs cardio when their mobile app is connected to{' '}
+            <strong>Apple Health</strong> (iOS) or <strong>Google Fit</strong> (Android). Walks,
+            runs, and bike sessions sync from there into your Speediance training history, then we
+            pull them down here on the next sync.
+          </p>
+          <p style={{ margin: '0 0 0.6rem 0', color: '#475569', lineHeight: 1.55 }}>
+            <strong>To connect it:</strong> open the Speediance app → Profile → Health Data → enable
+            the Apple Health / Google Fit integration. Future walks will show up here after the next
+            morning&apos;s sync.
+          </p>
+          <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.85rem' }}>
+            Not interested? Hide the Cardio section — you can re-enable it any time from your
+            Profile.
+          </p>
+          <div style={{ marginTop: '1rem' }}>
+            <HideCardioButton />
+          </div>
+        </section>
+      </PageShell>
+    );
+  }
 
   // Group by ISO week.
   type WeekRow = {

@@ -49,6 +49,7 @@ export default async function ProfilePage() {
             allowMonsterMoves: secret?.allowMonsterMoves ?? existing?.allowMonsterMoves ?? false,
             bodyweight: existing?.bodyweight,
             gender: existing?.gender,
+            hideCardio: existing?.hideCardio,
             unit: existing?.unit ?? 1, // imperial by default for US users
             syncStartDate: existing?.syncStartDate ?? defaultSyncStart(),
           }}
