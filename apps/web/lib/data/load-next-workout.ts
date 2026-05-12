@@ -113,11 +113,10 @@ async function getCourseCurriculum(userId: string, courseId: number): Promise<Cu
     allowMonsterMoves: secret.allowMonsterMoves,
   });
   try {
-    const r = (client as unknown as { req: <T>(m: string, p: string) => Promise<T> }).req;
-    const info = await r<Record<string, unknown>>(
-      'GET',
-      `/api/app/v2/course/info/${courseId}?weightConfig=1`,
-    );
+    // Use the public client method so `this` stays bound — pulling `.req` off
+    // and calling it bare loses the SpeedianceClient receiver and trips on
+    // `this.url(...)` inside the helper.
+    const info = (await client.getCourseDetail(courseId)) as Record<string, unknown>;
     const list = Array.isArray(info?.actionLibraryList)
       ? (info.actionLibraryList as Array<Record<string, unknown>>)
       : [];
