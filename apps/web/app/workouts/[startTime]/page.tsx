@@ -3,7 +3,6 @@ import { notFound, redirect } from 'next/navigation';
 import {
   cardHeadingStyle,
   cardStyle,
-  mutedStyle,
   PageShell,
   tableStyle,
   tdStyle,
