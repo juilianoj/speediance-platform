@@ -39,20 +39,31 @@ export async function loadExercises(userId: string): Promise<ExerciseSummary[]> 
 export async function loadExerciseHistory(
   userId: string,
   exerciseId: string,
-): Promise<{ exercise: ExerciseSummary | null; sets: ExerciseSet[] }> {
+): Promise<{
+  exercise: ExerciseSummary | null;
+  sets: ExerciseSet[];
+  /** startTime → workout title, for "this set was part of <workout>" rendering. */
+  workoutTitleByStart: Map<string, string>;
+}> {
   const tableName = process.env.DYNAMO_TABLE_NAME;
-  if (!tableName) return { exercise: null, sets: [] };
+  if (!tableName) return { exercise: null, sets: [], workoutTitleByStart: new Map() };
   const me = createDb({ tableName }).forUser(userId);
 
-  const [exerciseRes, allSets] = await Promise.all([
+  const [exerciseRes, allSets, workoutsRes] = await Promise.all([
     me.exercises.get(exerciseId) as Promise<{ data: ExerciseSummary | null } | null>,
     me.sets.listAll() as Promise<{ data: ExerciseSet[] }>,
+    me.workouts.list() as Promise<{ data: Array<{ startTime: string; title?: string }> }>,
   ]);
   const sets = (allSets.data ?? [])
     .filter((s) => s.exerciseId === exerciseId)
     .sort((a, b) => (a.startTime > b.startTime ? -1 : 1));
+  const workoutTitleByStart = new Map<string, string>();
+  for (const w of workoutsRes.data ?? []) {
+    if (w.title) workoutTitleByStart.set(w.startTime, w.title);
+  }
   return {
     exercise: exerciseRes?.data ?? null,
     sets,
+    workoutTitleByStart,
   };
 }

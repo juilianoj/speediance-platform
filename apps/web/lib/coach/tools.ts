@@ -90,8 +90,17 @@ export const COACH_TOOLS: ToolSpec[] = [
   {
     name: 'get_next_session_plan',
     description:
-      'Pre-computed recommendation for the user\'s next workout, projected from their most recent session. Returns the workout title, when it was last done, and for each lift: last weight, last reps vs target, lifetime best, suggested next weight, and a short note ("+5 lb · clean last set", "hold — form flag", etc.). Use when the user asks "what should I do next session", "what weight should I use for X", or anything about progression. Always prefer this over inventing recommendations.',
-    input_schema: { type: 'object', properties: {} },
+      'Pre-computed recommendation for the user\'s next session of a chosen workout. If you don\'t pass `workout_title`, it returns recommendations based on their most recent workout. Always inspect the `availableWorkouts` list in the response and call this tool again with the right `workout_title` if the user mentioned a different one (e.g. "what should I do for chest day"). Returns for each lift: last weight, last reps vs target, lifetime best, suggested next weight, and a short note ("+5 lb · clean last set", "hold — form flag"). Always prefer this over inventing recommendations.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        workout_title: {
+          type: 'string',
+          description:
+            "Exact title from the user's history (e.g. 'Sam invites you to challenge full body training A'). Omit to use the most recent workout.",
+        },
+      },
+    },
   },
   {
     name: 'propose_workout',
@@ -199,8 +208,16 @@ export async function runTool(
       }));
     }
     case 'get_next_session_plan': {
-      const plan = await loadNextWorkoutPlan(userId);
-      if (!plan) return { message: 'No prior workouts to project from.' };
+      const preferredTitle =
+        typeof args.workout_title === 'string' ? args.workout_title : undefined;
+      const result = await loadNextWorkoutPlan(userId, preferredTitle);
+      if (!result?.plan) {
+        return {
+          message: 'No prior workouts to project from.',
+          workouts: result?.options.map((o) => o.title) ?? [],
+        };
+      }
+      const plan = result.plan;
       return {
         basedOn: {
           title: plan.basedOn.title,
@@ -219,6 +236,11 @@ export async function runTool(
           bestWeight: l.bestWeight,
           suggestedWeight: l.recommendedWeight,
           note: l.recommendNote,
+        })),
+        availableWorkouts: result.options.map((o) => ({
+          title: o.title,
+          lastDone: o.lastDone,
+          count: o.count,
         })),
       };
     }

@@ -178,28 +178,36 @@ export async function syncUser(userId: string): Promise<SyncSummary> {
 
       // ── Fetch per-exercise + per-set detail for strength workouts ──────
       //
-      // Both course and custom workouts use the same endpoint shape, keyed
-      // by `trainingId` (NOT `id` — that was the original wrong-ID bug).
-      // For course workouts we hit `courseTrainingInfoDetail`; for custom
-      // we hit `cttTrainingInfoDetail`. Cardio sessions are skipped (no
-      // detail to fetch).
+      // The two detail endpoints (`cttTrainingInfoDetail` and
+      // `courseTrainingInfoDetail`) BOTH respond for the same trainingId
+      // but return COMPLETELY DIFFERENT exercise sets — verified by probe:
+      //
+      //   courseTrainingInfoDetail/557819 → 11 entries, mostly stretches +
+      //     planned squats, all weights 0 (template/plan data).
+      //   cttTrainingInfoDetail/557819   → 5 entries with real per-rep
+      //     weights (Barbell Bench Press 44 lb, Lat Pulldown 46 lb, etc.).
+      //
+      // The "real workout" data lives in the custom endpoint regardless of
+      // whether the records response set `courseId` — many "Sam invites you
+      // to challenge X" workouts are user-shared custom templates that
+      // *also* get a courseId. So: prefer custom, fall back to course only
+      // when custom returns zero useful entries.
+      //
+      // Before writing, delete any existing Set items for this workout's
+      // startTime — prior syncs may have written ghost exercises from the
+      // wrong endpoint and we want the latest fetch to be the source of
+      // truth (Set items aren't otherwise reconciled, so accumulation is a
+      // real concern).
       if (!isCardio && rec.trainingId !== undefined) {
+        await me.sets.deleteForWorkout(startTimeIso);
         try {
-          const detailType = rec.courseId ? 'course' : 'custom';
-          const exercises = (await client.getTrainingDetail(
-            rec.trainingId as string | number,
-            detailType,
-          )) as Array<Record<string, unknown>>;
-          if (Array.isArray(exercises)) {
+          const exercises = await fetchExercisesPreferCustom(client, rec);
+          if (exercises.length > 0) {
             setsProcessed += await upsertExercisesAndSets(me, startTimeIso, exercises);
           }
         } catch (err) {
-          // One session's detail failing shouldn't fail the whole user sync —
-          // log and move on. The Workout item is already in place.
           console.warn(`getTrainingDetail failed for trainingId ${rec.trainingId}`, err);
         }
-
-        // Tiny pause to avoid rate-limit clusters on the Speediance side.
         await new Promise((r) => setTimeout(r, 100));
       }
     }
@@ -286,6 +294,46 @@ function createSpeedianceClient(
     },
   });
   return client;
+}
+
+/**
+ * Try the custom-template detail endpoint first; fall back to course when
+ * custom returns zero or only-template entries. "Real" sets have at least
+ * one rep with finishedCount > 0 or a non-zero weight in their
+ * trainingInfoDetail.weights / leftWeights array.
+ */
+async function fetchExercisesPreferCustom(
+  client: SpeedianceClient,
+  rec: Record<string, unknown>,
+): Promise<Array<Record<string, unknown>>> {
+  const id = rec.trainingId as string | number;
+  const tryFetch = async (type: 'course' | 'custom') => {
+    const r = (await client.getTrainingDetail(id, type)) as unknown;
+    return Array.isArray(r) ? (r as Array<Record<string, unknown>>) : [];
+  };
+  const custom = await tryFetch('custom');
+  if (hasRealCompletion(custom)) return custom;
+  const course = await tryFetch('course');
+  if (hasRealCompletion(course)) return course;
+  // Neither has completion data — prefer whichever is non-empty so the user
+  // at least sees the exercise list even if weights are missing.
+  return custom.length > 0 ? custom : course;
+}
+
+function hasRealCompletion(exercises: Array<Record<string, unknown>>): boolean {
+  for (const ex of exercises) {
+    if (typeof ex.maxWeight === 'number' && ex.maxWeight > 0) return true;
+    if (typeof ex.totalCapacity === 'number' && ex.totalCapacity > 0) return true;
+    const reps = Array.isArray(ex.finishedReps) ? ex.finishedReps : [];
+    for (const r of reps) {
+      if (typeof r !== 'object' || r === null) continue;
+      const rr = r as Record<string, unknown>;
+      const fc = typeof rr.finishedCount === 'number' ? rr.finishedCount : 0;
+      const cap = typeof rr.capacity === 'number' ? rr.capacity : 0;
+      if (fc > 0 || cap > 0) return true;
+    }
+  }
+  return false;
 }
 
 /**
@@ -476,6 +524,7 @@ interface SyncDbForUser {
       leftRight?: string;
       formFlags?: string[];
     }) => Promise<unknown>;
+    deleteForWorkout: (startTime: string) => Promise<void>;
   };
   exercises: {
     get: (exerciseId: string) => Promise<unknown>;

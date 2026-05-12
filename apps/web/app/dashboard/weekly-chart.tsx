@@ -1,12 +1,6 @@
 /**
- * Hand-rolled stacked / overlaid bar chart for the weekly trend strip.
- * Inline SVG → no client JS, no extra deps. The user can pick a metric
- * (volume / output / calories) via the small toggle at the top.
- *
- * Why not a chart library: every bundle byte counts for the cold-start
- * Lambda → CloudFront → first-paint path, and a library here would add
- * 40-80 kB for 12 bars. We'll trade up to Recharts when we need real
- * tooltips, brushing, or zooming.
+ * Weekly trend chart. Fluid width so it fills the card; user-selectable
+ * metric + date range. Inline SVG so we ship no client chart library.
  */
 'use client';
 
@@ -15,6 +9,7 @@ import { useState } from 'react';
 import type { WeekBucket } from './load-dashboard';
 
 type Metric = 'volume' | 'outputKj' | 'calories' | 'workouts';
+type Range = 4 | 8 | 12 | 26 | 52;
 
 const METRIC_LABELS: Record<Metric, string> = {
   volume: 'Volume',
@@ -30,115 +25,164 @@ const METRIC_FILLS: Record<Metric, string> = {
   workouts: '#0d9488',
 };
 
+const RANGE_LABELS: Record<Range, string> = {
+  4: '1m',
+  8: '2m',
+  12: '3m',
+  26: '6m',
+  52: '1y',
+};
+
 export function WeeklyChart({ weeks }: { weeks: WeekBucket[] }) {
   const [metric, setMetric] = useState<Metric>('volume');
+  const [range, setRange] = useState<Range>(12);
 
   if (weeks.length === 0) {
     return <p style={{ color: '#888', margin: 0 }}>Not enough data yet.</p>;
   }
 
-  const values = weeks.map((w) => weekValue(w, metric));
+  // weeks is built oldest → newest (12 items by default in the loader);
+  // slice the most recent `range` weeks.
+  const view = weeks.slice(-range);
+  const values = view.map((w) => weekValue(w, metric));
   const max = Math.max(...values, 1);
-  const barWidth = 36;
-  const gap = 14;
-  const height = 180;
-  const dateLabelY = height + 14;
-  const valueLabelY = height + 30;
-  const labelArea = 36;
-  const padL = 8;
-  const totalWidth = padL + weeks.length * (barWidth + gap);
+
+  // Fluid layout — the SVG uses a viewBox so it scales with the card.
+  // 100 units wide × 100 units tall internal grid; container CSS handles
+  // the actual pixel size.
+  const W = 1000;
+  const H = 220;
+  const padL = 36;
+  const padR = 8;
+  const padT = 12;
+  const padB = 38;
+  const dateLabelY = H - padB + 14;
+  const valueLabelY = H - padB + 30;
+  const chartH = H - padT - padB;
+  const slot = (W - padL - padR) / view.length;
+  const barWidth = Math.min(slot * 0.7, 64);
 
   return (
     <div>
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
-        {(Object.keys(METRIC_LABELS) as Metric[]).map((m) => (
-          <button
-            key={m}
-            type="button"
-            onClick={() => setMetric(m)}
-            style={{
-              padding: '0.3rem 0.7rem',
-              fontSize: '0.85rem',
-              border: '1px solid',
-              borderColor: m === metric ? METRIC_FILLS[m] : '#d0d0d0',
-              borderRadius: '999px',
-              background: m === metric ? METRIC_FILLS[m] : 'transparent',
-              color: m === metric ? '#fff' : '#444',
-              cursor: 'pointer',
-              fontWeight: m === metric ? 600 : 400,
-            }}
-          >
-            {METRIC_LABELS[m]}
-          </button>
-        ))}
-      </div>
-
-      <div style={{ overflowX: 'auto' }}>
-        <svg
-          width={totalWidth}
-          height={height + labelArea}
-          viewBox={`0 0 ${totalWidth} ${height + labelArea}`}
-          aria-label={`Weekly ${METRIC_LABELS[metric]} bar chart`}
-          role="img"
-        >
-          {/* Faint baseline so the eye knows where zero is */}
-          <line x1={0} y1={height} x2={totalWidth} y2={height} stroke="#e5e7eb" />
-          {/* Quartile guide lines */}
-          {[0.25, 0.5, 0.75].map((q) => {
-            const y = height - q * height;
+      <div
+        style={{
+          display: 'flex',
+          gap: '0.5rem',
+          marginBottom: '0.85rem',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}
+      >
+        <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
+          {(Object.keys(METRIC_LABELS) as Metric[]).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setMetric(m)}
+              style={{
+                padding: '0.35rem 0.85rem',
+                fontSize: '0.85rem',
+                border: '1px solid',
+                borderColor: m === metric ? METRIC_FILLS[m] : '#d0d0d0',
+                borderRadius: '999px',
+                background: m === metric ? METRIC_FILLS[m] : 'transparent',
+                color: m === metric ? '#fff' : '#444',
+                cursor: 'pointer',
+                fontWeight: m === metric ? 600 : 500,
+              }}
+            >
+              {METRIC_LABELS[m]}
+            </button>
+          ))}
+        </div>
+        <div style={{ display: 'flex', gap: '0.2rem', flexWrap: 'wrap' }}>
+          {(Object.keys(RANGE_LABELS) as unknown as string[]).map((rStr) => {
+            const r = Number(rStr) as Range;
             return (
-              <line
-                key={q}
-                x1={0}
-                y1={y}
-                x2={totalWidth}
-                y2={y}
-                stroke="#f1f4f8"
-                strokeDasharray="2 4"
-              />
+              <button
+                key={r}
+                type="button"
+                onClick={() => setRange(r)}
+                style={{
+                  padding: '0.3rem 0.55rem',
+                  fontSize: '0.78rem',
+                  border: '1px solid',
+                  borderColor: r === range ? '#1a1a1a' : '#d0d0d0',
+                  borderRadius: '4px',
+                  background: r === range ? '#1a1a1a' : 'transparent',
+                  color: r === range ? '#fff' : '#666',
+                  cursor: 'pointer',
+                  fontWeight: r === range ? 600 : 500,
+                }}
+              >
+                {RANGE_LABELS[r]}
+              </button>
             );
           })}
+        </div>
+      </div>
 
-          {weeks.map((w, i) => {
+      <div style={{ width: '100%' }}>
+        <svg
+          width="100%"
+          viewBox={`0 0 ${W} ${H}`}
+          preserveAspectRatio="none"
+          aria-label={`Weekly ${METRIC_LABELS[metric]} bar chart`}
+          role="img"
+          style={{ display: 'block' }}
+        >
+          {/* Y-axis max label */}
+          <text x={padL - 6} y={padT + 4} textAnchor="end" fontSize="11" fill="#999">
+            {compactNumber(max)}
+          </text>
+          {/* Baseline + quartile guides */}
+          <line x1={padL} y1={H - padB} x2={W - padR} y2={H - padB} stroke="#e5e7eb" />
+          {[0.25, 0.5, 0.75].map((q) => (
+            <line
+              key={q}
+              x1={padL}
+              y1={padT + chartH - q * chartH}
+              x2={W - padR}
+              y2={padT + chartH - q * chartH}
+              stroke="#f1f4f8"
+              strokeDasharray="2 4"
+            />
+          ))}
+
+          {view.map((w, i) => {
             const v = weekValue(w, metric);
             const isZero = v === 0;
-            const h = isZero ? 0 : Math.max(3, (v / max) * (height - 4));
-            const x = padL + i * (barWidth + gap);
-            const y = height - h;
+            const h = isZero ? 0 : Math.max(4, (v / max) * chartH);
+            const cx = padL + i * slot + slot / 2;
+            const x = cx - barWidth / 2;
+            const y = padT + chartH - h;
             return (
               <g key={w.weekIso}>
                 <title>{`${w.label}: ${formatValue(v, metric)}`}</title>
                 {isZero ? (
-                  // Tiny gray tick at the baseline to make the empty week
-                  // obvious without confusing it for a missing bar.
-                  <rect x={x} y={height - 3} width={barWidth} height={3} rx={1.5} fill="#d1d5db" />
+                  <rect x={x} y={H - padB - 4} width={barWidth} height={4} rx={2} fill="#d1d5db" />
                 ) : (
                   <rect
                     x={x}
                     y={y}
                     width={barWidth}
                     height={h}
-                    rx={3}
+                    rx={4}
                     fill={METRIC_FILLS[metric]}
-                    opacity={0.85}
+                    opacity={0.92}
                   />
                 )}
-                <text
-                  x={x + barWidth / 2}
-                  y={dateLabelY}
-                  textAnchor="middle"
-                  fontSize="10"
-                  fill="#999"
-                >
+                <text x={cx} y={dateLabelY} textAnchor="middle" fontSize="11" fill="#999">
                   {w.label}
                 </text>
                 <text
-                  x={x + barWidth / 2}
+                  x={cx}
                   y={valueLabelY}
                   textAnchor="middle"
-                  fontSize="10"
-                  fontWeight={isZero ? 400 : 600}
-                  fill={isZero ? '#bbb' : '#444'}
+                  fontSize="11"
+                  fontWeight={isZero ? 400 : 700}
+                  fill={isZero ? '#bbb' : '#1a1a1a'}
                 >
                   {isZero ? '0' : compactNumber(v)}
                 </text>
@@ -165,6 +209,7 @@ function formatValue(v: number, m: Metric): string {
 }
 
 function compactNumber(v: number): string {
+  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
   if (v >= 1000) return `${(v / 1000).toFixed(v >= 10_000 ? 0 : 1)}k`;
   return String(Math.round(v));
 }

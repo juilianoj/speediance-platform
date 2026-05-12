@@ -34,9 +34,12 @@ export default async function CardioPage() {
   for (const w of cardio) {
     if (!w.weekIso) continue;
     if (!weekMap.has(w.weekIso)) {
+      // weekIso is the Thursday of the ISO week. The bucket actually
+      // covers Mon..Sun — show the full range so the user can match
+      // sessions to weeks at a glance.
       weekMap.set(w.weekIso, {
         weekIso: w.weekIso,
-        label: shortDate(w.weekIso),
+        label: weekRangeLabel(w.weekIso),
         sessions: 0,
         miles: 0,
         calories: 0,
@@ -182,6 +185,17 @@ function shortDate(iso: string): string {
     d.getUTCMonth()
   ];
   return `${m} ${d.getUTCDate()}`;
+}
+
+/** weekIso is the Thursday of an ISO week. Render "Mon–Sun" range. */
+function weekRangeLabel(thursdayIso: string): string {
+  const d = new Date(thursdayIso + 'T00:00:00Z');
+  const mon = new Date(d);
+  mon.setUTCDate(mon.getUTCDate() - 3);
+  const sun = new Date(d);
+  sun.setUTCDate(sun.getUTCDate() + 3);
+  const m = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return `${m[mon.getUTCMonth()]} ${mon.getUTCDate()} – ${m[sun.getUTCMonth()]} ${sun.getUTCDate()}`;
 }
 
 const kpiGridStyle: React.CSSProperties = {

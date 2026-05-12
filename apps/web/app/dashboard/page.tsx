@@ -2,34 +2,49 @@ import { redirect } from 'next/navigation';
 
 import { Nav } from '@/app/(authed)/nav';
 import { verifyIdTokenFromCookies } from '@/lib/auth/session';
-import { loadNextWorkoutPlan, type NextWorkoutPlan } from '@/lib/data/load-next-workout';
+import { loadNextWorkoutPlan } from '@/lib/data/load-next-workout';
+
 import { loadDashboard, type DashboardData, type DashboardWorkout } from './load-dashboard';
 import { MuscleGroupChart } from './muscle-group-chart';
+import { NextSessionCard } from './next-session-card';
 import { WeeklyChart } from './weekly-chart';
 
 export const metadata = {
   title: 'Dashboard — speediance-platform',
 };
 
-export default async function DashboardPage() {
+interface PageProps {
+  searchParams: { next?: string };
+}
+
+export default async function DashboardPage({ searchParams }: PageProps) {
   const claims = await verifyIdTokenFromCookies();
   if (!claims) redirect('/login');
 
   const display = claims.email ?? claims['cognito:username'] ?? claims.sub;
-  const [data, nextPlan] = await Promise.all([
+  const preferredTitle = searchParams.next ? decodeURIComponent(searchParams.next) : undefined;
+  const [data, next] = await Promise.all([
     loadDashboard(claims.sub),
-    loadNextWorkoutPlan(claims.sub),
+    loadNextWorkoutPlan(claims.sub, preferredTitle),
   ]);
 
   return (
     <div style={pageWrapStyle}>
       <Nav current="dashboard" userLabel={String(display)} />
       <main style={mainStyle}>
-        <h1 style={{ margin: '0 0 1.25rem 0', fontSize: '1.5rem' }}>Dashboard</h1>
+        <div style={heroStyle}>
+          <h1 style={h1Style}>Dashboard</h1>
+          <p style={heroSubStyle}>What you&rsquo;ve been doing — and what you should do next.</p>
+        </div>
         {!data.hasCreds ? (
           <SetupCallout hasProfile={data.hasProfile} />
         ) : (
-          <DashboardBody data={data} nextPlan={nextPlan} />
+          <DashboardBody
+            data={data}
+            nextPlan={next?.plan ?? null}
+            nextOptions={next?.options ?? []}
+            preferredTitle={preferredTitle}
+          />
         )}
       </main>
     </div>
@@ -37,16 +52,33 @@ export default async function DashboardPage() {
 }
 
 const pageWrapStyle: React.CSSProperties = {
-  background: '#f7f8fa',
+  background: 'linear-gradient(180deg, #f5f8fc 0%, #f7f8fa 280px)',
   minHeight: '100vh',
-  fontFamily: 'system-ui, sans-serif',
-  color: '#1a1a1a',
+  fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif',
+  color: '#0f172a',
 };
 
 const mainStyle: React.CSSProperties = {
-  maxWidth: 1100,
+  maxWidth: 1200,
   margin: '0 auto',
   padding: '0 1.5rem 3rem',
+};
+
+const heroStyle: React.CSSProperties = {
+  padding: '0.5rem 0 1.5rem 0',
+};
+
+const h1Style: React.CSSProperties = {
+  margin: 0,
+  fontSize: '2rem',
+  fontWeight: 700,
+  letterSpacing: '-0.02em',
+};
+
+const heroSubStyle: React.CSSProperties = {
+  margin: '0.4rem 0 0 0',
+  color: '#64748b',
+  fontSize: '0.95rem',
 };
 
 function SetupCallout({ hasProfile }: { hasProfile: boolean }) {
@@ -83,25 +115,29 @@ function SetupCallout({ hasProfile }: { hasProfile: boolean }) {
 function DashboardBody({
   data,
   nextPlan,
+  nextOptions,
+  preferredTitle,
 }: {
   data: DashboardData;
-  nextPlan: NextWorkoutPlan | null;
+  nextPlan: NonNullable<Awaited<ReturnType<typeof loadNextWorkoutPlan>>>['plan'];
+  nextOptions: NonNullable<Awaited<ReturnType<typeof loadNextWorkoutPlan>>>['options'];
+  preferredTitle?: string;
 }) {
   const { thisWeek, weeks, workouts, kpis30d, muscleGroupSets } = data;
 
   return (
     <>
-      {/* Headline KPI strip — what's in the spreadsheet's top row. */}
+      {/* KPI strip across the top — your at-a-glance pulse. */}
       <section style={kpiGridStyle}>
         <KpiCard
           accent="#0b78d1"
           label="Strength · 30d"
-          value={kpis30d.strengthSessions}
+          value={String(kpis30d.strengthSessions)}
           suffix="sessions"
           sub={`${kpis30d.cardioSessions} cardio`}
         />
         <KpiCard
-          accent="#0b78d1"
+          accent="#2563eb"
           label="Volume · 30d"
           value={fmtInt(kpis30d.totalVolume)}
           suffix="capacity"
@@ -134,95 +170,29 @@ function DashboardBody({
         />
       </section>
 
-      {nextPlan && nextPlan.lifts.length > 0 && (
-        <section style={cardStyle}>
-          <div style={cardHeaderStyle}>
-            <h2 style={cardHeadingStyle}>Next session</h2>
-            <p style={mutedStyle}>
-              Projected from your most recent workout (
-              <a
-                href={`/workouts/${encodeURIComponent(nextPlan.basedOn.startTime)}`}
-                style={{ color: '#0b78d1', textDecoration: 'none' }}
-              >
-                {nextPlan.basedOn.title} · {formatDate(nextPlan.basedOn.startTime)}
-              </a>
-              ). Last weight + a recommended next weight per lift.
-            </p>
-          </div>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={tableStyle}>
-              <thead>
-                <tr>
-                  <th style={thStyle}>Exercise</th>
-                  <th style={{ ...thStyle, textAlign: 'right' }}>Last</th>
-                  <th style={{ ...thStyle, textAlign: 'right' }}>Reps last</th>
-                  <th style={{ ...thStyle, textAlign: 'right' }}>Best</th>
-                  <th style={{ ...thStyle, textAlign: 'right' }}>Suggest</th>
-                  <th style={thStyle}>Why</th>
-                </tr>
-              </thead>
-              <tbody>
-                {nextPlan.lifts.map((lift) => {
-                  const flagged = (lift.lastFormFlags?.length ?? 0) > 0;
-                  return (
-                    <tr key={lift.exerciseId}>
-                      <td style={tdStyle}>
-                        <a
-                          href={`/exercises/${encodeURIComponent(lift.exerciseId)}`}
-                          style={{ color: '#0b78d1', textDecoration: 'none', fontWeight: 500 }}
-                        >
-                          {lift.name}
-                        </a>
-                        <div style={{ color: '#888', fontSize: '0.75rem' }}>
-                          {lift.muscleGroup ?? '—'}
-                          {lift.isUnilateral && ' · L/R'}
-                        </div>
-                      </td>
-                      <td style={{ ...tdStyle, textAlign: 'right' }}>
-                        {lift.lastWeight ? `${lift.lastWeight}` : '—'}
-                      </td>
-                      <td style={{ ...tdStyle, textAlign: 'right', color: '#666' }}>
-                        {lift.lastReps !== undefined
-                          ? `${lift.lastReps}${lift.lastTargetReps ? `/${lift.lastTargetReps}` : ''}`
-                          : '—'}
-                      </td>
-                      <td style={{ ...tdStyle, textAlign: 'right', color: '#666' }}>
-                        {lift.bestWeight ? `${lift.bestWeight}` : '—'}
-                      </td>
-                      <td
-                        style={{
-                          ...tdStyle,
-                          textAlign: 'right',
-                          fontWeight: 600,
-                          color: '#0b78d1',
-                        }}
-                      >
-                        {lift.recommendedWeight !== undefined ? `${lift.recommendedWeight}` : '—'}
-                      </td>
-                      <td
-                        style={{
-                          ...tdStyle,
-                          color: flagged ? '#b91c1c' : '#666',
-                          fontSize: '0.82rem',
-                        }}
-                      >
-                        {lift.recommendNote ?? '—'}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      )}
-
+      {/* Weekly trend — moved to the top so it's the first thing you see. */}
       <section style={cardStyle}>
         <div style={cardHeaderStyle}>
           <h2 style={cardHeadingStyle}>Weekly trend</h2>
-          <p style={mutedStyle}>Last 12 weeks. Pick a metric.</p>
+          <p style={mutedStyle}>Pick a metric and time range.</p>
         </div>
         <WeeklyChart weeks={weeks} />
+      </section>
+
+      {/* Next session — actionable recommendations the user opens the app for. */}
+      <section style={{ ...cardStyle, borderTop: '3px solid #0b78d1' }}>
+        <div style={cardHeaderStyle}>
+          <h2 style={cardHeadingStyle}>Next session</h2>
+          <p style={mutedStyle}>
+            Pick a workout to see recommended weights for next time. Each lift uses your last
+            session of that workout.
+          </p>
+        </div>
+        <NextSessionCard
+          options={nextOptions}
+          selected={preferredTitle ?? nextPlan?.basedOn.title ?? null}
+          plan={nextPlan}
+        />
       </section>
 
       <section style={twoColStyle}>
@@ -257,7 +227,7 @@ function DashboardBody({
       <section style={cardStyle}>
         <div style={cardHeaderStyle}>
           <h2 style={cardHeadingStyle}>Recent sessions</h2>
-          <p style={mutedStyle}>Twelve most recent.</p>
+          <p style={mutedStyle}>Twelve most recent. Click any row for set-by-set detail.</p>
         </div>
         {workouts.length === 0 ? (
           <p style={{ color: '#888', margin: 0 }}>
@@ -336,27 +306,29 @@ function KpiCard({
   value: number | string;
   suffix: string;
   sub?: string;
-  accent?: string;
+  accent: string;
 }) {
   return (
     <div
       style={{
         padding: '1.1rem 1.2rem',
         border: '1px solid #e5e7eb',
-        borderTop: accent ? `3px solid ${accent}` : '1px solid #e5e7eb',
-        borderRadius: '10px',
+        borderTop: `3px solid ${accent}`,
+        borderRadius: '12px',
         background: '#fff',
-        boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+        boxShadow: '0 1px 3px rgba(15,23,42,0.06)',
       }}
     >
       <div style={kpiLabelStyle}>{label}</div>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.4rem', marginTop: '0.3rem' }}>
-        <span style={{ fontSize: '1.65rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+        <span style={{ fontSize: '1.8rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>
           {value}
         </span>
-        <span style={{ color: '#666', fontSize: '0.8rem' }}>{suffix}</span>
+        <span style={{ color: '#64748b', fontSize: '0.8rem' }}>{suffix}</span>
       </div>
-      {sub && <div style={{ color: '#888', fontSize: '0.78rem', marginTop: '0.2rem' }}>{sub}</div>}
+      {sub && (
+        <div style={{ color: '#94a3b8', fontSize: '0.78rem', marginTop: '0.25rem' }}>{sub}</div>
+      )}
     </div>
   );
 }
@@ -367,12 +339,12 @@ function Row({ label, value }: { label: string; value: string }) {
       style={{
         display: 'flex',
         justifyContent: 'space-between',
-        padding: '0.45rem 0',
-        borderBottom: '1px solid #f1f1f1',
+        padding: '0.5rem 0',
+        borderBottom: '1px solid #f1f5f9',
       }}
     >
-      <span style={{ color: '#666' }}>{label}</span>
-      <span style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{value}</span>
+      <span style={{ color: '#64748b' }}>{label}</span>
+      <span style={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{value}</span>
     </div>
   );
 }
@@ -435,26 +407,26 @@ const buttonStyle: React.CSSProperties = {
 
 const kpiGridStyle: React.CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(195px, 1fr))',
   gap: '0.9rem',
   marginBottom: '1.5rem',
 };
 
 const kpiLabelStyle: React.CSSProperties = {
-  color: '#666',
-  fontSize: '0.72rem',
+  color: '#64748b',
+  fontSize: '0.7rem',
   textTransform: 'uppercase',
-  letterSpacing: '0.06em',
-  fontWeight: 600,
+  letterSpacing: '0.08em',
+  fontWeight: 700,
 };
 
 const cardStyle: React.CSSProperties = {
   padding: '1.4rem 1.5rem',
   border: '1px solid #e5e7eb',
-  borderRadius: '10px',
+  borderRadius: '12px',
   background: '#fff',
   marginBottom: '1.25rem',
-  boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+  boxShadow: '0 1px 3px rgba(15,23,42,0.06)',
 };
 
 const cardHeaderStyle: React.CSSProperties = {
@@ -464,25 +436,26 @@ const cardHeaderStyle: React.CSSProperties = {
 const cardHeadingStyle: React.CSSProperties = {
   margin: 0,
   fontSize: '1.05rem',
-  fontWeight: 600,
+  fontWeight: 700,
+  letterSpacing: '-0.01em',
 };
 
 const mutedStyle: React.CSSProperties = {
-  margin: '0.15rem 0 0 0',
-  color: '#888',
-  fontSize: '0.8rem',
+  margin: '0.2rem 0 0 0',
+  color: '#94a3b8',
+  fontSize: '0.85rem',
 };
 
 const twoColStyle: React.CSSProperties = {
   display: 'grid',
   gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
   gap: '1.25rem',
-  marginBottom: '0',
+  marginBottom: 0,
 };
 
 const dlStyle: React.CSSProperties = {
   margin: 0,
-  fontSize: '0.92rem',
+  fontSize: '0.94rem',
 };
 
 const tableStyle: React.CSSProperties = {
@@ -491,15 +464,15 @@ const tableStyle: React.CSSProperties = {
   fontSize: '0.92rem',
 };
 
-const trStyle: React.CSSProperties = { borderTop: '1px solid #f1f1f1' };
+const trStyle: React.CSSProperties = { borderTop: '1px solid #f1f5f9' };
 
 const thStyle: React.CSSProperties = {
   padding: '0.55rem 0.6rem',
-  color: '#666',
-  fontWeight: 500,
-  fontSize: '0.78rem',
+  color: '#64748b',
+  fontWeight: 600,
+  fontSize: '0.74rem',
   textTransform: 'uppercase',
-  letterSpacing: '0.05em',
+  letterSpacing: '0.06em',
   textAlign: 'left',
   borderBottom: '1px solid #e5e7eb',
 };

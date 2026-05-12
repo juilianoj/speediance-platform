@@ -74,7 +74,9 @@ export interface DashboardData {
   hasCreds: boolean;
 }
 
-const WEEK_BUCKETS = 12;
+// 52 weeks so the chart can show up to a year via the range picker. The
+// extra buckets are tiny — JSON for an empty WeekBucket is ~80 bytes.
+const WEEK_BUCKETS = 52;
 
 export async function loadDashboard(userId: string): Promise<DashboardData> {
   const tableName = process.env.DYNAMO_TABLE_NAME;

@@ -23,7 +23,7 @@ export default async function ExerciseDetailPage({ params }: PageProps) {
   if (!claims) redirect('/login');
   const exerciseId = decodeURIComponent(params.id);
 
-  const { exercise, sets } = await loadExerciseHistory(claims.sub, exerciseId);
+  const { exercise, sets, workoutTitleByStart } = await loadExerciseHistory(claims.sub, exerciseId);
   if (!exercise && sets.length === 0) notFound();
 
   // Group sets by workout (startTime).
@@ -83,10 +83,28 @@ export default async function ExerciseDetailPage({ params }: PageProps) {
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'baseline',
+                    gap: '1rem',
                   }}
                 >
-                  <strong style={{ fontSize: '0.95rem' }}>{shortDate(s.startTime)}</strong>
-                  <span style={{ color: '#888', fontSize: '0.85rem' }}>
+                  <div>
+                    <a
+                      href={`/workouts/${encodeURIComponent(s.startTime)}`}
+                      style={{
+                        fontSize: '0.95rem',
+                        fontWeight: 600,
+                        color: '#0f172a',
+                        textDecoration: 'none',
+                      }}
+                    >
+                      {shortDate(s.startTime)}
+                    </a>
+                    {workoutTitleByStart.get(s.startTime) && (
+                      <div style={{ color: '#64748b', fontSize: '0.78rem', marginTop: '0.15rem' }}>
+                        {workoutTitleByStart.get(s.startTime)}
+                      </div>
+                    )}
+                  </div>
+                  <span style={{ color: '#94a3b8', fontSize: '0.85rem' }}>
                     {s.sets.length} set{s.sets.length === 1 ? '' : 's'}
                   </span>
                 </div>
@@ -109,6 +127,7 @@ export default async function ExerciseDetailPage({ params }: PageProps) {
           <thead>
             <tr>
               <th style={thStyle}>Date</th>
+              <th style={thStyle}>Workout</th>
               <th style={thStyle}>Set #</th>
               <th style={{ ...thStyle, textAlign: 'right' }}>Weight</th>
               <th style={{ ...thStyle, textAlign: 'right' }}>Reps</th>
@@ -117,24 +136,37 @@ export default async function ExerciseDetailPage({ params }: PageProps) {
             </tr>
           </thead>
           <tbody>
-            {sets.map((s) => (
-              <tr key={`${s.startTime}-${s.setNum}`}>
-                <td style={tdStyle}>{shortDate(s.startTime)}</td>
-                <td style={{ ...tdStyle, color: '#666' }}>{s.setNum}</td>
-                <td style={{ ...tdStyle, textAlign: 'right' }}>{formatWeight(s)}</td>
-                <td style={{ ...tdStyle, textAlign: 'right' }}>{s.finishedReps ?? '—'}</td>
-                <td style={{ ...tdStyle, textAlign: 'right', color: '#666' }}>
-                  {s.volume !== undefined ? Math.round(s.volume).toLocaleString() : '—'}
-                </td>
-                <td style={tdStyle}>
-                  {s.formFlags && s.formFlags.length > 0 ? (
-                    <span style={{ color: '#dc2626' }}>⚠ {s.formFlags.join(',')}</span>
-                  ) : (
-                    <span style={{ color: '#0d9488' }}>✓</span>
-                  )}
-                </td>
-              </tr>
-            ))}
+            {sets.map((s) => {
+              const wTitle = workoutTitleByStart.get(s.startTime);
+              return (
+                <tr key={`${s.startTime}-${s.setNum}`}>
+                  <td style={tdStyle}>
+                    <a
+                      href={`/workouts/${encodeURIComponent(s.startTime)}`}
+                      style={{ color: '#0b78d1', textDecoration: 'none' }}
+                    >
+                      {shortDate(s.startTime)}
+                    </a>
+                  </td>
+                  <td style={{ ...tdStyle, color: '#64748b', fontSize: '0.85rem' }}>
+                    {wTitle ?? '—'}
+                  </td>
+                  <td style={{ ...tdStyle, color: '#64748b' }}>{s.setNum}</td>
+                  <td style={{ ...tdStyle, textAlign: 'right' }}>{formatWeight(s)}</td>
+                  <td style={{ ...tdStyle, textAlign: 'right' }}>{s.finishedReps ?? '—'}</td>
+                  <td style={{ ...tdStyle, textAlign: 'right', color: '#64748b' }}>
+                    {s.volume !== undefined ? Math.round(s.volume).toLocaleString() : '—'}
+                  </td>
+                  <td style={tdStyle}>
+                    {s.formFlags && s.formFlags.length > 0 ? (
+                      <span style={{ color: '#dc2626' }}>⚠ {s.formFlags.join(',')}</span>
+                    ) : (
+                      <span style={{ color: '#0d9488' }}>✓</span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </section>
