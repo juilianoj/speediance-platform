@@ -34,28 +34,20 @@ export default async function CoachPage() {
 
   return (
     <PageShell current="coach" userLabel={String(claims.email ?? claims.sub)} title="Coach">
-      <p style={{ margin: '-0.5rem 0 1.5rem 0', color: '#666' }}>
-        Ask plain-English questions about your training. The coach reads your DynamoDB workout
-        history via tool calls and answers from real data — not guesses.
+      <p
+        style={{
+          margin: '-0.5rem 0 1.5rem 0',
+          color: '#64748b',
+          fontSize: '0.95rem',
+          maxWidth: 720,
+        }}
+      >
+        Ask plain-English questions about your training. The coach reads your workout history and
+        answers from real data. Ask it to plan a workout and it saves a draft program below.
       </p>
 
       <section style={cardStyle}>
         <CoachChat />
-      </section>
-
-      <section style={{ ...cardStyle, background: '#fafbfc' }}>
-        <strong style={{ fontSize: '0.9rem' }}>Try asking:</strong>
-        <ul style={{ margin: '0.6rem 0 0 1.25rem', padding: 0, color: '#444', fontSize: '0.9rem' }}>
-          <li>When did I last train chest?</li>
-          <li>What&rsquo;s my best bench press?</li>
-          <li>How was last week compared to the week before?</li>
-          <li>Which muscle group have I been neglecting?</li>
-          <li>Plan me a push day based on my last few sessions.</li>
-        </ul>
-        <p style={{ ...mutedStyle, marginTop: '0.6rem' }}>
-          When you ask the coach to plan a workout, it saves a draft program below. Scheduling to
-          the Speediance calendar is Phase&nbsp;3.x.
-        </p>
       </section>
 
       {programs.length > 0 && (
