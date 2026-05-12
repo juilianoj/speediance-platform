@@ -179,14 +179,6 @@ function formatDate(iso: string): string {
   return `${dow} ${m} ${day}`;
 }
 
-function shortDate(iso: string): string {
-  const d = new Date(iso + 'T00:00:00Z');
-  const m = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][
-    d.getUTCMonth()
-  ];
-  return `${m} ${d.getUTCDate()}`;
-}
-
 /** weekIso is the Thursday of an ISO week. Render "Mon–Sun" range. */
 function weekRangeLabel(thursdayIso: string): string {
   const d = new Date(thursdayIso + 'T00:00:00Z');
