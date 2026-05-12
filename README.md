@@ -23,7 +23,7 @@ This project is **not affiliated with, endorsed by, or sponsored by Speediance I
 
 ## Quick start
 
-Requirements: **Node ≥ 20**, **pnpm ≥ 9** (`brew install pnpm`), optionally `gitleaks` for the pre-commit hook (`brew install gitleaks`).
+Requirements: **Node ≥ 20**, **pnpm ≥ 9** (`brew install pnpm`), **gitleaks** for the pre-commit hook (`brew install gitleaks`). The hook hard-fails if gitleaks is missing — install before committing.
 
 ```bash
 git clone https://github.com/juilianoj/speediance-platform.git
@@ -43,6 +43,18 @@ pnpm --filter infra exec sst deploy --stage dev
 ```
 
 > The first deploy creates Cognito, DynamoDB, the SyncWorker Lambda, and an empty Next.js shell. Allow ~10 minutes.
+
+### Setting up GitHub Actions OIDC (one-time per AWS account)
+
+The `deploy.yml` workflow uses OIDC federation instead of long-lived AWS keys. Bootstrap the IAM role and provider once:
+
+```bash
+AWS_PROFILE=speediance ./scripts/bootstrap-oidc.sh
+# The script prints the role ARN. Wire it up as a repo variable:
+gh variable set AWS_DEPLOY_ROLE_ARN -b 'arn:aws:iam::<acct>:role/gha-speediance-deploy'
+# Then in repo Settings → Secrets → Actions, delete any long-lived
+# AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY secrets that predate OIDC.
+```
 
 ---
 

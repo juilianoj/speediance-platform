@@ -48,6 +48,42 @@ export function baseUrl(region: Region): string {
   return `https://${REGION_HOSTS[region]}`;
 }
 
+/** Sentinel used in debug output where a secret was redacted. */
+export const REDACTED = '[redacted]';
+
+/** Strip / mask Speediance auth fields before handing headers to the
+ *  caller-supplied debug sink. The list below is intentionally explicit so a
+ *  future header (e.g. a refresh token) doesn't leak by accident. */
+function redactHeaders(headers: Record<string, string>): Record<string, string> {
+  const out: Record<string, string> = { ...headers };
+  for (const key of Object.keys(out)) {
+    const lc = key.toLowerCase();
+    if (lc === 'token' || lc === 'app_user_id' || lc === 'authorization' || lc === 'cookie') {
+      out[key] = REDACTED;
+    }
+  }
+  return out;
+}
+
+/** Best-effort redaction of secrets that the Speediance API echoes back inside
+ *  a JSON body (most notably the byPass response's `token`/`appUserId`). */
+function redactBody(body: unknown): unknown {
+  if (body === null || typeof body !== 'object') return body;
+  if (Array.isArray(body)) return body.map(redactBody);
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(body)) {
+    const lc = k.toLowerCase();
+    if (lc === 'token' || lc === 'appuserid' || lc === 'password') {
+      out[k] = REDACTED;
+    } else if (typeof v === 'object' && v !== null) {
+      out[k] = redactBody(v);
+    } else {
+      out[k] = v;
+    }
+  }
+  return out;
+}
+
 export interface RequestInputs {
   method: 'GET' | 'POST' | 'PUT' | 'DELETE';
   url: string;
@@ -77,6 +113,10 @@ export async function request<T = unknown>({
     init.body = JSON.stringify(body);
   }
 
+  // Pre-compute redacted versions once — used in any debug emission below.
+  const safeHeaders = redactHeaders(headers);
+  const safeBody = redactBody(body);
+
   let resp: Response;
   try {
     resp = await fetchImpl(url, init);
@@ -85,8 +125,8 @@ export async function request<T = unknown>({
       timestamp: new Date().toISOString(),
       method,
       url,
-      requestHeaders: headers,
-      requestBody: body,
+      requestHeaders: safeHeaders,
+      requestBody: safeBody,
       error: err instanceof Error ? err.message : String(err),
     });
     throw err;
@@ -107,9 +147,9 @@ export async function request<T = unknown>({
     method,
     url,
     status: resp.status,
-    requestHeaders: headers,
-    requestBody: body,
-    responseBody: parsed,
+    requestHeaders: safeHeaders,
+    requestBody: safeBody,
+    responseBody: redactBody(parsed),
   });
 
   if (resp.status === 401) {

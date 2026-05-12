@@ -178,10 +178,12 @@ export class SpeedianceClient {
     const token = bypass.data?.token;
     const userId = bypass.data?.appUserId;
     if (!token || userId === undefined || userId === null) {
+      // Never serialise `bypass.body` here — on partial-failure shapes
+      // (e.g. a flaky `code: 0` with `token` present but `appUserId` missing)
+      // it still contains the live bearer.
       return {
         ok: false,
         reason: 'Token or appUserId missing from byPass response.',
-        detail: JSON.stringify(bypass.body),
       };
     }
 

@@ -7,12 +7,30 @@
 //   AGG#CYCLE#{n}, AGG#MUSCLE#{group}, PROGRAM#{id}, MEMORY#{ts}, PROFILE
 
 export function Database() {
+  const isProd = $app.stage === 'prod';
+
   const table = new sst.aws.Dynamo('Table', {
     fields: {
       pk: 'string',
       sk: 'string',
     },
     primaryIndex: { hashKey: 'pk', rangeKey: 'sk' },
+    transform: {
+      table: {
+        // Continuous backups, 35-day point-in-time recovery window.
+        // Cheap insurance: ~$0.20/GB-month for our data size.
+        pointInTimeRecovery: { enabled: true },
+        // Block accidental `sst remove` / console-driven deletes once we
+        // have real users' data. Dev/staging stays deletable so we can
+        // iterate without `aws cli` rituals.
+        deletionProtectionEnabled: isProd,
+        // KMS-managed (AWS-owned) encryption is on by default; we make it
+        // explicit so future reviewers don't have to dig the AWS docs.
+        serverSideEncryption: {
+          enabled: true,
+        },
+      },
+    },
   });
 
   return { table };

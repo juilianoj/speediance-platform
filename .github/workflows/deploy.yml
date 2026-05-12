@@ -16,6 +16,12 @@ concurrency:
   group: deploy-${{ github.event.inputs.stage || 'prod' }}
   cancel-in-progress: false
 
+# OIDC requires `id-token: write`. We keep contents read-only to limit blast
+# radius if a step is somehow tricked into using the default GITHUB_TOKEN.
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   deploy:
     name: sst deploy
@@ -38,11 +44,13 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Configure AWS credentials
+      - name: Assume deploy role (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          # Set this repo variable to the role ARN that
+          # scripts/bootstrap-oidc.sh prints on completion.
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: gha-${{ github.run_id }}
           aws-region: us-west-2
 
       - name: SST deploy
