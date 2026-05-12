@@ -1,10 +1,6 @@
 /**
  * Top nav rendered on all authed pages. Server component — no client JS
  * just for nav links.
- *
- * The `current` prop is the route key, not a path, so a deep route like
- * /exercises/abc still highlights "Lift log" if we pass currentKey="liftlog"
- * from that page.
  */
 import { SignOutButton } from '@/app/dashboard/signout-button';
 
@@ -32,45 +28,92 @@ export function Nav({ current, userLabel }: { current: Key; userLabel: string })
   return (
     <header
       style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.25rem',
-        padding: '0.9rem 1.25rem',
+        position: 'sticky',
+        top: 0,
+        zIndex: 20,
+        backdropFilter: 'saturate(180%) blur(8px)',
+        WebkitBackdropFilter: 'saturate(180%) blur(8px)',
+        background: 'rgba(255,255,255,0.85)',
         borderBottom: '1px solid #e5e7eb',
-        background: '#fff',
         marginBottom: '1.5rem',
-        flexWrap: 'wrap',
       }}
     >
-      <a
-        href="/dashboard"
-        style={{ fontWeight: 700, color: '#0b78d1', textDecoration: 'none', marginRight: '1rem' }}
+      <div
+        style={{
+          maxWidth: 1200,
+          margin: '0 auto',
+          padding: '0.75rem 1.25rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.4rem',
+          flexWrap: 'wrap',
+        }}
       >
-        speediance
-      </a>
-      <nav style={{ display: 'flex', gap: '0.1rem', flex: 1, flexWrap: 'wrap' }}>
-        {ITEMS.map((i) => (
-          <a
-            key={i.key}
-            href={i.href}
+        <a href="/dashboard" style={brandStyle}>
+          <span
             style={{
-              padding: '0.4rem 0.75rem',
-              borderRadius: '6px',
-              fontSize: '0.9rem',
-              textDecoration: 'none',
-              color: current === i.key ? '#0b78d1' : '#444',
-              background: current === i.key ? '#eef5fc' : 'transparent',
-              fontWeight: current === i.key ? 600 : 400,
+              display: 'inline-block',
+              width: 26,
+              height: 26,
+              borderRadius: '7px',
+              background: 'linear-gradient(135deg, #0b78d1 0%, #7c3aed 100%)',
+              marginRight: '0.55rem',
+              verticalAlign: 'middle',
+              boxShadow: '0 2px 6px rgba(11,120,209,0.35)',
             }}
-          >
-            {i.label}
-          </a>
-        ))}
-      </nav>
-      <a href="/profile" style={{ fontSize: '0.9rem', color: '#444', textDecoration: 'none' }}>
-        {userLabel}
-      </a>
-      <SignOutButton />
+          />
+          <span style={{ verticalAlign: 'middle' }}>speediance</span>
+        </a>
+        <nav
+          style={{
+            display: 'flex',
+            gap: '0.15rem',
+            flex: 1,
+            flexWrap: 'wrap',
+            marginLeft: '0.5rem',
+          }}
+        >
+          {ITEMS.map((i) => (
+            <a
+              key={i.key}
+              href={i.href}
+              style={{
+                padding: '0.45rem 0.8rem',
+                borderRadius: '8px',
+                fontSize: '0.875rem',
+                textDecoration: 'none',
+                color: current === i.key ? '#0b78d1' : '#475569',
+                background: current === i.key ? '#eaf3fb' : 'transparent',
+                fontWeight: current === i.key ? 600 : 500,
+                transition: 'background 120ms',
+              }}
+            >
+              {i.label}
+            </a>
+          ))}
+        </nav>
+        <a href="/profile" style={userLinkStyle}>
+          {userLabel}
+        </a>
+        <SignOutButton />
+      </div>
     </header>
   );
 }
+
+const brandStyle: React.CSSProperties = {
+  fontWeight: 800,
+  fontSize: '1.05rem',
+  color: '#0f172a',
+  textDecoration: 'none',
+  letterSpacing: '-0.02em',
+};
+
+const userLinkStyle: React.CSSProperties = {
+  fontSize: '0.85rem',
+  color: '#64748b',
+  textDecoration: 'none',
+  padding: '0.4rem 0.7rem',
+  borderRadius: '8px',
+  border: '1px solid #e5e7eb',
+};
