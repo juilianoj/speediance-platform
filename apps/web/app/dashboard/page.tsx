@@ -157,7 +157,7 @@ function DashboardBody({
           accent="#2563eb"
           label="Volume · 30d"
           value={fmtInt(kpis30d.totalVolume)}
-          suffix="capacity"
+          suffix="lbs"
           sub={`${fmtInt(thisWeek.volume)} this week`}
         />
         <KpiCard
