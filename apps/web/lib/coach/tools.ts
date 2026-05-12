@@ -21,7 +21,8 @@ export type ToolName =
   | 'list_recent_workouts'
   | 'list_exercises'
   | 'get_exercise_history'
-  | 'get_weekly_summary';
+  | 'get_weekly_summary'
+  | 'propose_workout';
 
 export interface ToolSpec {
   name: ToolName;
@@ -84,6 +85,50 @@ export const COACH_TOOLS: ToolSpec[] = [
       },
     },
   },
+  {
+    name: 'propose_workout',
+    description:
+      'Save a draft training program for the user. Use this when the user asks you to plan a workout / program / split. The proposal is stored as a draft Program in DynamoDB and the user can review it on the Coach page. Returns the new program id.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        name: {
+          type: 'string',
+          description: 'Short program name, e.g. "Push day — Tue".',
+        },
+        focus: {
+          type: 'string',
+          description: 'One-line focus, e.g. "chest + triceps, hypertrophy".',
+        },
+        reasoning: {
+          type: 'string',
+          description:
+            'Why this program — reference the user data you used (last session date, working weight, muscle group gaps). 2–4 sentences.',
+        },
+        exercises: {
+          type: 'array',
+          description: 'Ordered list of exercises with target sets/reps/weight.',
+          items: {
+            type: 'object',
+            properties: {
+              name: { type: 'string' },
+              sets: { type: 'number' },
+              reps: { type: 'number' },
+              weight: {
+                type: 'number',
+                description:
+                  'Target weight (lbs). Pick from history — use the last workingWeight or +5 lb progression.',
+              },
+              rest_seconds: { type: 'number' },
+              notes: { type: 'string' },
+            },
+            required: ['name', 'sets', 'reps'],
+          },
+        },
+      },
+      required: ['name', 'reasoning', 'exercises'],
+    },
+  },
 ];
 
 export async function runTool(
@@ -144,6 +189,28 @@ export async function runTool(
         formFlags: s.formFlags,
         leftRight: s.leftRight,
       }));
+    }
+    case 'propose_workout': {
+      const programId = `prog-${Date.now()}`;
+      const plan = JSON.stringify({
+        focus: args.focus,
+        exercises: args.exercises,
+      });
+      await me.programs.upsert({
+        programId,
+        name: String(args.name ?? 'Untitled program'),
+        plan,
+        coachReasoning: String(args.reasoning ?? ''),
+        status: 'draft',
+        weeks: 1,
+        createdAt: new Date().toISOString(),
+      });
+      return {
+        ok: true,
+        programId,
+        message:
+          'Saved as a draft program. The user can find it on the Coach page under "Saved programs".',
+      };
     }
     case 'get_weekly_summary': {
       const n = Math.min(26, Math.max(1, Number(args.weeks ?? 12) | 0));
