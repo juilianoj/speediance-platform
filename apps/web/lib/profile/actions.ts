@@ -2,12 +2,21 @@
 
 import 'server-only';
 
+import { InvokeCommand, LambdaClient } from '@aws-sdk/client-lambda';
 import { createDb } from '@speediance/db';
 import { createSecretsStore } from '@speediance/secrets-store';
 import { SpeedianceClient } from '@speediance/speediance-client';
 
 import { verifyIdTokenFromCookies } from '@/lib/auth/session';
 import { ProfileInputSchema, type ProfileSaveResult } from './schemas';
+
+let cachedLambda: LambdaClient | undefined;
+function getLambda(): LambdaClient {
+  if (!cachedLambda) {
+    cachedLambda = new LambdaClient({ region: process.env.AWS_REGION ?? 'us-west-2' });
+  }
+  return cachedLambda;
+}
 
 /**
  * Server Action that saves a user's profile + Speediance credentials.
@@ -142,8 +151,29 @@ export async function saveProfile(
     return { state: 'error', message: 'Saved credentials but failed to update profile.' };
   }
 
+  // -- 7. Kick off an immediate sync so the user sees data show up on
+  //       /dashboard within a minute, instead of having to wait for the
+  //       10:00 UTC cron. Best-effort — if the invoke fails, the user
+  //       still gets data on the next scheduled run.
+  const syncFnName = process.env.SYNC_WORKER_FUNCTION_NAME;
+  if (syncFnName) {
+    try {
+      await getLambda().send(
+        new InvokeCommand({
+          FunctionName: syncFnName,
+          // Event mode — return immediately; the sync runs in the background.
+          InvocationType: 'Event',
+          Payload: new TextEncoder().encode(JSON.stringify({ userId })),
+        }),
+      );
+    } catch (err) {
+      console.warn('immediate sync invoke failed (will rely on next cron)', err);
+    }
+  }
+
   return {
     state: 'ok',
-    message: 'Saved. The sync worker will pull your training history on its next run.',
+    message:
+      'Saved. Pulling your Speediance training history now — refresh /dashboard in a minute.',
   };
 }

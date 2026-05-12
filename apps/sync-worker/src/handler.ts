@@ -1,12 +1,34 @@
-import type { ScheduledHandler } from 'aws-lambda';
+import type { Handler, ScheduledEvent } from 'aws-lambda';
 
-// Stub handler. Phase 1.1 replaces this with the real per-user sync loop that
-// reads Speediance creds from Secrets Manager, fetches training records, and
-// upserts to DynamoDB.
-export const handler: ScheduledHandler = async (event) => {
+import { syncAllUsers, syncUser, type SyncSummary } from './sync.js';
+
+/**
+ * Sync-worker entrypoint. Two invocation shapes:
+ *
+ *   - **Scheduled** (EventBridge cron, 10:00 UTC daily) — payload looks like
+ *     a `ScheduledEvent`; we iterate every profile that has Speediance creds
+ *     and sync each one serially with a brief delay between.
+ *
+ *   - **Direct invoke** with `{ userId: string }` — fired by the Profile
+ *     page's `saveProfile` Server Action right after creds are stored, so
+ *     the user sees data show up on /dashboard within seconds instead of
+ *     having to wait for tomorrow's cron.
+ */
+type DirectInvocation = { userId: string };
+type Event = ScheduledEvent | DirectInvocation;
+
+function isDirectInvocation(event: Event): event is DirectInvocation {
+  return typeof event === 'object' && event !== null && 'userId' in event && !('source' in event);
+}
+
+export const handler: Handler<Event, SyncSummary | SyncSummary[]> = async (event, context) => {
   console.info('sync-worker invoked', {
-    id: event.id,
-    time: event.time,
-    note: 'phase-0 stub — replace in phase 1.1',
+    requestId: context.awsRequestId,
+    mode: isDirectInvocation(event) ? 'direct' : 'scheduled',
   });
+
+  if (isDirectInvocation(event)) {
+    return await syncUser(event.userId);
+  }
+  return await syncAllUsers();
 };

@@ -34,7 +34,7 @@ export default $config({
     const auth = Auth();
     const api = Api({ database, auth });
     const syncWorker = SyncWorker({ database });
-    const web = Web({ api, auth, database });
+    const web = Web({ api, auth, database, syncWorker });
 
     return {
       tableName: database.table.name,
