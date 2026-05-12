@@ -485,22 +485,35 @@ async function upsertExercisesAndSets(
       totalSets++;
     }
 
-    // Exercise aggregate: bestWeight is the running max, workingWeight is
-    // the heaviest single weight from this session (per-exercise).
+    // Exercise aggregate: bestWeight is the running max across all
+    // sessions. workingWeight + lastDone come from the MOST RECENT session
+    // we've seen — the API doesn't return workouts in chronological order
+    // when chunked, so naive overwriting would clobber a newer May 11
+    // session with an older Apr 13 one. totalSets is additive (it's a
+    // lifetime counter; the upstream sync wipes Set items per-workout via
+    // deleteForWorkout, so the count is rebuilt from scratch on a full
+    // re-sync).
     const sessionMax = pickFloat(ex.maxWeight);
     const existing = (await me.exercises.get(exerciseId)) as {
-      data: { bestWeight?: number; totalSets?: number } | null;
+      data: {
+        bestWeight?: number;
+        totalSets?: number;
+        lastDone?: string;
+        workingWeight?: number;
+      } | null;
     } | null;
     const prevBest = existing?.data?.bestWeight ?? 0;
     const prevTotal = existing?.data?.totalSets ?? 0;
+    const prevLastDone = existing?.data?.lastDone ?? '';
+    const isNewer = startTime > prevLastDone;
     await me.exercises.upsert({
       exerciseId,
       name,
       muscleGroup,
       isUnilateral,
       bestWeight: sessionMax !== undefined ? Math.max(prevBest, sessionMax) : prevBest,
-      workingWeight: sessionMax,
-      lastDone: startTime,
+      workingWeight: isNewer ? sessionMax : (existing?.data?.workingWeight ?? sessionMax),
+      lastDone: isNewer ? startTime : prevLastDone || startTime,
       totalSets: prevTotal + finishedReps.length,
     });
   }
