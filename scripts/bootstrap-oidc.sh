@@ -18,7 +18,16 @@ set -euo pipefail
 REPO_OWNER="${REPO_OWNER:-juilianoj}"
 REPO_NAME="${REPO_NAME:-speediance-platform}"
 ROLE_NAME="${ROLE_NAME:-gha-speediance-deploy}"
-ALLOWED_REF="${ALLOWED_REF:-repo:${REPO_OWNER}/${REPO_NAME}:ref:refs/heads/main}"
+# GitHub's OIDC `sub` claim depends on which feature the workflow uses:
+#   - workflow on a branch (no `environment:` key)   → repo:OWNER/REPO:ref:refs/heads/{branch}
+#   - workflow with `environment: dev`/`prod`        → repo:OWNER/REPO:environment:{name}
+# Our deploy.yml uses both push-to-main (ref form) AND a per-stage `environment`
+# (env form), so we trust both. To add a new environment, append here.
+ALLOWED_SUBS=(
+  "repo:${REPO_OWNER}/${REPO_NAME}:ref:refs/heads/main"
+  "repo:${REPO_OWNER}/${REPO_NAME}:environment:dev"
+  "repo:${REPO_OWNER}/${REPO_NAME}:environment:prod"
+)
 PROVIDER_URL="token.actions.githubusercontent.com"
 PROVIDER_ARN_SUFFIX="oidc-provider/${PROVIDER_URL}"
 
@@ -34,7 +43,8 @@ fi
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 echo "→ AWS account: ${ACCOUNT_ID}"
 echo "→ GitHub repo: ${REPO_OWNER}/${REPO_NAME}"
-echo "→ Trusted ref: ${ALLOWED_REF}"
+echo "→ Trusted OIDC subs:"
+for s in "${ALLOWED_SUBS[@]}"; do echo "    - ${s}"; done
 echo
 
 # 1. OIDC provider ----------------------------------------------------------
@@ -54,25 +64,22 @@ else
 fi
 
 # 2. IAM role ---------------------------------------------------------------
-TRUST_POLICY=$(cat <<JSON
-{
-  "Version": "2012-10-17",
-  "Statement": [{
-    "Effect": "Allow",
-    "Principal": { "Federated": "${PROVIDER_ARN}" },
-    "Action": "sts:AssumeRoleWithWebIdentity",
-    "Condition": {
-      "StringEquals": {
-        "${PROVIDER_URL}:aud": "sts.amazonaws.com"
-      },
-      "StringLike": {
-        "${PROVIDER_URL}:sub": "${ALLOWED_REF}"
+TRUST_POLICY=$(jq -n \
+  --arg providerArn "${PROVIDER_ARN}" \
+  --arg providerUrl "${PROVIDER_URL}" \
+  --argjson subs "$(printf '%s\n' "${ALLOWED_SUBS[@]}" | jq -R . | jq -s .)" \
+  '{
+    Version: "2012-10-17",
+    Statement: [{
+      Effect: "Allow",
+      Principal: { Federated: $providerArn },
+      Action: "sts:AssumeRoleWithWebIdentity",
+      Condition: {
+        StringEquals: { ($providerUrl + ":aud"): "sts.amazonaws.com" },
+        StringLike:   { ($providerUrl + ":sub"): $subs }
       }
-    }
-  }]
-}
-JSON
-)
+    }]
+  }')
 
 if aws iam get-role --role-name "${ROLE_NAME}" >/dev/null 2>&1; then
   echo "✓ Role exists: ${ROLE_NAME} — refreshing trust policy"
