@@ -273,12 +273,28 @@ export class SpeedianceClient {
     await this.req('DELETE', `/api/app/customTrainingTemplate?ids=${templateId}`);
   }
 
-  /** Calendar month view. `dateStr` is `YYYY-MM`. */
+  /**
+   * Calendar month view — HISTORICAL completed workouts only. `dateStr` is
+   * `YYYY-MM`. This is the endpoint the modern Speediance app uses for the
+   * "what you did" view; for scheduled-but-not-done workouts, see
+   * `getCalendarPlanned`.
+   */
   async getCalendarMonth(dateStr: string): Promise<unknown[]> {
     return this.req<unknown[]>(
       'GET',
       `/api/app/v5/trainingCalendar/monthNew?date=${dateStr}&selectedDeviceType=${this.deviceType}`,
     );
+  }
+
+  /**
+   * Older calendar endpoint that *does* include scheduled-but-not-done
+   * workouts from the user's active exclusivePlan (program). Each
+   * `trainingPlanList` item has `isFinish` (1 done, 0 scheduled),
+   * `exclusivePlanId`/`exclusivePlanName`, `courseId`, `title`, `sort`
+   * (order within day), and a few other course-y fields.
+   */
+  async getCalendarPlanned(dateStr: string): Promise<unknown[]> {
+    return this.req<unknown[]>('GET', `/api/app/trainingCalendar/month?date=${dateStr}`);
   }
 
   /** status: 1 to add, 0 to remove */
