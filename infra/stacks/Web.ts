@@ -1,7 +1,16 @@
-// Next.js 14 (App Router) deployed via SST's Nextjs construct. Phase 0.7
-// adds the protected /dashboard route + Cognito JWT gating. For Phase 0.2
-// we declare the construct against the placeholder app in apps/web so the
-// stage actually has a URL to visit.
+// Next.js 14 (App Router) deployed via SST's Nextjs construct.
+//
+// Phase 0.7 added:
+//   - server-side SRP + MFA login at /login
+//   - JWT-gated /dashboard route (via apps/web/middleware.ts)
+//   - signOut via Cognito GlobalSignOut
+//
+// Cognito IDs are passed as server-only env vars (no NEXT_PUBLIC prefix) so
+// they never get inlined into the client bundle. The values themselves
+// aren't secrets, but keeping them server-side reinforces "auth happens on
+// the server" — if a future contributor reaches for them in client code,
+// the missing reference is a useful signal that they're working in the
+// wrong layer.
 
 import type { ApiStack } from './Api';
 import type { AuthStack } from './Auth';
@@ -16,9 +25,12 @@ export function Web({ api, auth }: WebArgs) {
     // Relative to sst.config.ts (infra/) — see SyncWorker.ts for the same reason.
     path: '../apps/web',
     environment: {
+      // Server-side: consumed by lib/auth/cognito.ts and lib/auth/session.ts.
+      COGNITO_USER_POOL_ID: auth.userPool.id,
+      COGNITO_USER_POOL_CLIENT_ID: auth.userPoolClient.id,
+      // Client + server: API base for Phase 1.x mutations. Public is fine —
+      // CloudFront URL is already known to anyone with the site URL.
       NEXT_PUBLIC_API_URL: api.url,
-      NEXT_PUBLIC_COGNITO_USER_POOL_ID: auth.userPool.id,
-      NEXT_PUBLIC_COGNITO_USER_POOL_CLIENT_ID: auth.userPoolClient.id,
     },
   });
 

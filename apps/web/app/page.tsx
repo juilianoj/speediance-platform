@@ -1,11 +1,10 @@
-export default function HomePage() {
-  return (
-    <main style={{ fontFamily: 'system-ui, sans-serif', padding: '2rem', maxWidth: 720 }}>
-      <h1>speediance-platform</h1>
-      <p>
-        Phase 0 scaffolding. Real dashboard arrives in Phase 2 once the data pipeline (Phase 1) has
-        filled DynamoDB with your workout history.
-      </p>
-    </main>
-  );
+import { redirect } from 'next/navigation';
+
+import { verifyIdTokenFromCookies } from '@/lib/auth/session';
+
+// Invite-only platform — no marketing landing page. `/` just routes you to
+// wherever your auth state says you should be.
+export default async function HomePage() {
+  const claims = await verifyIdTokenFromCookies();
+  redirect(claims ? '/dashboard' : '/login');
 }
