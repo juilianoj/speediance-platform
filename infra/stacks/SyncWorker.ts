@@ -18,7 +18,12 @@ export function SyncWorker({ database }: SyncWorkerArgs) {
     // so we walk up to the repo root before descending into apps/.
     handler: '../apps/sync-worker/src/handler.handler',
     link: [database.table],
-    timeout: '5 minutes',
+    // 15 minutes is the Lambda max. The default first-time sync pulls all
+    // of history (back to 2018) — ~1400 sets/year of detail calls with
+    // 100ms pacing between them, so a 5-year history can take 7-8 minutes.
+    // After the initial backfill subsequent runs are fast (the upsert is
+    // idempotent), but the timeout has to fit the worst case.
+    timeout: '15 minutes',
     memory: '512 MB',
     environment: {
       LOG_LEVEL: 'info',

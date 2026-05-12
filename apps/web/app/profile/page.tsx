@@ -41,9 +41,13 @@ export default async function ProfilePage() {
   );
 }
 
+/**
+ * Default sync start for users who haven't picked one yet. We pull all of
+ * history by default: Speediance launched their first product in 2021, so
+ * 2018-01-01 is a safe "before any user could possibly have data" floor.
+ * The API returns whatever it has and the worker upserts idempotently, so
+ * the only cost is one extra round-trip when there's nothing to pull.
+ */
 function defaultSyncStart(): string {
-  // 30 days before today, ISO date only.
-  const d = new Date();
-  d.setUTCDate(d.getUTCDate() - 30);
-  return d.toISOString().slice(0, 10);
+  return '2018-01-01';
 }
