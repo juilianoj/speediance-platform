@@ -70,26 +70,34 @@ export function BodyFigure({ sets, width = 240, gender = 'male' }: Props) {
           </linearGradient>
         </defs>
 
-        {/* Head + neck — female has slightly smaller head & longer hair hint */}
+        {/* Hair — rendered BEHIND the head so the face shows through. Flows
+            past the jawline and down to the shoulders for an obvious "female"
+            silhouette read at a glance. */}
+        {isFemale && (
+          <path
+            d="M 78 36 Q 70 70 76 110 Q 86 130 96 120 Q 90 100 90 60 Q 90 40 110 30 Q 130 40 130 60 Q 130 100 124 120 Q 134 130 144 110 Q 150 70 142 36 Q 134 14 110 14 Q 86 14 78 36 Z"
+            fill="rgba(60,70,90,0.55)"
+            stroke="rgba(15,23,42,0.18)"
+            strokeWidth={STROKE_W}
+          />
+        )}
+        {/* Head */}
         <ellipse
           cx={110}
           cy={42}
-          rx={isFemale ? 22 : 24}
-          ry={isFemale ? 26 : 28}
+          rx={isFemale ? 20 : 24}
+          ry={isFemale ? 24 : 28}
           fill="#eef2f7"
           stroke={STROKE}
           strokeWidth={STROKE_W}
         />
-        {isFemale && (
-          // Hair: subtle shoulder-length silhouette behind the head/neck
-          <path
-            d="M 86 42 Q 86 86 96 102 L 124 102 Q 134 86 134 42 Q 134 18 110 18 Q 86 18 86 42 Z"
-            fill="rgba(120,130,150,0.18)"
-            stroke="none"
-          />
-        )}
+        {/* Neck — narrower for female */}
         <path
-          d="M 96 68 Q 110 82 124 68 L 124 84 Q 110 90 96 84 Z"
+          d={
+            isFemale
+              ? 'M 102 66 Q 110 78 118 66 L 118 86 Q 110 92 102 86 Z'
+              : 'M 96 68 Q 110 82 124 68 L 124 84 Q 110 90 96 84 Z'
+          }
           fill="#eef2f7"
           stroke={STROKE}
           strokeWidth={STROKE_W}
@@ -304,69 +312,59 @@ function MaleBody({ fill, stroke, strokeW }: BodyVariantProps) {
 }
 
 /**
- * Narrow-shouldered, hourglass silhouette. Pectoral block replaced with a
- * single soft bust curve. Wider hips, flared quads, no ab-segmentation
- * lines.
+ * Female silhouette: distinctly narrower shoulders, pinched waist, hips
+ * that flare WIDER than the shoulders (hourglass), two clear bust mounds
+ * with a cleavage gap, and slim feminine arms/legs.
+ *
+ * Coordinate landmarks (viewBox 220×480):
+ *   shoulder span 80..140 (vs male 56..164 — ~45% narrower)
+ *   waist span   100..120 (very pinched)
+ *   hip span      60..160 (wider than shoulders)
  */
 function FemaleBody({ fill, stroke, strokeW }: BodyVariantProps) {
   return (
     <>
-      {/* Trap slivers — narrower than male */}
+      {/* Shoulders (delts) — small soft caps, much narrower than male */}
       <path
-        d="M 96 84 Q 90 92 84 100 L 96 96 Z"
-        fill={fill('back')}
-        stroke={stroke}
-        strokeWidth={strokeW}
-        opacity={0.55}
-      />
-      <path
-        d="M 124 84 Q 130 92 136 100 L 124 96 Z"
-        fill={fill('back')}
-        stroke={stroke}
-        strokeWidth={strokeW}
-        opacity={0.55}
-      />
-
-      {/* Shoulders (delts) — narrower, softer caps */}
-      <path
-        d="M 84 100 Q 70 104 68 122 Q 72 130 82 128 Q 90 118 92 104 Z"
+        d="M 88 96 Q 78 100 80 118 Q 86 124 94 122 Q 100 112 102 98 Z"
         fill={fill('shoulders')}
         stroke={stroke}
         strokeWidth={strokeW}
       />
       <path
-        d="M 136 100 Q 150 104 152 122 Q 148 130 138 128 Q 130 118 128 104 Z"
+        d="M 132 96 Q 142 100 140 118 Q 134 124 126 122 Q 120 112 118 98 Z"
         fill={fill('shoulders')}
         stroke={stroke}
         strokeWidth={strokeW}
       />
 
-      {/* Bust line — single soft curve across the upper torso, two gentle
-          mounds either side of midline. Uses the 'chest' colour so it
-          shades with chest training. */}
+      {/* Bust — two distinct mounds with a clear cleavage gap, sitting
+          higher on the torso than the male pec block. */}
       <path
-        d="M 92 104 Q 80 120 82 150 Q 96 162 110 158 Q 124 162 138 150 Q 140 120 128 104 Q 124 122 110 122 Q 96 122 92 104 Z"
+        d="M 96 110 Q 84 118 88 144 Q 100 156 108 150 Q 110 138 108 112 Z"
         fill={fill('chest')}
         stroke={stroke}
         strokeWidth={strokeW}
       />
-      {/* Subtle underbust shading for definition */}
       <path
-        d="M 90 138 Q 100 154 110 152 Q 120 154 130 138"
-        fill="none"
-        stroke="rgba(15,23,42,0.18)"
-        strokeWidth={0.8}
+        d="M 124 110 Q 136 118 132 144 Q 120 156 112 150 Q 110 138 112 112 Z"
+        fill={fill('chest')}
+        stroke={stroke}
+        strokeWidth={strokeW}
       />
+      {/* Nipple/bust highlight — small soft dots */}
+      <circle cx={96} cy={138} r={2} fill="rgba(15,23,42,0.25)" />
+      <circle cx={124} cy={138} r={2} fill="rgba(15,23,42,0.25)" />
 
-      {/* Upper arms — slimmer than male variant */}
+      {/* Upper arms — slim, hugging the body */}
       <path
-        d="M 68 122 Q 62 158 64 198 Q 76 202 80 198 Q 82 158 82 128 Z"
+        d="M 80 118 Q 72 154 74 196 Q 84 200 90 196 Q 92 154 92 122 Z"
         fill={fill('arms')}
         stroke={stroke}
         strokeWidth={strokeW}
       />
       <path
-        d="M 152 122 Q 158 158 156 198 Q 144 202 140 198 Q 138 158 138 128 Z"
+        d="M 140 118 Q 148 154 146 196 Q 136 200 130 196 Q 128 154 128 122 Z"
         fill={fill('arms')}
         stroke={stroke}
         strokeWidth={strokeW}
@@ -374,80 +372,85 @@ function FemaleBody({ fill, stroke, strokeW }: BodyVariantProps) {
 
       {/* Forearms */}
       <path
-        d="M 64 198 Q 60 232 64 266 Q 72 270 80 266 Q 82 232 80 198 Z"
+        d="M 74 196 Q 70 230 74 266 Q 82 270 90 266 Q 92 230 90 196 Z"
         fill={fill('arms')}
         stroke={stroke}
         strokeWidth={strokeW}
         opacity={0.92}
       />
       <path
-        d="M 156 198 Q 160 232 156 266 Q 148 270 140 266 Q 138 232 140 198 Z"
+        d="M 146 196 Q 150 230 146 266 Q 138 270 130 266 Q 128 230 130 196 Z"
         fill={fill('arms')}
         stroke={stroke}
         strokeWidth={strokeW}
         opacity={0.92}
       />
 
-      {/* Core — hourglass: pinches narrow at the waist, no segmentation lines */}
+      {/* Core — clear hourglass: shoulders wide-ish at top, pinches in
+          dramatically at the waist, then flares back out at the hips. */}
       <path
-        d="M 88 162 Q 100 168 110 168 Q 120 168 132 162 L 124 230 Q 110 240 96 230 Z"
+        d="M 92 150 Q 102 160 110 160 Q 118 160 128 150
+           Q 104 178 102 200 Q 100 220 110 232
+           Q 120 220 118 200 Q 116 178 92 150 Z"
         fill={fill('core')}
         stroke={stroke}
         strokeWidth={strokeW}
       />
-      {/* Soft midline shading */}
-      <line x1={110} y1={172} x2={110} y2={228} stroke="rgba(15,23,42,0.12)" strokeWidth={0.8} />
+      {/* Belly button hint */}
+      <ellipse cx={110} cy={210} rx={1.5} ry={2.2} fill="rgba(15,23,42,0.2)" />
 
-      {/* Obliques (also part of core but rendered at lower opacity to keep
-          the silhouette readable) */}
-
-      {/* Lats — slivers next to the upper arm, narrower than male */}
+      {/* Lats — small slivers */}
       <path
-        d="M 82 128 Q 80 150 88 178 L 88 162 Q 86 148 86 128 Z"
+        d="M 92 122 Q 88 146 96 174 L 96 154 Q 94 140 94 124 Z"
         fill={fill('back')}
         stroke={stroke}
         strokeWidth={strokeW}
       />
       <path
-        d="M 138 128 Q 140 150 132 178 L 132 162 Q 134 148 134 128 Z"
+        d="M 128 122 Q 132 146 124 174 L 124 154 Q 126 140 126 124 Z"
         fill={fill('back')}
         stroke={stroke}
         strokeWidth={strokeW}
       />
 
-      {/* Hips — flared wider than the shoulders for hourglass effect */}
+      {/* Hips — DRAMATICALLY wider than shoulders. The signature hourglass
+          flare. Goes from the pinched waist (~100..120) out to 60..160. */}
       <path
-        d="M 96 230 Q 110 240 124 230 L 156 268 Q 110 286 64 268 Z"
+        d="M 100 226 Q 110 232 120 226
+           Q 156 248 160 280
+           Q 110 296 60 280
+           Q 64 248 100 226 Z"
         fill={fill('legs')}
         stroke={stroke}
         strokeWidth={strokeW}
         opacity={0.85}
       />
 
-      {/* Quads — slight outward flare at the top */}
+      {/* Quads — flared outward at top (matching hip width), tapering to
+          the knee */}
       <path
-        d="M 70 268 Q 66 340 86 392 L 108 392 Q 112 340 108 268 Z"
+        d="M 64 280 Q 64 340 88 396 L 108 396 Q 112 340 108 280 Z"
         fill={fill('legs')}
         stroke={stroke}
         strokeWidth={strokeW}
       />
       <path
-        d="M 150 268 Q 154 340 134 392 L 112 392 Q 108 340 112 268 Z"
+        d="M 156 280 Q 156 340 132 396 L 112 396 Q 108 340 112 280 Z"
         fill={fill('legs')}
         stroke={stroke}
         strokeWidth={strokeW}
       />
 
-      {/* Calves */}
+      {/* Calves — slim, slight outward curve mid-shin */}
       <path
-        d="M 86 392 Q 84 424 92 454 L 108 454 Q 110 424 108 392 Z"
+        d="M 88 396 Q 84 422 92 456 L 108 456 Q 110 422 108 396 Z"
         fill={fill('legs')}
         stroke={stroke}
         strokeWidth={strokeW}
         opacity={0.85}
       />
       <path
-        d="M 134 392 Q 136 424 128 454 L 112 454 Q 110 424 112 392 Z"
+        d="M 132 396 Q 136 422 128 456 L 112 456 Q 110 422 112 396 Z"
         fill={fill('legs')}
         stroke={stroke}
         strokeWidth={strokeW}
