@@ -66,7 +66,6 @@ export function WeeklyChart({ weeks }: { weeks: WeekBucket[] }) {
   // per-bar value label entirely — the hover tooltip still has it.
   const labelStride = view.length <= 12 ? 1 : view.length <= 16 ? 2 : view.length <= 30 ? 4 : 8;
   const showValueLabels = view.length <= 16;
-  const labelArea = showValueLabels ? 36 : 22;
 
   return (
     <div>
