@@ -1,10 +1,24 @@
-// Phase 0.4 will define the real single-table model (GSI1/GSI2, sparse,
-// pay-per-request). For Phase 0.2 we create the empty table only so the
-// SyncWorker stack has something to grant IAM permissions against.
+// Single-table design (roadmap §3).
+//   PK = USER#{userId}   — every item is partitioned by user
+//   SK prefixes:
+//     PROFILE
+//     WORKOUT#{startTime}
+//     SET#{startTime}#{exerciseId}#{setNum}
+//     EXERCISE#{exerciseId}
+//     AGG#WEEK#{ISO_thursday}
+//     AGG#CYCLE#{n}
+//     AGG#MUSCLE#{group}
+//     PROGRAM#{id}
+//     MEMORY#{ts}
 //
-// SK prefixes the roadmap commits to:
-//   WORKOUT#{ts}, SET#{ts}#{ex}#{n}, EXERCISE#{id}, AGG#WEEK#{iso},
-//   AGG#CYCLE#{n}, AGG#MUSCLE#{group}, PROGRAM#{id}, MEMORY#{ts}, PROFILE
+// GSI1 (sparse): per-exercise history. Set/Exercise items populate gsi1pk/gsi1sk
+//   GSI1PK = EX#{exerciseId}   GSI1SK = {startTime}
+// GSI2 (sparse): weekly time-range scans across all users isn't a use case, but
+//   per-user weekly traversal is the dashboard's hot path.
+//   GSI2PK = USER#{userId}#WEEK   GSI2SK = {ISO_thursday}
+//
+// Other queries are O(1) lookups against pre-aggregated AGG#* items, so we
+// deliberately keep the GSI surface tiny — fewer indexes, less write cost.
 
 export function Database() {
   const isProd = $app.stage === 'prod';
@@ -13,8 +27,16 @@ export function Database() {
     fields: {
       pk: 'string',
       sk: 'string',
+      gsi1pk: 'string',
+      gsi1sk: 'string',
+      gsi2pk: 'string',
+      gsi2sk: 'string',
     },
     primaryIndex: { hashKey: 'pk', rangeKey: 'sk' },
+    globalIndexes: {
+      gsi1: { hashKey: 'gsi1pk', rangeKey: 'gsi1sk' },
+      gsi2: { hashKey: 'gsi2pk', rangeKey: 'gsi2sk' },
+    },
     transform: {
       table: {
         // Continuous backups, 35-day point-in-time recovery window.

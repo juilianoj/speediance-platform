@@ -33,6 +33,32 @@ export default tseslint.config(
       ],
       'no-console': ['warn', { allow: ['warn', 'error', 'info'] }],
       eqeqeq: ['error', 'always', { null: 'ignore' }],
+      // Phase 0.4 / audit M4: anyone reading or writing tenant data MUST do
+      // so through @speediance/db's `forUser(userId)` wrapper, which Omit-s
+      // userId from every input. Direct DynamoDB / ElectroDB usage outside
+      // the db package bypasses that enforcement and risks cross-user reads.
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@aws-sdk/client-dynamodb',
+              message:
+                'Use @speediance/db (createDb().forUser(userId)) instead of the raw DynamoDB client.',
+            },
+            {
+              name: '@aws-sdk/lib-dynamodb',
+              message:
+                'Use @speediance/db (createDb().forUser(userId)) instead of the raw DynamoDB client.',
+            },
+            {
+              name: 'electrodb',
+              message:
+                'Use @speediance/db (createDb().forUser(userId)) — defining new entities lives in packages/db/src/entities.',
+            },
+          ],
+        },
+      ],
     },
   },
   prettier,
