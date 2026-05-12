@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-cognito-identity-provider": "^3.717.0",
+    "@aws-sdk/client-lambda": "^3.717.0",
     "@speediance/db": "workspace:*",
     "@speediance/secrets-store": "workspace:*",
     "@speediance/speediance-client": "workspace:*",

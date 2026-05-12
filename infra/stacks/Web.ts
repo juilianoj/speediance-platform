@@ -13,14 +13,16 @@
 import type { ApiStack } from './Api';
 import type { AuthStack } from './Auth';
 import type { DatabaseStack } from './Database';
+import type { SyncWorkerStack } from './SyncWorker';
 
 interface WebArgs {
   api: ApiStack;
   auth: AuthStack;
   database: DatabaseStack;
+  syncWorker: SyncWorkerStack;
 }
 
-export function Web({ api, auth, database }: WebArgs) {
+export function Web({ api, auth, database, syncWorker }: WebArgs) {
   const stage = $app.stage;
   const region = 'us-west-2';
   // ARN pattern for this stage's per-user Speediance secrets. Cannot use a
@@ -44,6 +46,10 @@ export function Web({ api, auth, database }: WebArgs) {
       SST_STAGE: stage,
       // Read by lib/profile/actions.ts via @speediance/db.
       DYNAMO_TABLE_NAME: database.table.name,
+      // Lets the saveProfile Server Action trigger an immediate sync after
+      // the user enters their Speediance creds. Lambda's InvokeCommand
+      // accepts either function name or ARN; ARN is unambiguous.
+      SYNC_WORKER_FUNCTION_NAME: syncWorker.functionArn,
       // Client + server: API base for Phase 1.x mutations. Public is fine —
       // CloudFront URL is already known to anyone with the site URL.
       NEXT_PUBLIC_API_URL: api.url,
@@ -66,6 +72,12 @@ export function Web({ api, auth, database }: WebArgs) {
       {
         actions: ['secretsmanager:CreateSecret'],
         resources: ['*'],
+      },
+      // Invoke the SyncWorker after a profile save so the user sees
+      // their data without waiting for the 10:00 UTC cron.
+      {
+        actions: ['lambda:InvokeFunction'],
+        resources: [syncWorker.functionArn],
       },
     ],
   });

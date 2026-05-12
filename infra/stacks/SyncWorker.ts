@@ -23,6 +23,7 @@ export function SyncWorker({ database }: SyncWorkerArgs) {
     environment: {
       LOG_LEVEL: 'info',
       SST_STAGE: stage,
+      DYNAMO_TABLE_NAME: database.table.name,
     },
     // Read-only access to per-user Speediance secrets. We also need
     // PutSecretValue to refresh the persisted Speediance token on 401 —
@@ -48,7 +49,7 @@ export function SyncWorker({ database }: SyncWorkerArgs) {
     function: fn.arn,
   });
 
-  return { functionArn: fn.functionArn };
+  return { functionArn: fn.functionArn, functionName: fn.name };
 }
 
 export type SyncWorkerStack = ReturnType<typeof SyncWorker>;
