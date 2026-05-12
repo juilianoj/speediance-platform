@@ -16,7 +16,9 @@ export function Auth() {
     },
   });
 
-  const userPoolClient = userPool.addClient('Web');
+  // Name must be unique across the whole SST app — `Web` collides with the
+  // Nextjs site declared in stacks/Web.ts.
+  const userPoolClient = userPool.addClient('WebClient');
 
   return { userPool, userPoolClient };
 }

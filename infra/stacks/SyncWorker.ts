@@ -10,7 +10,9 @@ interface SyncWorkerArgs {
 
 export function SyncWorker({ database }: SyncWorkerArgs) {
   const fn = new sst.aws.Function('SyncWorker', {
-    handler: 'apps/sync-worker/src/handler.handler',
+    // Paths resolve relative to sst.config.ts (this file lives in infra/),
+    // so we walk up to the repo root before descending into apps/.
+    handler: '../apps/sync-worker/src/handler.handler',
     link: [database.table],
     timeout: '5 minutes',
     memory: '512 MB',
