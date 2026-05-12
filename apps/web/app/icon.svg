@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <!--
+    Favicon — Next.js App Router auto-serves this from /icon.svg.
+    Matches the in-app brand mark (apps/web/app/speediance-mark.tsx):
+    cyan→deep-blue gradient tile with a bold white "S" stroked on top.
+    At 16×16 the stroke renders as ~2px which still reads as an S.
+  -->
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#22d3ee" />
+      <stop offset="55%" stop-color="#0ea5e9" />
+      <stop offset="100%" stop-color="#0b78d1" />
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="32" height="32" rx="7" fill="url(#bg)" />
+  <path
+    d="M 24 8
+       C 21 5, 12 5, 9 9
+       C 6 13, 10 15, 16 16
+       C 22 17, 26 19, 23 23
+       C 20 27, 11 27, 8 24"
+    stroke="#ffffff"
+    stroke-width="3.5"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    fill="none"
+  />
+</svg>
