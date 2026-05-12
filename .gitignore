@@ -15,13 +15,19 @@ out/
 .open-next/
 
 # Env / secrets — NEVER commit
-.env
-.env.local
-.env.*.local
+# Block ANY .env* file (.env, .env.local, .env.backup, .env.prod, …) and then
+# explicitly re-allow the documented example file.
+.env*
+!.env.example
 *.pem
 *.key
+*.p12
+*.pfx
 aws-exports.js
 config.json
+# Speediance API cache the upstream Python client wrote to disk — we don't
+# create these, but ignore them so a copy-pasted file from hbui3 doesn't leak.
+library_cache_*.json
 
 # Caches
 .cache/

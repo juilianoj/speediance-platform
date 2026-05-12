@@ -1,19 +1,29 @@
 #!/usr/bin/env sh
 
 # Run secret scan first — abort commit if anything matches.
-# Uses gitleaks if installed (brew install gitleaks). If absent, the hook
-# warns and falls through so contributors aren't blocked, but CI still gates.
-if command -v gitleaks >/dev/null 2>&1; then
-  gitleaks protect --staged --redact --verbose --exit-code 1 --config=.gitleaks.toml || {
-    echo
-    echo "✖ gitleaks found possible secrets in staged changes."
-    echo "  Review and either remove them or add a documented exception."
-    exit 1
-  }
-else
-  echo "⚠  gitleaks not installed locally — skipping secret scan."
-  echo "   Install with: brew install gitleaks   (CI will still enforce.)"
+# We HARD-FAIL when gitleaks is missing rather than silently allowing through:
+# on a fresh dev box, the previous "warn and continue" behaviour meant a
+# tokens-pasted-in-a-debug-log commit would push without ever being scanned,
+# and a public-repo push leaks secrets the moment GitHub indexes the branch.
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "✖ gitleaks is not installed."
+  echo "  Install it with: brew install gitleaks"
+  echo
+  echo "  If you really need to bypass this hook (one-off rebase, etc.),"
+  echo "  run: git commit --no-verify  -- and own the risk."
+  exit 1
 fi
 
-# Format/lint changed files
-pnpm exec lint-staged
+gitleaks protect --staged --redact --verbose --exit-code 1 --config=.gitleaks.toml || {
+  echo
+  echo "✖ gitleaks found possible secrets in staged changes."
+  echo "  Review and either remove them or add a documented allowlist entry"
+  echo "  in .gitleaks.toml."
+  exit 1
+}
+
+# Format/lint changed files (only if dependencies are installed).
+if [ -d node_modules ]; then
+  pnpm exec lint-staged
+fi

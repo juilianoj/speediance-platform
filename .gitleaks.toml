@@ -5,18 +5,44 @@ title = "speediance-platform gitleaks"
 [extend]
 useDefault = true
 
-# Custom: never commit a Speediance API token or appUserId from the live API.
+# ─── Speediance-specific patterns ─────────────────────────────────────────
+# The Speediance API returns long-lived bearer tokens in JSON bodies and as
+# the `Token` header. They're alphanumeric with no fixed prefix, so the rules
+# below catch the most common leak shapes (debug log dump, fixture paste,
+# header echo) without restricting to a single envelope key.
+
 [[rules]]
-id = "speediance-token-header"
-description = "Speediance auth token from API response"
-regex = '''(?i)(speediance[_-]?token|app[_-]?user[_-]?id)\s*[:=]\s*["'][A-Za-z0-9._-]{16,}["']'''
+id = "speediance-bearer-token"
+description = "Speediance auth token / appUserId pair in any common shape"
+regex = '''(?i)\b(?:token|app[_-]?user[_-]?id)\b\s*[:=]\s*["']?[A-Za-z0-9._\-]{20,}["']?'''
 tags = ["secret", "speediance"]
 
+[[rules]]
+id = "speediance-token-header"
+description = "Header-style Speediance token (curl -H or req.headers.Token)"
+regex = '''(?i)\b(?:Token|App[_-]?user[_-]?id):\s*['"][A-Za-z0-9._\-]{16,}['"]'''
+tags = ["secret", "speediance"]
+
+[[rules]]
+id = "raw-jwt"
+description = "Standalone JWT (id/access token)"
+regex = '''eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}'''
+tags = ["jwt"]
+
+# ─── Allowlist ────────────────────────────────────────────────────────────
 [allowlist]
 description = "Skip fixture files, snapshots, and example config"
+# Treat any test fixture / snapshot / docs as known-fake. The fixture token
+# string FIXTURE_TOKEN_NOT_A_REAL_SECRET trips the bearer regex.
 paths = [
-  '''.env.example$''',
+  '''\.env\.example$''',
   '''(^|/)fixtures/''',
   '''(^|/)__snapshots__/''',
   '''(^|/)docs/''',
+  '''(^|/)tests/''',
+  '''pnpm-lock\.yaml$''',
+]
+# Anything explicitly marked as a fixture passes; everything else doesn't.
+regexes = [
+  '''FIXTURE_TOKEN_NOT_A_REAL_SECRET''',
 ]

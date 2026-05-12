@@ -10,6 +10,12 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Repo is public, so this workflow runs on every fork's PR. Never grant write
+# permissions here, and never add deploy-time secrets — if you need to act on
+# AWS, do it from deploy.yml (which is gated on push-to-main).
+permissions:
+  contents: read
+
 jobs:
   verify:
     name: lint + typecheck + test
