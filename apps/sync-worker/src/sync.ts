@@ -198,15 +198,20 @@ export async function syncUser(userId: string): Promise<SyncSummary> {
       // wrong endpoint and we want the latest fetch to be the source of
       // truth (Set items aren't otherwise reconciled, so accumulation is a
       // real concern).
-      if (!isCardio && rec.trainingId !== undefined) {
+      if (!isCardio) {
         await me.sets.deleteForWorkout(startTimeIso);
         try {
-          const exercises = await fetchExercisesMerged(client, rec);
+          const { exercises, source } = await fetchExercisesValidated(client, rec);
           if (exercises.length > 0) {
             setsProcessed += await upsertExercisesAndSets(me, startTimeIso, exercises);
           }
+          // Trace for debugging — easier to spot in CloudWatch which path
+          // each workout took.
+          console.info(
+            `syncUser ${userId}: workout ${startTimeIso} → ${exercises.length} exercises (${source})`,
+          );
         } catch (err) {
-          console.warn(`getTrainingDetail failed for trainingId ${rec.trainingId}`, err);
+          console.warn(`exercises fetch failed for workout ${startTimeIso}`, err);
         }
         await new Promise((r) => setTimeout(r, 100));
       }
@@ -297,26 +302,92 @@ function createSpeedianceClient(
 }
 
 /**
- * Speediance splits a workout's exercises across BOTH detail endpoints:
+ * Get the exercises a workout was made of, with two strategies:
  *
- *   `cttTrainingInfoDetail` (custom)  — the barbell / cable / weighted
- *      strength work. Has the heavy lifts with real per-rep weights.
- *   `courseTrainingInfoDetail` (course) — the warmups, stretches, mobility
- *      drills, and any course-prescribed exercises (which may also be
- *      barbell lifts!). Stretches show finishedCount=0 because the device
- *      doesn't count reps for them.
+ * 1. **Validate `trainingId`** (the records-endpoint field that's supposed
+ *    to be a per-session ID). For type-6 "Sam invites you to challenge X"
+ *    workouts Speediance has a long-standing API bug where trainingId
+ *    points to an unrelated old session — verified: trainingId 557819 for
+ *    May 11 training F actually maps to a Jan 2025 "Lower Body Madness".
+ *    We validate by calling `courseTrainingInfo/{trainingId}` and checking
+ *    its `courseId` matches the records-endpoint `courseId`. If they
+ *    match, the detail endpoints are trustworthy — fetch both, merge.
  *
- * Both endpoints return real user-completion data; they're just different
- * "phases" of the same workout. So we fetch BOTH and merge — dedupe by
- * actionLibraryGroupId, preferring the version with real completion data
- * if the same exercise appears in both. (Verified with live probe: 5
- * exercises from custom + 11 from course = 16 total for the same workout.)
+ * 2. **Fall back to course curriculum.** When validation fails (or there's
+ *    no courseId), call `course/info/{courseId}` which returns the
+ *    authoritative actionLibraryList — the correct list of exercises a
+ *    Speediance course prescribes. We lose per-rep weights but the user
+ *    sees the right exercise names.
+ *
+ * The two paths produce different shapes; we normalize so the writer can
+ * handle them uniformly. Detail entries have `maxWeight`, `finishedReps`
+ * with weights; curriculum entries have just `id`, `title`, `context`.
  */
-async function fetchExercisesMerged(
+async function fetchExercisesValidated(
   client: SpeedianceClient,
   rec: Record<string, unknown>,
+): Promise<{ exercises: Array<Record<string, unknown>>; source: 'detail' | 'curriculum' }> {
+  const trainingId = rec.trainingId as string | number | undefined;
+  const courseId = typeof rec.courseId === 'number' ? rec.courseId : undefined;
+
+  // Try detail path first if we have a trainingId.
+  if (trainingId !== undefined) {
+    try {
+      const r = client as unknown as { req: <T>(m: string, p: string) => Promise<T> };
+      const info = await r.req<Record<string, unknown>>(
+        'GET',
+        `/api/app/trainingInfo/courseTrainingInfo/${trainingId}`,
+      );
+      // Validation: do trainingId-side courseId and records-side courseId
+      // agree? Only then can we trust the detail endpoints.
+      const trainingIdValid = info?.courseId === courseId;
+      if (trainingIdValid) {
+        const merged = await fetchAndMergeDetails(client, trainingId);
+        if (merged.length > 0) return { exercises: merged, source: 'detail' };
+      }
+    } catch (err) {
+      console.warn(`courseTrainingInfo ${trainingId} failed`, err);
+    }
+  }
+
+  // Fall back to course curriculum (authoritative for the exercise list,
+  // but no per-rep weights).
+  if (courseId !== undefined) {
+    try {
+      const r = client as unknown as { req: <T>(m: string, p: string) => Promise<T> };
+      const courseInfo = await r.req<Record<string, unknown>>(
+        'GET',
+        `/api/app/v2/course/info/${courseId}?weightConfig=1`,
+      );
+      const list = Array.isArray(courseInfo?.actionLibraryList)
+        ? (courseInfo.actionLibraryList as Array<Record<string, unknown>>)
+        : [];
+      // Reshape curriculum entries so upsertExercisesAndSets can read them
+      // uniformly: actionLibraryGroupId ← id, actionLibraryName ← title,
+      // finishedReps stays empty (no per-rep data available).
+      return {
+        exercises: list.map((e) => ({
+          actionLibraryGroupId: e.id,
+          actionLibraryName: e.title,
+          isBarbell: undefined,
+          trainingPartId2: undefined,
+          maxWeight: undefined,
+          finishedReps: [],
+        })),
+        source: 'curriculum',
+      };
+    } catch (err) {
+      console.warn(`course/info ${courseId} failed`, err);
+    }
+  }
+
+  return { exercises: [], source: 'curriculum' };
+}
+
+async function fetchAndMergeDetails(
+  client: SpeedianceClient,
+  id: string | number,
 ): Promise<Array<Record<string, unknown>>> {
-  const id = rec.trainingId as string | number;
   const safeFetch = async (type: 'course' | 'custom') => {
     try {
       const r = (await client.getTrainingDetail(id, type)) as unknown;
@@ -326,22 +397,15 @@ async function fetchExercisesMerged(
       return [];
     }
   };
-
   const [custom, course] = await Promise.all([safeFetch('custom'), safeFetch('course')]);
-
-  // Merge by actionLibraryGroupId, preserving the order the device played
-  // them (warmups first via course, then the strength work via custom).
   const merged = new Map<string, Record<string, unknown>>();
   const pushUnique = (list: Array<Record<string, unknown>>) => {
     for (const ex of list) {
-      const id = String(ex.actionLibraryGroupId ?? '');
-      if (!id) continue;
-      const existing = merged.get(id);
-      if (!existing) {
-        merged.set(id, ex);
-      } else if (hasRealCompletion(ex) && !hasRealCompletion(existing)) {
-        merged.set(id, ex);
-      }
+      const exId = String(ex.actionLibraryGroupId ?? '');
+      if (!exId) continue;
+      const existing = merged.get(exId);
+      if (!existing) merged.set(exId, ex);
+      else if (hasRealCompletion(ex) && !hasRealCompletion(existing)) merged.set(exId, ex);
     }
   };
   pushUnique(course);
@@ -450,6 +514,26 @@ async function upsertExercisesAndSets(
     const isUnilateral = Boolean(ex.isLeftRight);
     const finishedReps = Array.isArray(ex.finishedReps) ? ex.finishedReps : [];
 
+    // Curriculum path has finishedReps=[] (no per-rep data available).
+    // Still write a single placeholder Set so the workout-detail page can
+    // list the exercise — UI handles weight=undefined as "—".
+    if (finishedReps.length === 0) {
+      await me.sets.put({
+        startTime,
+        exerciseId,
+        setNum: 1,
+        weight: undefined,
+        targetReps: undefined,
+        finishedReps: undefined,
+        volume: undefined,
+        rest: undefined,
+        mode: undefined,
+        leftRight: undefined,
+        formFlags: undefined,
+      });
+      totalSets++;
+    }
+
     // Write one Set per finishedReps entry. setNum is 1-indexed in the
     // order Speediance returned them (which is the actual workout order).
     for (let i = 0; i < finishedReps.length; i++) {
@@ -506,6 +590,9 @@ async function upsertExercisesAndSets(
     const prevTotal = existing?.data?.totalSets ?? 0;
     const prevLastDone = existing?.data?.lastDone ?? '';
     const isNewer = startTime > prevLastDone;
+    // For totalSets, count actual sets-with-reps only; curriculum
+    // placeholders shouldn't inflate the count.
+    const realSetsThisSession = finishedReps.length;
     await me.exercises.upsert({
       exerciseId,
       name,
@@ -514,7 +601,7 @@ async function upsertExercisesAndSets(
       bestWeight: sessionMax !== undefined ? Math.max(prevBest, sessionMax) : prevBest,
       workingWeight: isNewer ? sessionMax : (existing?.data?.workingWeight ?? sessionMax),
       lastDone: isNewer ? startTime : prevLastDone || startTime,
-      totalSets: prevTotal + finishedReps.length,
+      totalSets: prevTotal + realSetsThisSession,
     });
   }
   return totalSets;
