@@ -55,6 +55,10 @@ export function Auth() {
               '',
               '— Speediance Platform',
             ].join('<br>'),
+            // Cognito requires smsMessage even when SMS isn't configured —
+            // empty string fails validation (min length 6). We don't use
+            // SMS but the platform doesn't let us omit this.
+            smsMessage: 'Speediance temp password: {####}',
           },
         },
         autoVerifiedAttributes: ['email'],
@@ -71,6 +75,9 @@ export function Auth() {
             '',
             '— Speediance Platform',
           ].join('<br>'),
+          // Same Cognito quirk as inviteMessageTemplate: smsMessage must be
+          // present even when SMS is not used.
+          smsMessage: 'Speediance verification code: {####}',
         },
         // Send Cognito emails (invites, password resets, MFA codes) via
         // SES instead of the default no-reply@verificationemail.com —
