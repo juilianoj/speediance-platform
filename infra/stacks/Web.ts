@@ -33,6 +33,15 @@ export function Web({ api, auth, database, syncWorker }: WebArgs) {
   const site = new sst.aws.Nextjs('Web', {
     // Relative to sst.config.ts (infra/) — see SyncWorker.ts for the same reason.
     path: '../apps/web',
+    // The Coach Server Action chains Bedrock + DDB tool calls and can
+    // legitimately take 20–40s on a "build me a program" prompt. SST's
+    // default Nextjs server timeout (10s) was killing those requests with
+    // a CloudFront 504 long before Bedrock returned. 60s gives the coach
+    // room and still sits inside CloudFront's default 60s origin-response
+    // window.
+    server: {
+      timeout: '60 seconds',
+    },
     // `link` grants the server function least-privilege IAM on the table
     // (Query / Get / Put / Update / Delete on the table's ARN). The plain
     // env-var below makes the table name available at runtime without
