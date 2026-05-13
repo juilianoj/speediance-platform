@@ -35,7 +35,14 @@ export type ToolName =
   | 'create_workout_draft'
   | 'update_workout_draft'
   | 'get_balance_gaps'
-  | 'get_plateau_lifts';
+  | 'get_plateau_lifts'
+  // Program-integration tools (PR θ):
+  | 'list_program_drafts'
+  | 'get_program_draft'
+  | 'create_program_draft'
+  | 'update_program_draft'
+  | 'schedule_program'
+  | 'unschedule_program';
 
 export interface ToolSpec {
   name: ToolName;
@@ -306,6 +313,139 @@ export const COACH_TOOLS: ToolSpec[] = [
     description:
       "Identify lifts where the user's `bestWeight` hasn't increased in 4+ weeks despite recent sessions. Returns each with `name`, `bestWeight`, `lastDone`, `weeksSinceBestUpdate`. Use this to suggest variety / accessory work when the user says 'I'm stuck on X' or 'feel like I'm plateauing'.",
     input_schema: { type: 'object', properties: {} },
+  },
+
+  // ─── Program-integration tools (PR θ) ──────────────────────────────
+  //
+  // A ProgramDraft is a multi-week plan that arranges WorkoutDrafts into
+  // weekly slots. The coach builds programs by:
+  //   1. Calling create_workout_draft for each distinct workout in the
+  //      program (often 3-5 different sessions per week).
+  //   2. Calling create_program_draft with slots that reference those
+  //      workout draftIds.
+  //   3. Optionally calling schedule_program to push the whole thing to
+  //      Speediance reservations starting a chosen date.
+
+  {
+    name: 'list_program_drafts',
+    description:
+      "List the user's existing program drafts — id, name, weekCount, slot count, status ('draft' / 'scheduled'). Check this before creating a new program in case the user already has one for the same purpose.",
+    input_schema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'get_program_draft',
+    description:
+      'Full contents of one program: name, notes, weekCount, slots[]. Each slot is {weekIndex, dayOfWeek, draftId, label?}. Use this before update_program_draft to preserve unmodified slots.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        programId: { type: 'string', description: 'The programId from list_program_drafts.' },
+      },
+      required: ['programId'],
+    },
+  },
+  {
+    name: 'create_program_draft',
+    description:
+      'Create a new multi-week program. `slots[]` references existing WorkoutDrafts by `draftId` — usually you will create those drafts first via create_workout_draft. Returns programId + /builder/programs/[id] URL. Day-of-week is 0=Sun..6=Sat.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        name: {
+          type: 'string',
+          description: 'Short program name, e.g. "4-week hypertrophy block".',
+        },
+        notes: {
+          type: 'string',
+          description: 'Goal / focus / any constraints worth remembering.',
+        },
+        weekCount: {
+          type: 'number',
+          description: 'How many weeks the program runs. 1-16.',
+        },
+        slots: {
+          type: 'array',
+          description: 'Each slot pairs a workout with a (week, day-of-week) cell.',
+          items: {
+            type: 'object',
+            properties: {
+              weekIndex: { type: 'number', description: '0-indexed week.' },
+              dayOfWeek: {
+                type: 'number',
+                description: '0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat.',
+              },
+              draftId: {
+                type: 'string',
+                description: 'A WorkoutDraft id from list_workout_drafts.',
+              },
+              label: {
+                type: 'string',
+                description: 'Optional override of the slot label (defaults to draft name).',
+              },
+            },
+            required: ['weekIndex', 'dayOfWeek', 'draftId'],
+          },
+        },
+      },
+      required: ['name', 'weekCount', 'slots'],
+    },
+  },
+  {
+    name: 'update_program_draft',
+    description:
+      'Modify an existing program draft. `slots` REPLACES the whole list; fetch current state via get_program_draft first if you want to preserve some.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        programId: { type: 'string' },
+        name: { type: 'string' },
+        notes: { type: 'string' },
+        weekCount: { type: 'number' },
+        slots: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              weekIndex: { type: 'number' },
+              dayOfWeek: { type: 'number' },
+              draftId: { type: 'string' },
+              label: { type: 'string' },
+            },
+            required: ['weekIndex', 'dayOfWeek', 'draftId'],
+          },
+        },
+      },
+      required: ['programId'],
+    },
+  },
+  {
+    name: 'schedule_program',
+    description:
+      "Push a program to Speediance — materializes every slot to a calendar reservation starting on `startDate`. Each underlying WorkoutDraft is auto-saved as a Speediance template if it isn't already. Idempotent: running again with a different start date moves everything. Returns the number of reservations created + any failures.",
+    input_schema: {
+      type: 'object',
+      properties: {
+        programId: { type: 'string' },
+        startDate: {
+          type: 'string',
+          description:
+            'YYYY-MM-DD. The program starts on this date; week 1 is the week containing it.',
+        },
+      },
+      required: ['programId', 'startDate'],
+    },
+  },
+  {
+    name: 'unschedule_program',
+    description:
+      "Remove every Speediance reservation tied to this program and flip it back to draft status. Use when the user says 'cancel my current program' or wants to re-plan from scratch.",
+    input_schema: {
+      type: 'object',
+      properties: {
+        programId: { type: 'string' },
+      },
+      required: ['programId'],
+    },
   },
 ];
 
@@ -649,9 +789,161 @@ export async function runTool(
         .sort((a, b) => (b.totalSets ?? 0) - (a.totalSets ?? 0));
     }
 
+    // ─── Program-integration tools ───────────────────────────────────
+    case 'list_program_drafts': {
+      const result = (await me.programDrafts.list()) as {
+        data: Array<{
+          programId: string;
+          name: string;
+          weekCount?: number;
+          slots?: unknown[];
+          status?: string;
+          scheduledStartDate?: string;
+          updatedAt?: string;
+        }>;
+      };
+      return (result.data ?? [])
+        .map((p) => ({
+          programId: p.programId,
+          name: p.name,
+          weekCount: p.weekCount ?? 1,
+          slotsAssigned: Array.isArray(p.slots) ? p.slots.length : 0,
+          status: p.status ?? 'draft',
+          scheduledStartDate: p.scheduledStartDate,
+          updatedAt: p.updatedAt,
+        }))
+        .sort((a, b) => (a.updatedAt && b.updatedAt && a.updatedAt > b.updatedAt ? -1 : 1));
+    }
+
+    case 'get_program_draft': {
+      const programId = String(args.programId ?? '');
+      if (!programId) return { error: 'programId is required' };
+      const res = (await me.programDrafts.get(programId)) as { data: unknown | null };
+      if (!res?.data) return { error: 'program not found' };
+      return res.data;
+    }
+
+    case 'create_program_draft':
+    case 'update_program_draft': {
+      const isCreate = name === 'create_program_draft';
+      const rawSlots = Array.isArray(args.slots) ? args.slots : undefined;
+      const slots = rawSlots ? normalizeCoachSlots(rawSlots) : undefined;
+      if (rawSlots && !slots) {
+        return { error: 'invalid slots — each must have weekIndex, dayOfWeek, draftId.' };
+      }
+      const weekCount =
+        typeof args.weekCount === 'number'
+          ? Math.max(1, Math.min(16, args.weekCount | 0))
+          : undefined;
+
+      if (isCreate) {
+        if (!slots || slots.length === 0) {
+          return { error: 'create_program_draft requires at least one slot.' };
+        }
+        const programId = randomUUID().replace(/-/g, '').slice(0, 16);
+        await me.programDrafts.upsert({
+          programId,
+          name: typeof args.name === 'string' ? args.name : 'Coach-built program',
+          notes: typeof args.notes === 'string' ? args.notes : undefined,
+          weekCount: weekCount ?? Math.max(1, ...slots.map((s) => s.weekIndex + 1)),
+          slots,
+          status: 'draft',
+          createdAt: new Date().toISOString(),
+        });
+        return {
+          ok: true,
+          programId,
+          builderUrl: `/builder/programs/${programId}`,
+          message:
+            'Program created. Tell the user it lives at /builder/programs/' +
+            programId +
+            ' — they can review the calendar grid and click "Schedule program" to push it to Speediance.',
+        };
+      } else {
+        const programId = String(args.programId ?? '');
+        if (!programId) return { error: 'programId is required' };
+        const patch: Record<string, unknown> = {};
+        if (typeof args.name === 'string') patch.name = args.name;
+        if (typeof args.notes === 'string') patch.notes = args.notes;
+        if (weekCount !== undefined) patch.weekCount = weekCount;
+        if (slots) patch.slots = slots;
+        if (Object.keys(patch).length === 0) return { error: 'no fields to update' };
+        await me.programDrafts.patch(programId, patch);
+        return { ok: true, programId, builderUrl: `/builder/programs/${programId}` };
+      }
+    }
+
+    case 'schedule_program': {
+      const programId = String(args.programId ?? '');
+      const startDate = String(args.startDate ?? '');
+      if (!programId || !startDate) {
+        return { error: 'programId and startDate are required' };
+      }
+      const programRes = (await me.programDrafts.get(programId)) as {
+        data: import('@/lib/builder/program-actions').ProgramDraftRow | null;
+      };
+      if (!programRes?.data) return { error: 'program not found' };
+      // Lazy import — keeps cold-path token-light for the simpler tools.
+      const { scheduleProgram } = await import('@/lib/builder/program-schedule');
+      const summary = await scheduleProgram(userId, programRes.data, startDate);
+      return {
+        ok: summary.ok,
+        reservations: summary.reservations.length,
+        failures: summary.failures.length,
+        message: summary.message,
+      };
+    }
+
+    case 'unschedule_program': {
+      const programId = String(args.programId ?? '');
+      if (!programId) return { error: 'programId is required' };
+      const programRes = (await me.programDrafts.get(programId)) as {
+        data: import('@/lib/builder/program-actions').ProgramDraftRow | null;
+      };
+      if (!programRes?.data) return { error: 'program not found' };
+      const { unscheduleProgram } = await import('@/lib/builder/program-schedule');
+      return await unscheduleProgram(userId, programRes.data);
+    }
+
     default:
       return { error: `unknown tool: ${String(name)}` };
   }
+}
+
+/**
+ * Coerce a coach-supplied slots payload into the ProgramDraft slots
+ * shape. Returns null on any malformed entry so the model gets a clear
+ * "try again with valid shape" response instead of silently dropping rows.
+ */
+function normalizeCoachSlots(
+  raw: unknown[],
+): Array<{ weekIndex: number; dayOfWeek: number; draftId: string; label?: string }> | null {
+  const out: Array<{ weekIndex: number; dayOfWeek: number; draftId: string; label?: string }> = [];
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') return null;
+    const s = item as Record<string, unknown>;
+    const weekIndex = typeof s.weekIndex === 'number' ? s.weekIndex : Number(s.weekIndex);
+    const dayOfWeek = typeof s.dayOfWeek === 'number' ? s.dayOfWeek : Number(s.dayOfWeek);
+    const draftId = typeof s.draftId === 'string' ? s.draftId : '';
+    if (
+      !Number.isInteger(weekIndex) ||
+      weekIndex < 0 ||
+      weekIndex > 15 ||
+      !Number.isInteger(dayOfWeek) ||
+      dayOfWeek < 0 ||
+      dayOfWeek > 6 ||
+      !draftId
+    ) {
+      return null;
+    }
+    out.push({
+      weekIndex,
+      dayOfWeek,
+      draftId,
+      label: typeof s.label === 'string' ? s.label : undefined,
+    });
+  }
+  return out;
 }
 
 /**
