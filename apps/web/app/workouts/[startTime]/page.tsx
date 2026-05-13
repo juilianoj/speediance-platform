@@ -108,18 +108,22 @@ export default async function WorkoutDetailPage({ params }: PageProps) {
       ) : (
         grouped.map(({ exerciseId, sets: exSets }) => {
           const agg = aggById.get(exerciseId);
-          const sessionMax = Math.max(0, ...exSets.map((s) => s.weight ?? 0));
+          const weightedSets = exSets.filter((s) => (s.weight ?? 0) > 0);
+          const hasDetail = weightedSets.length > 0;
+          const sessionMax = Math.max(0, ...weightedSets.map((s) => s.weight ?? 0));
           const pr = agg?.bestWeight ?? 0;
-          const headroom = pr > 0 ? Math.max(0, pr - sessionMax) : undefined;
-          const flagged = exSets.some((s) => (s.formFlags?.length ?? 0) > 0);
-          const recommendedNext = recommendNext({
-            sessionMax,
-            allSetsTargetReached: exSets.every(
-              (s) => (s.targetReps ?? 0) === 0 || (s.finishedReps ?? 0) >= (s.targetReps ?? 0),
-            ),
-            flagged,
-            isolation: detectIsolation(agg?.name ?? '', agg?.isUnilateral ?? false),
-          });
+          const headroom = hasDetail && pr > 0 ? Math.max(0, pr - sessionMax) : undefined;
+          const flagged = weightedSets.some((s) => (s.formFlags?.length ?? 0) > 0);
+          const recommendedNext = hasDetail
+            ? recommendNext({
+                sessionMax,
+                allSetsTargetReached: weightedSets.every(
+                  (s) => (s.targetReps ?? 0) === 0 || (s.finishedReps ?? 0) >= (s.targetReps ?? 0),
+                ),
+                flagged,
+                isolation: detectIsolation(agg?.name ?? '', agg?.isUnilateral ?? false),
+              })
+            : null;
           return (
             <section key={exerciseId} style={cardStyle}>
               <div
@@ -139,44 +143,67 @@ export default async function WorkoutDetailPage({ params }: PageProps) {
                 </span>
               </div>
 
-              <div
-                style={{
-                  display: 'flex',
-                  flexWrap: 'wrap',
-                  gap: '1rem',
-                  marginTop: '0.6rem',
-                  fontSize: '0.88rem',
-                }}
-              >
-                <Pill
-                  label="Session max"
-                  value={sessionMax > 0 ? `${fmtWt(sessionMax)} lb` : '—'}
-                />
-                <Pill label="Lifetime PR" value={pr > 0 ? `${fmtWt(pr)} lb` : '—'} />
-                {headroom !== undefined && (
-                  <Pill
-                    label="Headroom"
-                    value={headroom === 0 ? 'at PR' : `${headroom.toFixed(0)} lb`}
-                    accent={headroom === 0 ? '#0d9488' : undefined}
-                  />
-                )}
-                {recommendedNext !== null && (
-                  <Pill
-                    label="Next session"
-                    value={`${fmtWt(recommendedNext.weight)} lb`}
-                    accent="#0b78d1"
-                    sub={recommendedNext.note}
-                  />
-                )}
-              </div>
+              {hasDetail ? (
+                <>
+                  <div
+                    style={{
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      gap: '1rem',
+                      marginTop: '0.6rem',
+                      fontSize: '0.88rem',
+                    }}
+                  >
+                    <Pill label="Session max" value={`${fmtWt(sessionMax)} lb`} />
+                    <Pill label="Lifetime PR" value={pr > 0 ? `${fmtWt(pr)} lb` : '—'} />
+                    {headroom !== undefined && (
+                      <Pill
+                        label="Headroom"
+                        value={headroom === 0 ? 'at PR' : `${headroom.toFixed(0)} lb`}
+                        accent={headroom === 0 ? '#0d9488' : undefined}
+                      />
+                    )}
+                    {recommendedNext !== null && (
+                      <Pill
+                        label="Next session"
+                        value={`${fmtWt(recommendedNext.weight)} lb`}
+                        accent="#0b78d1"
+                        sub={recommendedNext.note}
+                      />
+                    )}
+                  </div>
 
-              <div
-                style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: '0.8rem' }}
-              >
-                {exSets.map((s) => (
-                  <SetChip key={s.setNum} set={s} />
-                ))}
-              </div>
+                  <div
+                    style={{
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      gap: '0.4rem',
+                      marginTop: '0.8rem',
+                    }}
+                  >
+                    {weightedSets.map((s) => (
+                      <SetChip key={s.setNum} set={s} />
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <div
+                  style={{
+                    marginTop: '0.6rem',
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: '1rem',
+                    alignItems: 'center',
+                    fontSize: '0.88rem',
+                  }}
+                >
+                  {pr > 0 && <Pill label="Lifetime PR" value={`${fmtWt(pr)} lb`} />}
+                  <span style={{ color: '#888' }}>
+                    {exSets.length} {exSets.length === 1 ? 'set' : 'sets'} logged · no per-rep
+                    weight detail synced
+                  </span>
+                </div>
+              )}
             </section>
           );
         })
