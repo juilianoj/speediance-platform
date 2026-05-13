@@ -11,6 +11,7 @@ import {
 } from '@/app/(authed)/page-shell';
 import { verifyIdTokenFromCookies } from '@/lib/auth/session';
 import { getCatalogSize, listUsers } from '@/lib/admin/actions';
+import { COST_FLAG_THRESHOLD_USD, loadCostBreakdown } from '@/lib/admin/cost';
 import { listAllFeedback } from '@/lib/feedback/actions';
 
 import { CatalogRebuildButton, InviteForm, ResyncButton } from './actions';
@@ -20,10 +21,11 @@ export const metadata = { title: 'Admin — speediance-platform' };
 export default async function AdminPage() {
   const claims = await verifyIdTokenFromCookies();
   if (!claims) redirect('/login');
-  const [users, feedback, catalogSize] = await Promise.all([
+  const [users, feedback, catalogSize, cost] = await Promise.all([
     listUsers(),
     listAllFeedback(),
     getCatalogSize(),
+    loadCostBreakdown(),
   ]);
 
   return (
@@ -108,6 +110,86 @@ export default async function AdminPage() {
               ))}
             </tbody>
           </table>
+        )}
+      </section>
+
+      <section style={cardStyle}>
+        <h2 style={cardHeadingStyle}>Cost (month-to-date)</h2>
+        <p style={mutedStyle}>
+          AWS spend for this stage so far this month. Cost Explorer has a ~24-hour lag, so
+          today&apos;s spend won&apos;t appear until tomorrow. Per-user attribution is not wired up
+          — Lambda / DDB / Bedrock calls aren&apos;t tagged with userId.
+        </p>
+        {cost.ok ? (
+          <div style={{ marginTop: '0.9rem' }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'baseline',
+                gap: '0.6rem',
+                marginBottom: '0.75rem',
+              }}
+            >
+              <span
+                style={{
+                  fontSize: '1.4rem',
+                  fontWeight: 700,
+                  color: cost.total > COST_FLAG_THRESHOLD_USD ? '#dc2626' : '#0f172a',
+                }}
+              >
+                ${cost.total.toFixed(2)}
+              </span>
+              <span style={{ color: '#94a3b8', fontSize: '0.85rem' }}>
+                {cost.unit} · since {cost.monthStart}
+              </span>
+              {cost.total > COST_FLAG_THRESHOLD_USD && (
+                <span
+                  style={{
+                    color: '#dc2626',
+                    fontSize: '0.85rem',
+                    fontWeight: 600,
+                    marginLeft: '0.6rem',
+                  }}
+                >
+                  above ${COST_FLAG_THRESHOLD_USD} target
+                </span>
+              )}
+            </div>
+            {cost.lines.length === 0 ? (
+              <p style={{ color: '#94a3b8', margin: 0, fontSize: '0.85rem' }}>
+                No services have billed yet this month.
+              </p>
+            ) : (
+              <table style={tableStyle}>
+                <thead>
+                  <tr>
+                    <th style={thStyle}>Service</th>
+                    <th style={{ ...thStyle, textAlign: 'right' }}>Spend</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {cost.lines.map((line) => (
+                    <tr key={line.service}>
+                      <td style={tdStyle}>{line.service}</td>
+                      <td
+                        style={{
+                          ...tdStyle,
+                          textAlign: 'right',
+                          fontVariantNumeric: 'tabular-nums',
+                        }}
+                      >
+                        ${line.amount.toFixed(2)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        ) : (
+          <p style={{ color: '#a06000', margin: '0.75rem 0 0 0', fontSize: '0.85rem' }}>
+            {cost.reason}
+          </p>
         )}
       </section>
 
