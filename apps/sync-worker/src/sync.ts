@@ -145,6 +145,23 @@ export async function syncUser(userId: string): Promise<SyncSummary> {
       `syncUser ${userId}: ${records.length} training records in ${rangeStart}..${rangeEnd}`,
     );
 
+    // Per-sync cache for the per-exercise daily-stats endpoint. Speediance's
+    // type-6 "Sam invites you to challenge X" share workouts return empty
+    // bodies from the per-workout detail endpoints (verified by probe — the
+    // trainingId field is corrupt and the rec.id doesn't resolve), so we fall
+    // back to the course curriculum to learn WHICH exercises a user did. But
+    // the curriculum doesn't tell us the SESSION'S weights / volume / score.
+    //
+    // `userActionStatPage` is the endpoint the mobile app uses for per-lift
+    // history; it returns one entry per (groupId, day) with maxWeight,
+    // minWeight, totalCapacity, score, actionRating. We use it to enrich
+    // curriculum-fallback workouts with real session data — keyed by
+    // workout's local date (`dayStr` from the API matches our slice(0,10)).
+    //
+    // Cached by groupId so a 140-workout backfill with ~30 unique exercises
+    // makes ~30 calls instead of ~1100. Discarded at end of syncUser.
+    const dailyStatsCache = new Map<string, Array<DailyExerciseStat>>();
+
     for (const rec of records) {
       const startTimeIso = toIsoTimestamp(rec.startTime as number | string | undefined);
       if (!startTimeIso) continue;
@@ -202,13 +219,28 @@ export async function syncUser(userId: string): Promise<SyncSummary> {
         await me.sets.deleteForWorkout(startTimeIso);
         try {
           const { exercises, source } = await fetchExercisesValidated(client, rec);
+          // For curriculum-fallback workouts (i.e. trainingId-mismatch type-6
+          // share challenges), enrich each exercise with the day's stats
+          // from userActionStatPage. The curriculum tells us WHAT exercises
+          // were done; the stats endpoint tells us with what weight/volume.
+          let enrichedCount = 0;
+          if (source === 'curriculum' && exercises.length > 0) {
+            enrichedCount = await enrichCurriculumWithDailyStats(
+              client,
+              exercises,
+              startTimeIso.slice(0, 10),
+              dailyStatsCache,
+            );
+          }
           if (exercises.length > 0) {
             setsProcessed += await upsertExercisesAndSets(me, startTimeIso, exercises);
           }
           // Trace for debugging — easier to spot in CloudWatch which path
           // each workout took.
           console.info(
-            `syncUser ${userId}: workout ${startTimeIso} → ${exercises.length} exercises (${source})`,
+            `syncUser ${userId}: workout ${startTimeIso} → ${exercises.length} exercises (${source}${
+              source === 'curriculum' ? `, ${enrichedCount} enriched` : ''
+            })`,
           );
         } catch (err) {
           console.warn(`exercises fetch failed for workout ${startTimeIso}`, err);
@@ -397,6 +429,76 @@ async function fetchExercisesValidated(
   return { exercises: [], source: 'curriculum' };
 }
 
+/**
+ * One row from `/api/app/actionLibraryGroup/userActionStatPage`. Speediance
+ * returns one of these per (exercise, day) — it's their per-lift history view
+ * in the mobile app. We use it to recover session-level numbers for type-6
+ * share-challenge workouts whose detail endpoints come back empty.
+ */
+interface DailyExerciseStat {
+  dayStr: string;
+  maxWeight: number;
+  minWeight?: number;
+  totalCapacity: number;
+  score?: number;
+  actionRating?: number;
+  oneRepMax?: number;
+}
+
+/**
+ * For workouts that fell into the curriculum fallback, look up the day's
+ * stats per exercise and merge `maxWeight` + `totalCapacity` onto the
+ * exercise record. The set-writer in `upsertExercisesAndSets` will then
+ * write a real (single-row, weighted) Set instead of an unwearned
+ * placeholder.
+ *
+ * Returns the number of exercises that got enriched (had a same-day entry
+ * in their stats page). Mutates `exercises` in place. Stats are cached in
+ * `cache` so a backfill doesn't repeat fetches across workouts.
+ */
+async function enrichCurriculumWithDailyStats(
+  client: SpeedianceClient,
+  exercises: Array<Record<string, unknown>>,
+  workoutDayStr: string,
+  cache: Map<string, Array<DailyExerciseStat>>,
+): Promise<number> {
+  const r = client as unknown as {
+    req: <T>(m: string, p: string) => Promise<T>;
+  };
+  let enriched = 0;
+  for (const ex of exercises) {
+    const groupId = String(ex.actionLibraryGroupId ?? '').trim();
+    if (!groupId) continue;
+    let stats = cache.get(groupId);
+    if (!stats) {
+      try {
+        // pageSize=200 is overkill for a single exercise (~20 entries is
+        // typical) but ensures we never miss a day to pagination on power
+        // users.
+        const data = await r.req<unknown>(
+          'GET',
+          `/api/app/actionLibraryGroup/userActionStatPage?id=${groupId}&pageNo=1&pageSize=200`,
+        );
+        stats = Array.isArray(data) ? (data as Array<DailyExerciseStat>) : [];
+      } catch (err) {
+        console.warn(`userActionStatPage ${groupId} failed`, err);
+        stats = [];
+      }
+      cache.set(groupId, stats);
+    }
+    const day = stats.find((s) => s.dayStr === workoutDayStr);
+    // Speediance stretches / bodyweight moves return `totalCapacity: 0`
+    // (sometimes maxWeight: undefined too). Skip those — they'd surface as
+    // misleading "0 lb · 0 vol" rows. Their placeholder state is honest.
+    if (day && day.totalCapacity > 0 && day.maxWeight > 0) {
+      ex.maxWeight = day.maxWeight;
+      ex.totalCapacity = day.totalCapacity;
+      enriched++;
+    }
+  }
+  return enriched;
+}
+
 async function fetchAndMergeDetails(
   client: SpeedianceClient,
   id: string | number,
@@ -527,18 +629,28 @@ async function upsertExercisesAndSets(
     const isUnilateral = Boolean(ex.isLeftRight);
     const finishedReps = Array.isArray(ex.finishedReps) ? ex.finishedReps : [];
 
-    // Curriculum path has finishedReps=[] (no per-rep data available).
-    // Still write a single placeholder Set so the workout-detail page can
-    // list the exercise — UI handles weight=undefined as "—".
+    // Curriculum path has finishedReps=[] (no per-rep array available).
+    // If we enriched the exercise from userActionStatPage we still have the
+    // session-level numbers (max weight + total volume) — write those onto
+    // a single Set so the workout page renders real chips, not "—×?". If we
+    // have nothing, write a placeholder (UI renders weight=undefined as
+    // "no per-rep detail").
     if (finishedReps.length === 0) {
+      const sessionMax = pickFloat(ex.maxWeight);
+      const sessionVolume = pickFloat(ex.totalCapacity);
+      // Only treat as "real session row" if we have BOTH a weight AND a
+      // volume — `maxWeight` alone may be a lifetime best from
+      // `bestOneRepMax` (curriculum fallback prior to enrichment) and would
+      // be misleading on a per-session row.
+      const hasSession = sessionMax !== undefined && sessionVolume !== undefined;
       await me.sets.put({
         startTime,
         exerciseId,
         setNum: 1,
-        weight: undefined,
+        weight: hasSession ? sessionMax : undefined,
         targetReps: undefined,
         finishedReps: undefined,
-        volume: undefined,
+        volume: hasSession ? sessionVolume : undefined,
         rest: undefined,
         mode: undefined,
         leftRight: undefined,
