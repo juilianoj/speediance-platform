@@ -63,8 +63,9 @@ export function Editor({ draft, catalog }: Props) {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
     // `save` is stable enough that excluding it keeps the dependency array
-    // honest about what actually triggers an autosave.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // honest about what actually triggers an autosave. (The
+    // react-hooks/exhaustive-deps rule isn't registered in our flat config,
+    // so a directive targeting it would itself be a lint error.)
   }, [name, notes, exercises]);
 
   const save = async () => {

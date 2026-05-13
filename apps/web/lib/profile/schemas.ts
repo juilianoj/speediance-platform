@@ -6,6 +6,15 @@ import { z } from 'zod';
  * their bodyweight. The Server Action reads the existing secret to determine
  * if password was supplied or should be kept.
  */
+export const PRIMARY_GOALS = [
+  'strength',
+  'hypertrophy',
+  'general-fitness',
+  'fat-loss',
+  'endurance',
+] as const;
+export type PrimaryGoal = (typeof PRIMARY_GOALS)[number];
+
 export const ProfileInputSchema = z.object({
   speedianceEmail: z.string().email().max(320),
   /** Optional on update; required on first save. The Server Action enforces
@@ -23,6 +32,10 @@ export const ProfileInputSchema = z.object({
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be YYYY-MM-DD')
     .optional(),
+  primaryGoal: z.enum(PRIMARY_GOALS).optional(),
+  sessionsPerWeek: z.coerce.number().int().min(1).max(7).optional(),
+  sessionMinutes: z.coerce.number().int().min(15).max(120).optional(),
+  equipmentConstraints: z.string().max(200).optional(),
 });
 
 export type ProfileInput = z.infer<typeof ProfileInputSchema>;

@@ -12,6 +12,7 @@ import {
 
 import { verifyIdTokenFromCookies } from '@/lib/auth/session';
 
+import { loadCoachContext, renderCoachContextBlock } from './load-context';
 import { COACH_TOOLS, runTool, type ToolName } from './tools';
 
 // Bedrock cross-region inference profile for Claude Sonnet 4.6. The "us."
@@ -59,6 +60,9 @@ export async function askCoach(
 
   const client = new BedrockRuntimeClient({ region: REGION });
   const toolsUsed: ToolName[] = [];
+
+  const coachContext = await loadCoachContext(claims.sub);
+  const userContextBlock = renderCoachContextBlock(coachContext);
 
   const messages: Message[] = [
     ...history.map((m) => ({
@@ -112,6 +116,7 @@ export async function askCoach(
     '  picked (default to next Monday if unclear and ask first).',
     '',
     "Today's date: " + new Date().toISOString().slice(0, 10),
+    ...(userContextBlock ? ['', userContextBlock] : []),
   ].join('\n');
 
   for (let iter = 0; iter < MAX_TOOL_ITERATIONS; iter++) {

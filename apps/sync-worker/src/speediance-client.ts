@@ -1,5 +1,5 @@
 import {
-  createSecretsStore,
+  type createSecretsStore,
   SpeedianceSecretSchema,
   type SpeedianceSecret,
 } from '@speediance/secrets-store';

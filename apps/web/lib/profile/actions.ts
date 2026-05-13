@@ -58,6 +58,13 @@ export async function saveProfile(
     hideCardio: formData.get('hideCardio') === 'on',
     unit: formData.get('unit'),
     syncStartDate: formData.get('syncStartDate') || undefined,
+    primaryGoal: formData.get('primaryGoal') || undefined,
+    sessionsPerWeek: formData.get('sessionsPerWeek') || undefined,
+    sessionMinutes: formData.get('sessionMinutes') || undefined,
+    equipmentConstraints:
+      typeof formData.get('equipmentConstraints') === 'string'
+        ? (formData.get('equipmentConstraints') as string).trim() || undefined
+        : undefined,
   });
   if (!parsed.success) {
     const first = parsed.error.issues[0];
@@ -134,6 +141,12 @@ export async function saveProfile(
     }
     const db = createDb({ tableName });
     const me = db.forUser(userId);
+    const coachPrefsPayload: Record<string, unknown> = {};
+    if (input.primaryGoal) coachPrefsPayload.primaryGoal = input.primaryGoal;
+    if (input.sessionsPerWeek != null) coachPrefsPayload.sessionsPerWeek = input.sessionsPerWeek;
+    if (input.sessionMinutes != null) coachPrefsPayload.sessionMinutes = input.sessionMinutes;
+    if (input.equipmentConstraints)
+      coachPrefsPayload.equipmentConstraints = input.equipmentConstraints;
     await me.profiles.upsert({
       email: claims.email,
       bodyweight: input.bodyweight,
@@ -145,6 +158,7 @@ export async function saveProfile(
       allowMonsterMoves: input.allowMonsterMoves,
       syncStartDate: input.syncStartDate,
       speedianceSecretArn: secretArn,
+      coachPrefs: Object.keys(coachPrefsPayload).length > 0 ? coachPrefsPayload : undefined,
       // createdAt only on first save; ElectroDB doesn't have a clean
       // "set-if-absent" so we set it every time — overwriting with the
       // same value is fine for our purposes.

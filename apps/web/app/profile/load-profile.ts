@@ -4,6 +4,16 @@ import { cache } from 'react';
 
 import { createDb } from '@speediance/db';
 
+/** Structured coaching preferences. Surfaced as a section on /profile and
+ *  injected into the Coach's system prompt so the user doesn't have to
+ *  restate "I train 4×/week, no overhead pressing" every chat. */
+export interface CoachPrefs {
+  primaryGoal?: 'strength' | 'hypertrophy' | 'general-fitness' | 'fat-loss' | 'endurance';
+  sessionsPerWeek?: number;
+  sessionMinutes?: number;
+  equipmentConstraints?: string;
+}
+
 /** Shape we surface to the Profile page from the existing DynamoDB profile.
  *  Kept loose because ElectroDB's typed returns are complex and the page
  *  only needs a handful of fields. */
@@ -23,6 +33,7 @@ export interface LoadedProfile {
    *  don't have cardio data unless they've connected Apple Health / Google
    *  Fit to Speediance, so we let them hide the empty section. */
   hideCardio?: boolean;
+  coachPrefs?: CoachPrefs;
 }
 
 /** Fetches the user's Profile DDB item, or null if not yet created.

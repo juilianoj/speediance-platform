@@ -6,6 +6,7 @@ import { createDb } from '@speediance/db';
 
 import type { DashboardWorkout } from '@/app/dashboard/load-dashboard';
 
+import type { ProgramDraftRow } from '@/lib/builder/program-actions';
 import { listExercises as listCatalog } from '@/lib/catalog/lookup';
 import type { ExerciseSet, ExerciseSummary } from '@/lib/data/load-exercises';
 import { loadNextWorkoutPlan } from '@/lib/data/load-next-workout';
@@ -880,7 +881,7 @@ export async function runTool(
         return { error: 'programId and startDate are required' };
       }
       const programRes = (await me.programDrafts.get(programId)) as {
-        data: import('@/lib/builder/program-actions').ProgramDraftRow | null;
+        data: ProgramDraftRow | null;
       };
       if (!programRes?.data) return { error: 'program not found' };
       // Lazy import — keeps cold-path token-light for the simpler tools.
@@ -898,7 +899,7 @@ export async function runTool(
       const programId = String(args.programId ?? '');
       if (!programId) return { error: 'programId is required' };
       const programRes = (await me.programDrafts.get(programId)) as {
-        data: import('@/lib/builder/program-actions').ProgramDraftRow | null;
+        data: ProgramDraftRow | null;
       };
       if (!programRes?.data) return { error: 'program not found' };
       const { unscheduleProgram } = await import('@/lib/builder/program-schedule');
