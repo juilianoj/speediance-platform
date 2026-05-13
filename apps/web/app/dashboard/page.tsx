@@ -4,6 +4,7 @@ import { Nav } from '@/app/(authed)/nav';
 import { loadProfile } from '@/app/profile/load-profile';
 import { verifyIdTokenFromCookies } from '@/lib/auth/session';
 import { loadNextWorkoutPlan } from '@/lib/data/load-next-workout';
+import { loadRecoveryWarnings, type RecoveryWarning } from '@/lib/data/load-recovery-warnings';
 import { loadScheduledDates } from '@/lib/data/load-scheduled';
 import { loadAllWorkouts } from '@/lib/data/load-workouts';
 
@@ -11,6 +12,7 @@ import { YearHeatmap } from './heatmap';
 import { loadDashboard, type DashboardData, type DashboardWorkout } from './load-dashboard';
 import { MuscleGroupChart } from './muscle-group-chart';
 import { NextSessionCard } from './next-session-card';
+import { RecoveryBanner } from './recovery-banner';
 import { SyncBanner } from './sync-banner';
 import { WeeklyChart } from './weekly-chart';
 
@@ -36,12 +38,15 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     loadAllWorkouts(claims.sub),
     loadScheduledDates(claims.sub),
     loadProfile(claims.sub),
+    loadRecoveryWarnings(claims.sub),
   ]);
   const data = settled[0].status === 'fulfilled' ? settled[0].value : null;
   const next = settled[1].status === 'fulfilled' ? settled[1].value : null;
   const allWorkouts = settled[2].status === 'fulfilled' ? settled[2].value : [];
   const scheduledDates = settled[3].status === 'fulfilled' ? settled[3].value : new Set<string>();
   const profile = settled[4].status === 'fulfilled' ? settled[4].value : null;
+  const recoveryWarnings: RecoveryWarning[] =
+    settled[5].status === 'fulfilled' ? settled[5].value : [];
 
   return (
     <div style={pageWrapStyle}>
@@ -51,14 +56,17 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         {!data || !data.hasCreds ? (
           <SetupCallout hasProfile={data?.hasProfile ?? false} />
         ) : (
-          <DashboardBody
-            data={data}
-            nextPlan={next?.plan ?? null}
-            nextOptions={next?.options ?? []}
-            preferredTitle={preferredTitle}
-            allWorkouts={allWorkouts}
-            scheduledDates={scheduledDates}
-          />
+          <>
+            <RecoveryBanner warnings={recoveryWarnings} />
+            <DashboardBody
+              data={data}
+              nextPlan={next?.plan ?? null}
+              nextOptions={next?.options ?? []}
+              preferredTitle={preferredTitle}
+              allWorkouts={allWorkouts}
+              scheduledDates={scheduledDates}
+            />
+          </>
         )}
       </main>
     </div>
