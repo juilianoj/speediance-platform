@@ -4,9 +4,11 @@ import { useState, useTransition } from 'react';
 import { useFormState, useFormStatus } from 'react-dom';
 
 import {
+  hardDeleteUser,
   inviteUser,
   rebuildExerciseCatalog,
   resyncMe,
+  setUserEnabled,
   type InviteResult,
 } from '@/lib/admin/actions';
 
@@ -137,5 +139,122 @@ function primaryButton(pending: boolean): React.CSSProperties {
     cursor: pending ? 'wait' : 'pointer',
     fontWeight: 600,
     fontSize: '0.95rem',
+  };
+}
+
+/**
+ * Toggle a user's `Enabled` flag — reversible suspend. Used as a low-risk
+ * alternative to a full delete. Disabled users can't sign in but their
+ * data and credentials are preserved.
+ */
+export function UserEnabledToggle({
+  username,
+  enabled,
+  isSelf,
+}: {
+  username: string;
+  enabled: boolean;
+  isSelf: boolean;
+}) {
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  if (isSelf) {
+    return (
+      <span style={{ color: '#94a3b8', fontSize: '0.78rem', fontStyle: 'italic' }}>(you)</span>
+    );
+  }
+  const onClick = () => {
+    const verb = enabled ? 'disable' : 'enable';
+    if (!confirm(`${verb[0]!.toUpperCase() + verb.slice(1)} ${username.slice(0, 8)}…?`)) return;
+    startTransition(async () => {
+      setError(null);
+      const res = await setUserEnabled(username, !enabled);
+      if (res.ok) window.location.reload();
+      else setError(res.message);
+    });
+  };
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+      <button type="button" onClick={onClick} disabled={pending} style={smallButton(pending)}>
+        {pending ? '…' : enabled ? 'Disable' : 'Enable'}
+      </button>
+      {error && <span style={{ color: '#b91c1c', fontSize: '0.78rem' }}>{error}</span>}
+    </div>
+  );
+}
+
+/**
+ * Hard-delete a user: removes the Cognito user + their Speediance secret +
+ * their Profile row. Workout history rows are intentionally left in place
+ * (cheap to keep at family scale; document/admin can clean them up later
+ * if needed).
+ *
+ * Gated behind a typed-confirmation prompt so an accidental click can't
+ * wipe a family member. The prompt asks for the first 8 chars of the
+ * user's id — same scheme other admin tools use for "really mean it".
+ */
+export function HardDeleteUserButton({
+  username,
+  email,
+  isSelf,
+}: {
+  username: string;
+  email: string | undefined;
+  isSelf: boolean;
+}) {
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  if (isSelf) return null;
+  const onClick = () => {
+    const expected = username.slice(0, 8);
+    const typed = prompt(
+      `HARD DELETE — irreversible.\n\nThis removes the Cognito user, their Speediance secret, and their profile row. Workout history rows in DynamoDB are NOT deleted.\n\nTo confirm, type the first 8 chars of their user id: ${expected}`,
+    );
+    if (typed?.trim() !== expected) {
+      if (typed !== null) alert('Mismatched id — aborted.');
+      return;
+    }
+    startTransition(async () => {
+      setError(null);
+      const res = await hardDeleteUser(username);
+      if (res.ok) {
+        alert(res.message);
+        window.location.reload();
+      } else {
+        setError(res.message);
+      }
+    });
+  };
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={pending}
+        style={{
+          ...smallButton(pending),
+          background: '#fff',
+          color: '#b91c1c',
+          border: '1px solid #fecaca',
+        }}
+        title={`Hard delete ${email ?? username}`}
+      >
+        {pending ? '…' : 'Delete'}
+      </button>
+      {error && <span style={{ color: '#b91c1c', fontSize: '0.78rem' }}>{error}</span>}
+    </div>
+  );
+}
+
+function smallButton(pending: boolean): React.CSSProperties {
+  return {
+    padding: '0.3rem 0.7rem',
+    background: pending ? '#e5e7eb' : '#f1f5f9',
+    color: '#0f172a',
+    border: '1px solid #cbd5e1',
+    borderRadius: '5px',
+    cursor: pending ? 'wait' : 'pointer',
+    fontWeight: 500,
+    fontSize: '0.82rem',
   };
 }

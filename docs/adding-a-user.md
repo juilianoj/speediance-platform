@@ -83,12 +83,13 @@ Once data is synced the family member has the full app:
 - `/scheduled/[date]` — what's queued on their Speediance calendar
 - `/balance`, `/consistency`, `/cardio` — secondary views
 
-## Removing a user (manual for now)
+## Removing a user
 
-There is no UI for this yet. To fully remove a family member:
+Two options, both on `/admin` → Users:
 
-1. Cognito console → delete the user (or just disable them).
-2. DynamoDB console → delete the `PROFILE` row for `USER#{cognitoUserId}` (the `userId` is the Cognito `sub` UUID).
-3. Secrets Manager console → delete the secret at `speediance-platform/{stage}/users/{cognitoUserId}`.
+- **Disable** — soft, reversible. The user can no longer sign in but their Cognito account, Speediance secret, and Profile row stay intact. Clicking **Enable** later restores access.
+- **Delete** — irreversible. Removes the Cognito user, their Speediance secret in Secrets Manager, and their `PROFILE` row in DynamoDB. Gated behind a typed-confirmation prompt (you have to type the first 8 chars of their Cognito sub).
 
-Workout history rows in DynamoDB can be left in place (no cost-meaningful difference at family scale) or batch-deleted via the AWS CLI if you want a hard scrub.
+Either action requires you to be signed in as a different admin — both buttons reject self-targets to avoid lock-out.
+
+**What's NOT deleted:** workout / set / exercise history rows in DynamoDB. They're cheap to keep at family scale and the table is single-tenant from the user's perspective — `db.forUser(otherId)` can't see them. If you want a hard scrub, batch-delete `WORKOUT#*`, `SET#*`, `EXERCISE#*` items for the user's `USER#{cognitoUserId}` partition via the AWS CLI.
