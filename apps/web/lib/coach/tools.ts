@@ -10,6 +10,7 @@ import type { ProgramDraftRow } from '@/lib/builder/program-actions';
 import { listExercises as listCatalog } from '@/lib/catalog/lookup';
 import type { ExerciseSet, ExerciseSummary } from '@/lib/data/load-exercises';
 import { loadNextWorkoutPlan } from '@/lib/data/load-next-workout';
+import { clampWeight } from '@/lib/safety/weight-cap';
 
 /**
  * Tools the AI coach can call. Each tool is a pure function of (userId,
@@ -692,6 +693,41 @@ export async function runTool(
         };
       }
 
+      // Hard safety cap (§3.6): clamp any per-set weight to
+      // min(1.05 × bestWt, 1.15 × workingWt) using the user's own history
+      // for that exercise. This runs in code so prompt jailbreaks can't
+      // surface a dangerous load — the model is also told about it in the
+      // system prompt, but the prompt is advisory; this is the enforcement.
+      const cappedExercises: Array<{ groupId: string; from: number; to: number }> = [];
+      if (normalized) {
+        const exRes = (await me.exercises.list()) as { data: ExerciseSummary[] };
+        const byId = new Map((exRes.data ?? []).map((e) => [e.exerciseId, e]));
+        for (const ex of normalized) {
+          const history = byId.get(ex.groupId);
+          if (!history) continue;
+          for (const set of ex.sets) {
+            if (typeof set.weight !== 'number') continue;
+            const result = clampWeight(set.weight, {
+              bestWeight: history.bestWeight,
+              workingWeight: history.workingWeight,
+            });
+            if (result.capped) {
+              cappedExercises.push({ groupId: ex.groupId, from: set.weight, to: result.weight });
+              set.weight = result.weight;
+            }
+          }
+        }
+      }
+      const safetyNote =
+        cappedExercises.length > 0
+          ? ` Safety cap applied to ${cappedExercises.length} set(s): ${cappedExercises
+              .slice(0, 3)
+              .map((c) => `groupId ${c.groupId} ${c.from}→${c.to} lb`)
+              .join(
+                ', ',
+              )}${cappedExercises.length > 3 ? ', …' : ''}. Tell the user the weight was capped to within 5% of their PR / 15% of their current working weight.`
+          : '';
+
       if (isCreate) {
         const draftId = randomUUID().replace(/-/g, '').slice(0, 16);
         await me.workoutDrafts.upsert({
@@ -706,10 +742,12 @@ export async function runTool(
           ok: true,
           draftId,
           builderUrl: `/builder/${draftId}`,
+          cappedSets: cappedExercises.length,
           message:
             'Draft created. Tell the user it lives at /builder/' +
             draftId +
-            ' — they can review, tweak, and click "Save to Speediance" to push it.',
+            ' — they can review, tweak, and click "Save to Speediance" to push it.' +
+            safetyNote,
         };
       } else {
         const draftId = String(args.draftId ?? '');
@@ -720,7 +758,13 @@ export async function runTool(
         if (normalized) patch.exercises = normalized;
         if (Object.keys(patch).length === 0) return { error: 'no fields to update' };
         await me.workoutDrafts.patch(draftId, patch);
-        return { ok: true, draftId, builderUrl: `/builder/${draftId}` };
+        return {
+          ok: true,
+          draftId,
+          builderUrl: `/builder/${draftId}`,
+          cappedSets: cappedExercises.length,
+          ...(safetyNote ? { message: safetyNote.trim() } : {}),
+        };
       }
     }
 

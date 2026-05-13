@@ -3,6 +3,7 @@ import 'server-only';
 import { createDb } from '@speediance/db';
 
 import type { DashboardWorkout } from '@/app/dashboard/load-dashboard';
+import { clampWeight } from '@/lib/safety/weight-cap';
 import { createRefreshingSpeedianceClient } from '@/lib/speediance/refreshing-client';
 
 import type { ExerciseSet, ExerciseSummary } from './load-exercises';
@@ -492,7 +493,7 @@ function buildLift(
   );
   const planFirstWeight = entry.plannedWeights?.[0];
   const baseForReco = lifetime?.weight ?? planFirstWeight ?? entry.speedianceRecommendedWeight;
-  const reco =
+  let reco =
     baseForReco !== undefined
       ? recommend({
           lastWeight: baseForReco,
@@ -502,6 +503,19 @@ function buildLift(
           fromLifetime: lifetime !== undefined,
         })
       : null;
+  if (reco) {
+    // Hard safety cap (§3.6): never let a recommendation exceed
+    // min(1.05 × bestWt, 1.15 × workingWt). The heuristic above can only
+    // bump by +5lb so normally this is a no-op, but it backstops the
+    // path that consumes this for the AI coach as well.
+    const capped = clampWeight(reco.weight, {
+      bestWeight: exMeta?.bestWeight,
+      workingWeight: exMeta?.workingWeight,
+    });
+    if (capped.capped) {
+      reco = { weight: capped.weight, note: 'safety cap — at recent max' };
+    }
+  }
   return {
     exerciseId: id,
     name: entry.title,
