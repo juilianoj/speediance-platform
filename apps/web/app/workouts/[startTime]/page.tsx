@@ -1,5 +1,6 @@
 import { notFound, redirect } from 'next/navigation';
 
+import { NotesSection } from '@/app/(authed)/notes-section';
 import {
   cardHeadingStyle,
   cardStyle,
@@ -208,6 +209,8 @@ export default async function WorkoutDetailPage({ params }: PageProps) {
           );
         })
       )}
+
+      <NotesSection targetType="workout" targetId={startTime} label="this session" />
     </PageShell>
   );
 }

@@ -9,6 +9,7 @@ import {
   tdStyle,
   thStyle,
 } from '@/app/(authed)/page-shell';
+import { NotesSection } from '@/app/(authed)/notes-section';
 import { verifyIdTokenFromCookies } from '@/lib/auth/session';
 import { loadExerciseHistory, type ExerciseSet } from '@/lib/data/load-exercises';
 
@@ -226,6 +227,8 @@ export default async function ExerciseDetailPage({ params }: PageProps) {
           </tbody>
         </table>
       </section>
+
+      <NotesSection targetType="exercise" targetId={exerciseId} label="this exercise" />
     </PageShell>
   );
 }
