@@ -84,62 +84,83 @@ export default async function ExerciseDetailPage({ params }: PageProps) {
 
       <section style={cardStyle}>
         <h2 style={cardHeadingStyle}>Recent sessions</h2>
-        <p style={mutedStyle}>
-          Sets per session, drop-sets render as start → end. Sessions where Speediance didn&rsquo;t
-          return per-rep detail show <code>—×?</code>.
-        </p>
+        <p style={mutedStyle}>Sets per session, drop-sets render as start → end.</p>
         {allSessions.length === 0 ? (
           <p style={{ color: '#888', margin: '1rem 0 0' }}>No sets logged yet.</p>
         ) : (
           <div style={{ marginTop: '1rem' }}>
-            {allSessions.slice(0, 8).map((s) => (
-              <div
-                key={s.startTime}
-                style={{
-                  marginBottom: '1rem',
-                  paddingBottom: '0.75rem',
-                  borderBottom: '1px solid #f1f1f1',
-                }}
-              >
+            {allSessions.slice(0, 8).map((s) => {
+              const weighted = s.sets.filter((x) => (x.weight ?? 0) > 0);
+              const hasDetail = weighted.length > 0;
+              return (
                 <div
+                  key={s.startTime}
                   style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'baseline',
-                    gap: '1rem',
+                    marginBottom: '1rem',
+                    paddingBottom: '0.75rem',
+                    borderBottom: '1px solid #f1f1f1',
                   }}
                 >
-                  <div>
-                    <a
-                      href={`/workouts/${encodeURIComponent(s.startTime)}`}
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'baseline',
+                      gap: '1rem',
+                    }}
+                  >
+                    <div>
+                      <a
+                        href={`/workouts/${encodeURIComponent(s.startTime)}`}
+                        style={{
+                          fontSize: '0.95rem',
+                          fontWeight: 600,
+                          color: '#0f172a',
+                          textDecoration: 'none',
+                        }}
+                      >
+                        {shortDate(s.startTime)}
+                      </a>
+                      {workoutTitleByStart.get(s.startTime) && (
+                        <div
+                          style={{ color: '#64748b', fontSize: '0.78rem', marginTop: '0.15rem' }}
+                        >
+                          {workoutTitleByStart.get(s.startTime)}
+                        </div>
+                      )}
+                    </div>
+                    <span style={{ color: '#94a3b8', fontSize: '0.85rem' }}>
+                      {s.sets.length} set{s.sets.length === 1 ? '' : 's'}
+                    </span>
+                  </div>
+                  {hasDetail ? (
+                    <div
                       style={{
-                        fontSize: '0.95rem',
-                        fontWeight: 600,
-                        color: '#0f172a',
-                        textDecoration: 'none',
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: '0.4rem',
+                        marginTop: '0.4rem',
                       }}
                     >
-                      {shortDate(s.startTime)}
-                    </a>
-                    {workoutTitleByStart.get(s.startTime) && (
-                      <div style={{ color: '#64748b', fontSize: '0.78rem', marginTop: '0.15rem' }}>
-                        {workoutTitleByStart.get(s.startTime)}
-                      </div>
-                    )}
-                  </div>
-                  <span style={{ color: '#94a3b8', fontSize: '0.85rem' }}>
-                    {s.sets.length} set{s.sets.length === 1 ? '' : 's'}
-                  </span>
+                      {weighted.map((set) => (
+                        <SetChip key={set.setNum} set={set} />
+                      ))}
+                    </div>
+                  ) : (
+                    <div
+                      style={{
+                        marginTop: '0.4rem',
+                        color: '#94a3b8',
+                        fontSize: '0.82rem',
+                        fontStyle: 'italic',
+                      }}
+                    >
+                      No per-rep detail captured for this session.
+                    </div>
+                  )}
                 </div>
-                <div
-                  style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: '0.4rem' }}
-                >
-                  {s.sets.map((set) => (
-                    <SetChip key={set.setNum} set={set} />
-                  ))}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </section>
