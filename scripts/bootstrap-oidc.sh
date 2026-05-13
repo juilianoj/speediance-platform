@@ -110,6 +110,7 @@ DEPLOY_POLICY=$(cat <<'JSON'
       "Effect": "Allow",
       "Action": [
         "s3:*",
+        "sqs:*",
         "cloudfront:*",
         "cloudformation:*",
         "lambda:*",
@@ -123,6 +124,8 @@ DEPLOY_POLICY=$(cat <<'JSON'
         "iam:PassRole", "iam:TagRole", "iam:UntagRole",
         "iam:CreatePolicy", "iam:DeletePolicy", "iam:GetPolicy", "iam:ListPolicies",
         "iam:CreatePolicyVersion", "iam:DeletePolicyVersion", "iam:ListPolicyVersions",
+        "iam:CreateServiceLinkedRole",
+        "iam:GetServiceLinkedRoleDeletionStatus",
         "logs:*",
         "events:*",
         "scheduler:*",
