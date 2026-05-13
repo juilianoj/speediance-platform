@@ -25,6 +25,7 @@ type Key =
   | 'balance'
   | 'consistency'
   | 'coach'
+  | 'builder'
   | 'admin'
   | 'feedback'
   | 'profile';
@@ -38,6 +39,7 @@ interface Item {
 const ALL_ITEMS: Item[] = [
   { key: 'dashboard', label: 'Dashboard', href: '/dashboard' },
   { key: 'coach', label: 'Coach', href: '/coach' },
+  { key: 'builder', label: 'Builder', href: '/builder' },
   { key: 'liftlog', label: 'Lift log', href: '/lift-log' },
   { key: 'balance', label: 'Balance', href: '/balance' },
   { key: 'cardio', label: 'Cardio', href: '/cardio' },

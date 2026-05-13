@@ -15,6 +15,7 @@ import { noteEntity } from './entities/note.js';
 import { programEntity } from './entities/program.js';
 import { memoryEntity } from './entities/memory.js';
 import { profileEntity } from './entities/profile.js';
+import { workoutDraftEntity } from './entities/workout-draft.js';
 import { getDynamoClient } from './client.js';
 
 export interface DbConfig {
@@ -46,6 +47,7 @@ export function createService(opts: DbConfig) {
     feedback: feedbackEntity(cfg),
     notes: noteEntity(cfg),
     exerciseCatalog: exerciseCatalogEntity(cfg),
+    workoutDrafts: workoutDraftEntity(cfg),
   });
 }
 
