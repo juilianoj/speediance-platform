@@ -493,6 +493,19 @@ async function enrichCurriculumWithDailyStats(
     if (day && day.totalCapacity > 0 && day.maxWeight > 0) {
       ex.maxWeight = day.maxWeight;
       ex.totalCapacity = day.totalCapacity;
+      // Speediance's totalCapacity follows weight × reps × 2 for any
+      // session where all sets were at the same weight (verified across
+      // 30+ entries in the probe). When minWeight === maxWeight we can
+      // recover the rep count exactly; otherwise the user did a drop /
+      // mixed-weight session and we can't split per-set without more API
+      // calls. The chip will read "44→12×?" in that case instead of
+      // "44×?", which is at least honest about the range.
+      if (day.minWeight !== undefined && day.minWeight === day.maxWeight) {
+        const derivedReps = Math.round(day.totalCapacity / (2 * day.maxWeight));
+        if (derivedReps > 0) ex.derivedReps = derivedReps;
+      } else if (day.minWeight !== undefined && day.minWeight !== day.maxWeight) {
+        ex.minWeight = day.minWeight;
+      }
       enriched++;
     }
   }
@@ -631,26 +644,41 @@ async function upsertExercisesAndSets(
 
     // Curriculum path has finishedReps=[] (no per-rep array available).
     // If we enriched the exercise from userActionStatPage we still have the
-    // session-level numbers (max weight + total volume) — write those onto
-    // a single Set so the workout page renders real chips, not "—×?". If we
-    // have nothing, write a placeholder (UI renders weight=undefined as
-    // "no per-rep detail").
+    // session-level numbers (max weight + total volume + sometimes a
+    // derivable rep count) — write those onto a single Set so the workout
+    // page renders real chips, not "—×?". If we have nothing, write a
+    // placeholder (UI renders weight=undefined as "no per-rep detail").
     if (finishedReps.length === 0) {
       const sessionMax = pickFloat(ex.maxWeight);
-      const sessionVolume = pickFloat(ex.totalCapacity);
+      const sessionMin = pickFloat(ex.minWeight);
+      const sessionTotalCapacity = pickFloat(ex.totalCapacity);
+      const derivedReps = pickInt(ex.derivedReps);
       // Only treat as "real session row" if we have BOTH a weight AND a
       // volume — `maxWeight` alone may be a lifetime best from
       // `bestOneRepMax` (curriculum fallback prior to enrichment) and would
       // be misleading on a per-session row.
-      const hasSession = sessionMax !== undefined && sessionVolume !== undefined;
+      const hasSession = sessionMax !== undefined && sessionTotalCapacity !== undefined;
+      const isDropRange = hasSession && sessionMin !== undefined && sessionMin !== sessionMax;
+      // Standard detail-path sets store volume = weight × reps (no 2x
+      // factor). Match that here when we can derive reps; otherwise fall
+      // back to totalCapacity/2 so the units stay consistent across all
+      // Set rows on the page.
+      const volume =
+        derivedReps !== undefined && sessionMax !== undefined
+          ? sessionMax * derivedReps
+          : hasSession
+            ? sessionTotalCapacity / 2
+            : undefined;
       await me.sets.put({
         startTime,
         exerciseId,
         setNum: 1,
         weight: hasSession ? sessionMax : undefined,
+        startWeight: isDropRange ? sessionMax : undefined,
+        endWeight: isDropRange ? sessionMin : undefined,
         targetReps: undefined,
-        finishedReps: undefined,
-        volume: hasSession ? sessionVolume : undefined,
+        finishedReps: derivedReps,
+        volume,
         rest: undefined,
         mode: undefined,
         leftRight: undefined,
