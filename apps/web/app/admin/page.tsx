@@ -10,17 +10,21 @@ import {
   thStyle,
 } from '@/app/(authed)/page-shell';
 import { verifyIdTokenFromCookies } from '@/lib/auth/session';
-import { listUsers } from '@/lib/admin/actions';
+import { getCatalogSize, listUsers } from '@/lib/admin/actions';
 import { listAllFeedback } from '@/lib/feedback/actions';
 
-import { InviteForm, ResyncButton } from './actions';
+import { CatalogRebuildButton, InviteForm, ResyncButton } from './actions';
 
 export const metadata = { title: 'Admin — speediance-platform' };
 
 export default async function AdminPage() {
   const claims = await verifyIdTokenFromCookies();
   if (!claims) redirect('/login');
-  const [users, feedback] = await Promise.all([listUsers(), listAllFeedback()]);
+  const [users, feedback, catalogSize] = await Promise.all([
+    listUsers(),
+    listAllFeedback(),
+    getCatalogSize(),
+  ]);
 
   return (
     <PageShell current="admin" userLabel={String(claims.email ?? claims.sub)}>
@@ -32,6 +36,18 @@ export default async function AdminPage() {
         </p>
         <div style={{ marginTop: '0.9rem' }}>
           <ResyncButton />
+        </div>
+      </section>
+
+      <section style={cardStyle}>
+        <h2 style={cardHeadingStyle}>Exercise catalog</h2>
+        <p style={mutedStyle}>
+          Cached snapshot of Speediance&rsquo;s action library — setup instructions, cable position,
+          accessories, muscle groups. Rebuild when Speediance adds new exercises or updates the
+          library. Runs async via the sync worker (~3-5 min for ~500 exercises).
+        </p>
+        <div style={{ marginTop: '0.9rem' }}>
+          <CatalogRebuildButton currentSize={catalogSize.count} />
         </div>
       </section>
 

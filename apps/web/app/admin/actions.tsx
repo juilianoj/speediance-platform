@@ -3,7 +3,12 @@
 import { useState, useTransition } from 'react';
 import { useFormState, useFormStatus } from 'react-dom';
 
-import { inviteUser, resyncMe, type InviteResult } from '@/lib/admin/actions';
+import {
+  inviteUser,
+  rebuildExerciseCatalog,
+  resyncMe,
+  type InviteResult,
+} from '@/lib/admin/actions';
 
 export function ResyncButton() {
   const [status, setStatus] = useState<{ ok: boolean; message: string } | null>(null);
@@ -28,6 +33,44 @@ export function ResyncButton() {
         <p
           style={{
             margin: '0.6rem 0 0 0',
+            fontSize: '0.9rem',
+            color: status.ok ? '#0d9488' : '#b91c1c',
+          }}
+        >
+          {status.message}
+        </p>
+      )}
+    </div>
+  );
+}
+
+export function CatalogRebuildButton({ currentSize }: { currentSize: number }) {
+  const [status, setStatus] = useState<{ ok: boolean; message: string } | null>(null);
+  const [pending, startTransition] = useTransition();
+  return (
+    <div>
+      <button
+        type="button"
+        disabled={pending}
+        onClick={() =>
+          startTransition(async () => {
+            setStatus(null);
+            const res = await rebuildExerciseCatalog();
+            setStatus(res);
+          })
+        }
+        style={primaryButton(pending)}
+      >
+        {pending ? 'Triggering…' : currentSize > 0 ? 'Rebuild catalog' : 'Bootstrap catalog'}
+      </button>
+      <p style={{ margin: '0.6rem 0 0 0', fontSize: '0.85rem', color: '#64748b' }}>
+        Catalog currently has{' '}
+        <span style={{ fontWeight: 600 }}>{currentSize.toLocaleString()}</span> exercises.
+      </p>
+      {status && (
+        <p
+          style={{
+            margin: '0.4rem 0 0 0',
             fontSize: '0.9rem',
             color: status.ok ? '#0d9488' : '#b91c1c',
           }}

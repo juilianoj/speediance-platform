@@ -97,6 +97,49 @@ export async function resyncMe(): Promise<{ ok: boolean; message: string }> {
 }
 
 /**
+ * Trigger an exercise-catalog bootstrap. The sync-worker Lambda
+ * enumerates every exercise in the user's Speediance action library and
+ * writes the metadata to our `ExerciseCatalog` table — the workout
+ * builder reads from this cache so it never hits the Speediance API on
+ * the UI hot path.
+ *
+ * Async ("Event") invoke — the job runs 3-5 min for ~500 exercises. The
+ * caller polls catalog size to confirm completion.
+ */
+export async function rebuildExerciseCatalog(): Promise<{ ok: boolean; message: string }> {
+  const claims = await verifyIdTokenFromCookies();
+  if (!claims) return { ok: false, message: 'Sign in first.' };
+  const fnName = process.env.SYNC_WORKER_FUNCTION_NAME;
+  if (!fnName) return { ok: false, message: 'SYNC_WORKER_FUNCTION_NAME env var missing.' };
+  try {
+    await new LambdaClient({ region }).send(
+      new InvokeCommand({
+        FunctionName: fnName,
+        InvocationType: 'Event',
+        Payload: new TextEncoder().encode(
+          JSON.stringify({ mode: 'catalog-bootstrap', userId: claims.sub }),
+        ),
+      }),
+    );
+    return { ok: true, message: 'Catalog rebuild started. ~3-5 min.' };
+  } catch (err: unknown) {
+    return { ok: false, message: err instanceof Error ? err.message : 'Trigger failed.' };
+  }
+}
+
+/** Size of the global ExerciseCatalog cache (used to confirm bootstrap landed). */
+export async function getCatalogSize(): Promise<{ count: number }> {
+  const claims = await verifyIdTokenFromCookies();
+  if (!claims) return { count: 0 };
+  const tableName = process.env.DYNAMO_TABLE_NAME;
+  if (!tableName) return { count: 0 };
+  const { createDb } = await import('@speediance/db');
+  const db = createDb({ tableName });
+  const res = (await db.global.exerciseCatalog.list()) as { data: unknown[] };
+  return { count: res.data?.length ?? 0 };
+}
+
+/**
  * Return the current `lastSyncedAt` timestamp for the signed-in user.
  * Used by the dashboard's SyncBanner to poll for sync completion after
  * the user clicks Refresh — the sync worker writes this field when it
