@@ -101,6 +101,18 @@ export interface UserScopedDb {
     list: () => Promise<unknown>;
     put: (input: Put<'feedback'>) => Promise<unknown>;
   };
+
+  notes: {
+    /** Notes attached to one target (a workout startTime or an exerciseId).
+     *  Ordered ascending by createdAt — UI typically reverses for newest-first. */
+    forTarget: (targetType: 'workout' | 'exercise', targetId: string) => Promise<unknown>;
+    put: (input: Put<'notes'>) => Promise<unknown>;
+    delete: (
+      targetType: 'workout' | 'exercise',
+      targetId: string,
+      createdAt: string,
+    ) => Promise<unknown>;
+  };
 }
 
 export interface CreatedDb {
@@ -240,6 +252,15 @@ export function createDb(opts: DbConfig): CreatedDb {
             entities.feedback
               .put({ ...input, userId } as CreateEntityItem<Entities['feedback']>)
               .go(),
+        },
+
+        notes: {
+          forTarget: (targetType, targetId) =>
+            entities.notes.query.primary({ userId, targetType, targetId }).go({ pages: 'all' }),
+          put: (input) =>
+            entities.notes.put({ ...input, userId } as CreateEntityItem<Entities['notes']>).go(),
+          delete: (targetType, targetId, createdAt) =>
+            entities.notes.delete({ userId, targetType, targetId, createdAt }).go(),
         },
       };
     },
