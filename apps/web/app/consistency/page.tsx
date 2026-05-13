@@ -12,7 +12,7 @@ import {
 import { verifyIdTokenFromCookies } from '@/lib/auth/session';
 import { loadAllWorkouts } from '@/lib/data/load-workouts';
 
-export const metadata = { title: 'Adherence — speediance-platform' };
+export const metadata = { title: 'Consistency — speediance-platform' };
 
 const WEEKS_TO_SHOW = 12;
 
@@ -26,7 +26,7 @@ interface PageProps {
   searchParams: { weekStart?: string; goal?: string };
 }
 
-export default async function AdherencePage({ searchParams }: PageProps) {
+export default async function ConsistencyPage({ searchParams }: PageProps) {
   const claims = await verifyIdTokenFromCookies();
   if (!claims) redirect('/login');
 
@@ -82,14 +82,14 @@ export default async function AdherencePage({ searchParams }: PageProps) {
     }),
     { sessions: 0, scheduled: 0, completed: 0 },
   );
-  const adherence = totals.scheduled > 0 ? (totals.completed / totals.scheduled) * 100 : 0;
+  const consistency = totals.scheduled > 0 ? (totals.completed / totals.scheduled) * 100 : 0;
 
   return (
-    <PageShell current="adherence" userLabel={String(claims.email ?? claims.sub)}>
+    <PageShell current="consistency" userLabel={String(claims.email ?? claims.sub)}>
       <section style={kpiGridStyle}>
         <Kpi
-          label={`${WEEKS_TO_SHOW}-week adherence`}
-          value={`${adherence.toFixed(0)}%`}
+          label={`${WEEKS_TO_SHOW}-week consistency`}
+          value={`${consistency.toFixed(0)}%`}
           sub={`${totals.completed} of ${totals.scheduled}`}
         />
         <Kpi
@@ -174,7 +174,7 @@ export default async function AdherencePage({ searchParams }: PageProps) {
                 <th style={{ ...thStyle, textAlign: 'right' }}>Strength</th>
                 <th style={{ ...thStyle, textAlign: 'right' }}>Cardio</th>
                 <th style={thStyle}>Days hit</th>
-                <th style={{ ...thStyle, textAlign: 'right' }}>Adherence</th>
+                <th style={{ ...thStyle, textAlign: 'right' }}>Consistency</th>
                 <th style={{ ...thStyle, textAlign: 'right' }}>Volume</th>
               </tr>
             </thead>

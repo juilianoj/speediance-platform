@@ -9,7 +9,7 @@ import type { ExerciseSet, ExerciseSummary } from './load-exercises';
 
 /**
  * React `cache()` dedupes calls within a single request. Loading the dashboard
- * already calls both loadAllWorkouts (via cardio/muscles/adherence loaders)
+ * already calls both loadAllWorkouts (via cardio/muscles/consistency loaders)
  * and loadDashboard separately — cache makes the second call free.
  */
 export const loadAllWorkouts = cache(async (userId: string): Promise<DashboardWorkout[]> => {
