@@ -4,16 +4,24 @@ import { useMemo, useState } from 'react';
 
 import type { ExerciseSummary } from '@/lib/data/load-exercises';
 
-type SortKey = 'name' | 'group' | 'last' | 'working' | 'best' | 'headroom' | 'sets';
+type SortKey = 'name' | 'last' | 'working' | 'best' | 'headroom' | 'sets';
 type SortDir = 'asc' | 'desc';
+type GroupMode = 'muscle' | 'none';
+
+// Display order for muscle-group sections — matches the order on the
+// Muscles page so the user sees the same mental model everywhere.
+const MUSCLE_ORDER = ['chest', 'shoulders', 'back', 'arms', 'legs', 'core'] as const;
+const UNGROUPED = '__ungrouped__';
 
 export function LiftLogTable({ exercises }: { exercises: ExerciseSummary[] }) {
   const [query, setQuery] = useState('');
   const [muscleFilter, setMuscleFilter] = useState<string>('all');
+  const [groupMode, setGroupMode] = useState<GroupMode>('muscle');
   const [sort, setSort] = useState<{ key: SortKey; dir: SortDir }>({
     key: 'last',
     dir: 'desc',
   });
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
   const muscleGroups = useMemo(() => {
     const s = new Set<string>();
@@ -21,12 +29,11 @@ export function LiftLogTable({ exercises }: { exercises: ExerciseSummary[] }) {
     return ['all', ...Array.from(s).sort()];
   }, [exercises]);
 
-  const rows = useMemo(() => {
+  const filteredRows = useMemo(() => {
     let xs = exercises;
     const q = query.trim().toLowerCase();
     if (q) xs = xs.filter((e) => e.name.toLowerCase().includes(q));
     if (muscleFilter !== 'all') xs = xs.filter((e) => e.muscleGroup === muscleFilter);
-
     return [...xs].sort((a, b) => {
       const av = sortValue(a, sort.key);
       const bv = sortValue(b, sort.key);
@@ -38,10 +45,47 @@ export function LiftLogTable({ exercises }: { exercises: ExerciseSummary[] }) {
     });
   }, [exercises, query, muscleFilter, sort]);
 
+  // Partition the filtered rows into muscle-group sections (in MUSCLE_ORDER
+  // first, then anything unrecognised). Only used when groupMode === 'muscle';
+  // otherwise we render a flat table.
+  const sections = useMemo(() => {
+    if (groupMode !== 'muscle') return null;
+    const buckets = new Map<string, ExerciseSummary[]>();
+    for (const e of filteredRows) {
+      const key = e.muscleGroup ?? UNGROUPED;
+      if (!buckets.has(key)) buckets.set(key, []);
+      buckets.get(key)!.push(e);
+    }
+    const ordered: Array<{ key: string; label: string; rows: ExerciseSummary[] }> = [];
+    for (const m of MUSCLE_ORDER) {
+      const rows = buckets.get(m);
+      if (rows && rows.length > 0) ordered.push({ key: m, label: capitalize(m), rows });
+      buckets.delete(m);
+    }
+    // Append any leftover groups alphabetically, then the no-group bucket.
+    const leftover = [...buckets.keys()].filter((k) => k !== UNGROUPED).sort();
+    for (const k of leftover) {
+      ordered.push({ key: k, label: capitalize(k), rows: buckets.get(k)! });
+    }
+    if (buckets.has(UNGROUPED)) {
+      ordered.push({ key: UNGROUPED, label: 'Other', rows: buckets.get(UNGROUPED)! });
+    }
+    return ordered;
+  }, [filteredRows, groupMode]);
+
   const toggleSort = (key: SortKey) => {
     setSort((s) =>
       s.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'desc' },
     );
+  };
+
+  const toggleCollapsed = (key: string) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
   };
 
   return (
@@ -73,13 +117,7 @@ export function LiftLogTable({ exercises }: { exercises: ExerciseSummary[] }) {
         <select
           value={muscleFilter}
           onChange={(e) => setMuscleFilter(e.target.value)}
-          style={{
-            padding: '0.5rem 0.7rem',
-            border: '1px solid #cbd5e1',
-            borderRadius: '8px',
-            fontSize: '0.92rem',
-            background: '#fff',
-          }}
+          style={selectStyle}
         >
           {muscleGroups.map((g) => (
             <option key={g} value={g}>
@@ -87,36 +125,106 @@ export function LiftLogTable({ exercises }: { exercises: ExerciseSummary[] }) {
             </option>
           ))}
         </select>
+        <select
+          value={groupMode}
+          onChange={(e) => setGroupMode(e.target.value as GroupMode)}
+          style={selectStyle}
+        >
+          <option value="muscle">Group by muscle</option>
+          <option value="none">Flat list</option>
+        </select>
         <span style={{ color: '#94a3b8', fontSize: '0.85rem' }}>
-          {rows.length} of {exercises.length}
+          {filteredRows.length} of {exercises.length}
         </span>
       </div>
 
       <div style={{ overflowX: 'auto' }}>
-        <table style={tableStyle}>
-          <thead>
-            <tr>
-              <Th label="Exercise" k="name" sort={sort} onClick={toggleSort} />
-              <Th label="Group" k="group" sort={sort} onClick={toggleSort} />
-              <Th label="Last done" k="last" sort={sort} onClick={toggleSort} />
-              <Th label="Working" k="working" sort={sort} onClick={toggleSort} right />
-              <Th label="Best" k="best" sort={sort} onClick={toggleSort} right />
-              <Th label="Headroom" k="headroom" sort={sort} onClick={toggleSort} right />
-              <Th label="Sets" k="sets" sort={sort} onClick={toggleSort} right />
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 ? (
+        {filteredRows.length === 0 ? (
+          <p style={{ color: '#94a3b8', margin: '1rem 0 0 0' }}>No exercises match.</p>
+        ) : sections ? (
+          sections.map((s) => {
+            const isCollapsed = collapsed.has(s.key);
+            return (
+              <div key={s.key} style={{ marginBottom: '1.2rem' }}>
+                <button
+                  type="button"
+                  onClick={() => toggleCollapsed(s.key)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    width: '100%',
+                    textAlign: 'left',
+                    padding: '0.5rem 0.6rem',
+                    border: 'none',
+                    background: '#f8fafc',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '0.78rem',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.06em',
+                    color: '#475569',
+                  }}
+                >
+                  <span
+                    style={{
+                      display: 'inline-block',
+                      width: '0.6rem',
+                      color: '#94a3b8',
+                      transition: 'transform 100ms',
+                      transform: isCollapsed ? 'rotate(-90deg)' : 'none',
+                    }}
+                  >
+                    ▾
+                  </span>
+                  <span>{s.label}</span>
+                  <span style={{ color: '#94a3b8', fontWeight: 500, fontSize: '0.74rem' }}>
+                    {s.rows.length}
+                  </span>
+                </button>
+                {!isCollapsed && (
+                  <table style={tableStyle}>
+                    <thead>
+                      <tr>
+                        <Th label="Exercise" k="name" sort={sort} onClick={toggleSort} />
+                        <Th label="Last done" k="last" sort={sort} onClick={toggleSort} />
+                        <Th label="Working" k="working" sort={sort} onClick={toggleSort} right />
+                        <Th label="Best" k="best" sort={sort} onClick={toggleSort} right />
+                        <Th label="Headroom" k="headroom" sort={sort} onClick={toggleSort} right />
+                        <Th label="Sets" k="sets" sort={sort} onClick={toggleSort} right />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {s.rows.map((e) => (
+                        <Row key={e.exerciseId} e={e} showGroup={false} />
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            );
+          })
+        ) : (
+          <table style={tableStyle}>
+            <thead>
               <tr>
-                <td style={tdStyle} colSpan={7}>
-                  <span style={{ color: '#94a3b8' }}>No exercises match.</span>
-                </td>
+                <Th label="Exercise" k="name" sort={sort} onClick={toggleSort} />
+                <Th label="Group" k="name" sort={sort} onClick={toggleSort} />
+                <Th label="Last done" k="last" sort={sort} onClick={toggleSort} />
+                <Th label="Working" k="working" sort={sort} onClick={toggleSort} right />
+                <Th label="Best" k="best" sort={sort} onClick={toggleSort} right />
+                <Th label="Headroom" k="headroom" sort={sort} onClick={toggleSort} right />
+                <Th label="Sets" k="sets" sort={sort} onClick={toggleSort} right />
               </tr>
-            ) : (
-              rows.map((e) => <Row key={e.exerciseId} e={e} />)
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {filteredRows.map((e) => (
+                <Row key={e.exerciseId} e={e} showGroup />
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </>
   );
@@ -153,7 +261,7 @@ function Th({
   );
 }
 
-function Row({ e }: { e: ExerciseSummary }) {
+function Row({ e, showGroup }: { e: ExerciseSummary; showGroup: boolean }) {
   const headroom =
     e.bestWeight !== undefined && e.workingWeight !== undefined
       ? e.bestWeight - e.workingWeight
@@ -171,7 +279,7 @@ function Row({ e }: { e: ExerciseSummary }) {
           )}
         </a>
       </td>
-      <td style={{ ...tdStyle, color: '#64748b' }}>{e.muscleGroup ?? '—'}</td>
+      {showGroup && <td style={{ ...tdStyle, color: '#64748b' }}>{e.muscleGroup ?? '—'}</td>}
       <td style={{ ...tdStyle, color: '#64748b' }}>{e.lastDone ? formatDate(e.lastDone) : '—'}</td>
       <td style={{ ...tdStyle, textAlign: 'right' }}>{fmtWt(e.workingWeight)}</td>
       <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 700 }}>{fmtWt(e.bestWeight)}</td>
@@ -191,7 +299,6 @@ function Row({ e }: { e: ExerciseSummary }) {
 
 function sortValue(e: ExerciseSummary, k: SortKey): string | number | undefined {
   if (k === 'name') return e.name.toLowerCase();
-  if (k === 'group') return e.muscleGroup ?? 'zzz';
   if (k === 'last') return e.lastDone ?? '';
   if (k === 'working') return e.workingWeight ?? 0;
   if (k === 'best') return e.bestWeight ?? 0;
@@ -237,4 +344,12 @@ const thStyle: React.CSSProperties = {
 const tdStyle: React.CSSProperties = {
   padding: '0.7rem 0.6rem',
   fontVariantNumeric: 'tabular-nums',
+};
+
+const selectStyle: React.CSSProperties = {
+  padding: '0.5rem 0.7rem',
+  border: '1px solid #cbd5e1',
+  borderRadius: '8px',
+  fontSize: '0.92rem',
+  background: '#fff',
 };
