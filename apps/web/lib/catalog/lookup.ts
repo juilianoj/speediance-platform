@@ -112,16 +112,46 @@ export const getExercise = cache(async (groupId: string): Promise<CatalogExercis
 
 /**
  * Load the entire catalog into memory. Used by the workout builder for
- * search / filter / candidate-selection logic. With ~500 rows and ~1KB
- * each (no images / videos), this is ~0.5MB — fine for a single request.
+ * search / filter / candidate-selection logic. With ~885 rows and ~1KB
+ * each (no images / videos), this is ~1MB — fine for a single request.
  *
- * React's `cache()` dedupes calls within one server render so the
- * builder page can hit `listExercises()` from multiple components without
- * re-querying DDB.
+ * Cached at the module level for the Lambda's warm lifetime, not per
+ * render. The catalog only changes when the bootstrap job re-runs from
+ * /admin, so re-scanning DDB on every coach turn was wasting ~1–2s and
+ * pushing builder prompts past the CloudFront 60s origin timeout. A warm
+ * Lambda will hit DDB once, then serve subsequent requests from memory.
+ * Cold starts still pay the scan cost, which is fine (Lambda init shows
+ * up in CloudWatch as init-duration, not request duration).
+ *
+ * The TTL caps staleness if a bootstrap runs between turns — at 10 min,
+ * users will see fresh catalog data on their next slow path. `cache()`
+ * still wraps the inner function so multiple parallel callers within one
+ * request share a single Promise.
  */
+const CATALOG_TTL_MS = 10 * 60 * 1000;
+let catalogCache: { value: CatalogExercise[]; expiresAt: number } | null = null;
+let inflightCatalog: Promise<CatalogExercise[]> | null = null;
+
 export const listExercises = cache(async (): Promise<CatalogExercise[]> => {
+  const now = Date.now();
+  if (catalogCache && catalogCache.expiresAt > now) {
+    return catalogCache.value;
+  }
+  if (inflightCatalog) return inflightCatalog;
+
   const db = dbOrNull();
   if (!db) return [];
-  const res = (await db.global.exerciseCatalog.list()) as { data: CatalogRow[] };
-  return (res.data ?? []).map(toCatalogExercise).sort((a, b) => a.name.localeCompare(b.name));
+  inflightCatalog = (async () => {
+    const res = (await db.global.exerciseCatalog.list()) as { data: CatalogRow[] };
+    const value = (res.data ?? [])
+      .map(toCatalogExercise)
+      .sort((a, b) => a.name.localeCompare(b.name));
+    catalogCache = { value, expiresAt: Date.now() + CATALOG_TTL_MS };
+    return value;
+  })();
+  try {
+    return await inflightCatalog;
+  } finally {
+    inflightCatalog = null;
+  }
 });

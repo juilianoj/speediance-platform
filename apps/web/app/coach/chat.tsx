@@ -27,9 +27,26 @@ export function CoachChat() {
     setMessages((m) => [...m, { role: 'user', content: question }]);
     startTransition(async () => {
       // Use the ref so we capture any messages added since startTransition began.
-      const res = await askCoach(messagesRef.current, question);
-      if (!res.ok) {
-        setError(res.message);
+      // res can be undefined when the upstream request times out (CloudFront 504)
+      // or the action throws — guard so the chat shows an error instead of
+      // crashing with "Cannot read properties of undefined".
+      let res: Awaited<ReturnType<typeof askCoach>> | undefined;
+      try {
+        res = await askCoach(messagesRef.current, question);
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : 'Coach request failed before reaching the server.';
+        setError(message);
+        setMessages((m) => m.slice(0, -1));
+        setInput(question);
+        return;
+      }
+      if (!res || !res.ok) {
+        setError(
+          res?.ok === false
+            ? res.message
+            : 'Coach request timed out. Try a narrower prompt or ask again.',
+        );
         setMessages((m) => m.slice(0, -1));
         setInput(question);
         return;
