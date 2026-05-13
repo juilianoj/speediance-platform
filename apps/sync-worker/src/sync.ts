@@ -145,6 +145,16 @@ export async function syncUser(userId: string): Promise<SyncSummary> {
       `syncUser ${userId}: ${records.length} training records in ${rangeStart}..${rangeEnd}`,
     );
 
+    // In-memory accumulator for the Exercise aggregate rows. We update it
+    // workout-by-workout, then flush once at the end of the sync. Doing it
+    // this way (vs. read-modify-write against DDB per workout) ensures that
+    // a stale `bestWeight` left over from a previous sync — e.g. from when
+    // PR #69's curriculum fallback poisoned the aggregate with Speediance's
+    // calculated 1RM estimate — gets cleanly overwritten with the real
+    // running max across actually-lifted sessions. Side benefit: ~150
+    // fewer DDB GetItem calls per sync.
+    const aggregates = new Map<string, ExerciseAggregate>();
+
     // Per-sync cache for the per-exercise daily-stats endpoint. Speediance's
     // type-6 "Sam invites you to challenge X" share workouts return empty
     // bodies from the per-workout detail endpoints (verified by probe — the
@@ -233,7 +243,7 @@ export async function syncUser(userId: string): Promise<SyncSummary> {
             );
           }
           if (exercises.length > 0) {
-            setsProcessed += await upsertExercisesAndSets(me, startTimeIso, exercises);
+            setsProcessed += await upsertExercisesAndSets(me, startTimeIso, exercises, aggregates);
           }
           // Trace for debugging — easier to spot in CloudWatch which path
           // each workout took.
@@ -247,6 +257,22 @@ export async function syncUser(userId: string): Promise<SyncSummary> {
         }
         await new Promise((r) => setTimeout(r, 100));
       }
+    }
+
+    // Flush the in-memory exercise aggregates to DDB. One upsert per
+    // exercise — the values reflect every workout this sync processed,
+    // overwriting any stale state from previous runs.
+    for (const agg of aggregates.values()) {
+      await me.exercises.upsert({
+        exerciseId: agg.exerciseId,
+        name: agg.name,
+        muscleGroup: agg.muscleGroup,
+        isUnilateral: agg.isUnilateral,
+        bestWeight: agg.bestWeight > 0 ? agg.bestWeight : undefined,
+        workingWeight: agg.workingWeight,
+        lastDone: agg.lastDone,
+        totalSets: agg.totalSets,
+      });
     }
 
     // Record the successful sync timestamp so the dashboard can show how
@@ -393,30 +419,27 @@ async function fetchExercisesValidated(
       // Reshape curriculum entries so upsertExercisesAndSets can read them
       // uniformly.
       //
-      // Two important corrections vs the previous shape:
+      // Important: `actionLibraryGroupId` must come from `e.groupId`, NOT
+      // `e.id`. The course-info endpoint returns BOTH ids — `id` is a
+      // variant / relation id (course-specific), `groupId` is the
+      // action-library group id that the trainingDetail endpoints also
+      // use. Mixing the two created duplicate Exercise rows in DDB.
       //
-      // 1. `actionLibraryGroupId` must come from `e.groupId`, NOT `e.id`.
-      //    The course-info endpoint returns BOTH ids: `id` is a variant /
-      //    relation id (course-specific), `groupId` is the action-library
-      //    group id that the trainingDetail endpoints also use. Mixing the
-      //    two created duplicate Exercise rows in DDB — same lift under
-      //    two different exerciseIds, half of them showing 0 sets / 0
-      //    weight because they only ever saw the curriculum-fallback path.
-      //
-      // 2. `maxWeight` is populated from `bestOneRepMax`. That field is
-      //    Speediance's own tracking of the user's lifetime best for this
-      //    exercise; falling back to undefined left users with a forest
-      //    of ghost exercises showing BEST=0 even though Speediance knew
-      //    their actual one-rep max. With this in place, the Exercise
-      //    aggregate's bestWeight ends up populated even when our detail
-      //    endpoints can't give us per-rep history.
+      // `maxWeight` is intentionally left undefined here. Speediance's
+      // `bestOneRepMax` is a *calculated* 1RM estimate (e.g. 379 lb on a
+      // 220-lb-cap machine for the user's Deadlift, projected from a
+      // 12-rep set) — it has no place in our "bestWeight" aggregate,
+      // which is meant to be "max weight actually lifted in a single
+      // set". The enrichment via userActionStatPage (next step in the
+      // sync path) fills in the real session max for type-6 workouts
+      // when one exists.
       return {
         exercises: list.map((e) => ({
           actionLibraryGroupId: e.groupId,
           actionLibraryName: e.title,
           isBarbell: undefined,
           trainingPartId2: typeof e.trainingPartId2 === 'number' ? e.trainingPartId2 : undefined,
-          maxWeight: typeof e.bestOneRepMax === 'number' ? e.bestOneRepMax : undefined,
+          maxWeight: undefined,
           finishedReps: [],
         })),
         source: 'curriculum',
@@ -626,10 +649,32 @@ async function fetchAllRecords(
  *     stays trivial; drop sets (multiple distinct weights in one entry)
  *     surface via `startWeight` / `endWeight`.
  */
+/**
+ * In-memory accumulator for the Exercise aggregate, scoped to one user's
+ * sync run. Built up workout-by-workout, flushed to DDB once at the end.
+ */
+interface ExerciseAggregate {
+  exerciseId: string;
+  name: string;
+  muscleGroup?: keyof MuscleGroupSets;
+  isUnilateral: boolean;
+  /** Max weight actually lifted in any single set we've seen this run. */
+  bestWeight: number;
+  /** Most recent session's max weight — drives the dashboard's "working
+   *  weight" recommendation. */
+  workingWeight?: number;
+  /** ISO timestamp of the most-recent session for this exercise. */
+  lastDone: string;
+  /** Lifetime set counter — actual sets-with-reps + one per enriched
+   *  curriculum row (which represents one logged set). */
+  totalSets: number;
+}
+
 async function upsertExercisesAndSets(
   me: SyncDbForUser,
   startTime: string,
   exercises: Array<Record<string, unknown>>,
+  aggregates: Map<string, ExerciseAggregate>,
 ): Promise<number> {
   let totalSets = 0;
   for (const ex of exercises) {
@@ -722,40 +767,54 @@ async function upsertExercisesAndSets(
       totalSets++;
     }
 
-    // Exercise aggregate: bestWeight is the running max across all
-    // sessions. workingWeight + lastDone come from the MOST RECENT session
-    // we've seen — the API doesn't return workouts in chronological order
-    // when chunked, so naive overwriting would clobber a newer May 11
-    // session with an older Apr 13 one. totalSets is additive (it's a
-    // lifetime counter; the upstream sync wipes Set items per-workout via
-    // deleteForWorkout, so the count is rebuilt from scratch on a full
-    // re-sync).
+    // Update the in-memory aggregate for this exercise. We let the loop
+    // run for every workout and flush once at the very end of syncUser —
+    // see the comment on `aggregates` in syncUser for why.
+    //
+    // `sessionMax` is the max weight LIFTED in this session. For the
+    // detail path it comes from Speediance's per-rep array; for the
+    // enrichment path it comes from userActionStatPage. Crucially it is
+    // NOT the calculated 1RM (`bestOneRepMax`) from the curriculum
+    // endpoint — that field would project an unliftable weight (e.g.
+    // 379 lb on a 220-lb-cap machine).
     const sessionMax = pickFloat(ex.maxWeight);
-    const existing = (await me.exercises.get(exerciseId)) as {
-      data: {
-        bestWeight?: number;
-        totalSets?: number;
-        lastDone?: string;
-        workingWeight?: number;
-      } | null;
-    } | null;
-    const prevBest = existing?.data?.bestWeight ?? 0;
-    const prevTotal = existing?.data?.totalSets ?? 0;
-    const prevLastDone = existing?.data?.lastDone ?? '';
-    const isNewer = startTime > prevLastDone;
-    // For totalSets, count actual sets-with-reps only; curriculum
-    // placeholders shouldn't inflate the count.
-    const realSetsThisSession = finishedReps.length;
-    await me.exercises.upsert({
-      exerciseId,
-      name,
-      muscleGroup,
-      isUnilateral,
-      bestWeight: sessionMax !== undefined ? Math.max(prevBest, sessionMax) : prevBest,
-      workingWeight: isNewer ? sessionMax : (existing?.data?.workingWeight ?? sessionMax),
-      lastDone: isNewer ? startTime : prevLastDone || startTime,
-      totalSets: prevTotal + realSetsThisSession,
-    });
+    // Count one set for every real Set row we wrote this session. The
+    // enriched-curriculum branch above writes exactly one row when
+    // `hasSession`; otherwise no real set is logged for an unenriched
+    // placeholder.
+    const realSetsThisSession =
+      finishedReps.length > 0
+        ? finishedReps.length
+        : sessionMax !== undefined && pickFloat(ex.totalCapacity) !== undefined
+          ? 1
+          : 0;
+    const existing = aggregates.get(exerciseId);
+    if (!existing) {
+      aggregates.set(exerciseId, {
+        exerciseId,
+        name,
+        muscleGroup,
+        isUnilateral,
+        bestWeight: sessionMax ?? 0,
+        workingWeight: sessionMax,
+        lastDone: startTime,
+        totalSets: realSetsThisSession,
+      });
+    } else {
+      // Refresh name + muscleGroup whenever we see them — they might
+      // have been undefined on a stretch-only placeholder earlier.
+      existing.name = name;
+      existing.muscleGroup = muscleGroup ?? existing.muscleGroup;
+      existing.isUnilateral = isUnilateral || existing.isUnilateral;
+      if (sessionMax !== undefined) {
+        existing.bestWeight = Math.max(existing.bestWeight, sessionMax);
+      }
+      if (startTime > existing.lastDone) {
+        existing.lastDone = startTime;
+        if (sessionMax !== undefined) existing.workingWeight = sessionMax;
+      }
+      existing.totalSets += realSetsThisSession;
+    }
   }
   return totalSets;
 }
@@ -807,7 +866,6 @@ interface SyncDbForUser {
     deleteForWorkout: (startTime: string) => Promise<void>;
   };
   exercises: {
-    get: (exerciseId: string) => Promise<unknown>;
     upsert: (input: {
       exerciseId: string;
       name?: string;
