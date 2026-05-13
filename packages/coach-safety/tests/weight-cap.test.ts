@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { clampWeight, maxSafeWeight } from '../lib/safety/weight-cap.js';
+import { clampWeight, maxSafeWeight } from '../src/index.js';
 
 describe('maxSafeWeight', () => {
   it('returns undefined when no history is available', () => {

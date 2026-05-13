@@ -19,6 +19,7 @@
     "@aws-sdk/client-cognito-identity-provider": "^3.717.0",
     "@aws-sdk/client-cost-explorer": "^3.1045.0",
     "@aws-sdk/client-lambda": "^3.717.0",
+    "@speediance/coach-safety": "workspace:*",
     "@speediance/db": "workspace:*",
     "@speediance/secrets-store": "workspace:*",
     "@speediance/speediance-client": "workspace:*",

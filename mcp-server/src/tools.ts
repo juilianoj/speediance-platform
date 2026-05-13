@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import type { UserScopedDb } from '@speediance/db';
 import { z } from 'zod';
 
-import { clampWeight } from './safety/weight-cap.js';
+import { clampWeight } from '@speediance/coach-safety';
 import type { ExerciseSet, ExerciseSummary, WorkoutRow } from './types.js';
 
 /**
