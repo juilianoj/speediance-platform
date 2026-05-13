@@ -1,6 +1,7 @@
 packages:
   - 'apps/*'
   - 'packages/*'
+  - 'mcp-server'
   - 'infra'
 
 # pnpm v11 requires explicit approval for build scripts.
