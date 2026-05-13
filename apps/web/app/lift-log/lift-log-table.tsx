@@ -21,7 +21,11 @@ export function LiftLogTable({ exercises }: { exercises: ExerciseSummary[] }) {
     key: 'last',
     dir: 'desc',
   });
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  // Initialise with a sentinel `__ALL__` flag meaning "everything collapsed
+  // by default". On first user interaction (toggleCollapsed or expandAll) we
+  // swap to a real per-section Set. This avoids racing against the section
+  // list — which depends on filteredRows — being known at first render.
+  const [collapsed, setCollapsed] = useState<Set<string> | 'all'>('all');
 
   const muscleGroups = useMemo(() => {
     const s = new Set<string>();
@@ -79,13 +83,25 @@ export function LiftLogTable({ exercises }: { exercises: ExerciseSummary[] }) {
     );
   };
 
+  const sectionKeys = sections?.map((s) => s.key) ?? [];
+  const allCollapsed =
+    collapsed === 'all' ||
+    (sectionKeys.length > 0 &&
+      sectionKeys.every((k) => collapsed instanceof Set && collapsed.has(k)));
+  const isCollapsed = (key: string) => collapsed === 'all' || collapsed.has(key);
+
   const toggleCollapsed = (key: string) => {
     setCollapsed((prev) => {
-      const next = new Set(prev);
+      const next = prev === 'all' ? new Set(sectionKeys) : new Set(prev);
       if (next.has(key)) next.delete(key);
       else next.add(key);
       return next;
     });
+  };
+
+  const toggleAll = () => {
+    if (allCollapsed) setCollapsed(new Set());
+    else setCollapsed(new Set(sectionKeys));
   };
 
   return (
@@ -133,6 +149,11 @@ export function LiftLogTable({ exercises }: { exercises: ExerciseSummary[] }) {
           <option value="muscle">Group by muscle</option>
           <option value="none">Flat list</option>
         </select>
+        {groupMode === 'muscle' && sectionKeys.length > 0 && (
+          <button type="button" onClick={toggleAll} style={ghostButtonStyle}>
+            {allCollapsed ? 'Expand all' : 'Collapse all'}
+          </button>
+        )}
         <span style={{ color: '#94a3b8', fontSize: '0.85rem' }}>
           {filteredRows.length} of {exercises.length}
         </span>
@@ -143,7 +164,7 @@ export function LiftLogTable({ exercises }: { exercises: ExerciseSummary[] }) {
           <p style={{ color: '#94a3b8', margin: '1rem 0 0 0' }}>No exercises match.</p>
         ) : sections ? (
           sections.map((s) => {
-            const isCollapsed = collapsed.has(s.key);
+            const collapsedHere = isCollapsed(s.key);
             return (
               <div key={s.key} style={{ marginBottom: '1.2rem' }}>
                 <button
@@ -173,7 +194,7 @@ export function LiftLogTable({ exercises }: { exercises: ExerciseSummary[] }) {
                       width: '0.6rem',
                       color: '#94a3b8',
                       transition: 'transform 100ms',
-                      transform: isCollapsed ? 'rotate(-90deg)' : 'none',
+                      transform: collapsedHere ? 'rotate(-90deg)' : 'none',
                     }}
                   >
                     ▾
@@ -183,7 +204,7 @@ export function LiftLogTable({ exercises }: { exercises: ExerciseSummary[] }) {
                     {s.rows.length}
                   </span>
                 </button>
-                {!isCollapsed && (
+                {!collapsedHere && (
                   <table style={tableStyle}>
                     <thead>
                       <tr>
@@ -352,4 +373,15 @@ const selectStyle: React.CSSProperties = {
   borderRadius: '8px',
   fontSize: '0.92rem',
   background: '#fff',
+};
+
+const ghostButtonStyle: React.CSSProperties = {
+  padding: '0.5rem 0.7rem',
+  border: '1px solid #cbd5e1',
+  borderRadius: '8px',
+  fontSize: '0.85rem',
+  background: '#fff',
+  color: '#475569',
+  cursor: 'pointer',
+  fontWeight: 500,
 };
