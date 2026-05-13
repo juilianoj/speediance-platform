@@ -79,7 +79,9 @@ export function Auth() {
         emailConfiguration: {
           emailSendingAccount: 'DEVELOPER',
           sourceArn: SES_IDENTITY_ARN,
-          from: `${SES_FROM_DISPLAY} <${SES_SENDER}>`,
+          // The Pulumi/TF resource key is `fromEmailAddress` (not `from`);
+          // using `from` fails with "Invalid or unknown key".
+          fromEmailAddress: `${SES_FROM_DISPLAY} <${SES_SENDER}>`,
           replyToEmailAddress: SES_SENDER,
         },
         // PLUS tier is required for Cognito Threat Protection (compromised
