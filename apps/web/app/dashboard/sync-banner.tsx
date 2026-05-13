@@ -1,39 +1,63 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useTransition } from 'react';
+import { useState, useTransition } from 'react';
 
-import { resyncMe } from '@/lib/admin/actions';
+import { getMyLastSyncedAt, resyncMe } from '@/lib/admin/actions';
 
 /**
  * "Last refreshed X ago" banner with a Refresh-now button. Sits above the
- * dashboard KPI strip so users immediately see how fresh the data is and
- * can pull a manual sync without digging into /admin.
+ * dashboard KPI strip so users see how fresh the data is and can pull a
+ * manual sync without digging into /admin.
+ *
+ * Sync mechanics: the Refresh button fires an async Lambda invoke
+ * (returns immediately) and then *polls* for `lastSyncedAt` to change.
+ * The full first-time history sync can take 1–3 minutes, so a fixed
+ * sleep+refresh would either give up too early (showing "Hasn't synced
+ * yet" indefinitely) or block the UI for too long.
  */
 export function SyncBanner({ lastSyncedAt }: { lastSyncedAt?: string }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [progress, setProgress] = useState<string | null>(null);
 
   const subtitle = lastSyncedAt
     ? `Last refreshed ${relativeTime(lastSyncedAt)} · ${absoluteTime(lastSyncedAt)}`
-    : "Hasn't synced yet — refresh to pull your latest Speediance history.";
+    : 'Last sync time unknown — refresh to start tracking it.';
 
   return (
     <div style={containerStyle}>
       <div style={textStyle}>
         <div style={titleStyle}>Speediance data</div>
-        <div style={subtitleStyle}>{subtitle}</div>
+        <div style={subtitleStyle}>{progress ?? subtitle}</div>
       </div>
       <button
         type="button"
         disabled={pending}
         onClick={() => {
           startTransition(async () => {
+            const before = lastSyncedAt ?? null;
+            setProgress('Sync started — pulling your Speediance history…');
             await resyncMe();
-            // Server Action returns immediately (async invoke); the sync runs
-            // in the background. Wait a beat, then re-fetch.
-            await new Promise((r) => setTimeout(r, 1500));
-            router.refresh();
+            // Poll every 4s up to 3 minutes — the first run on a populated
+            // user can pull 5+ years of records.
+            const start = Date.now();
+            const maxMs = 3 * 60 * 1000;
+            while (Date.now() - start < maxMs) {
+              await new Promise((r) => setTimeout(r, 4000));
+              const { lastSyncedAt: now } = await getMyLastSyncedAt();
+              if (now && now !== before) {
+                setProgress('Done — updating dashboard…');
+                router.refresh();
+                // Give the route a moment to start re-fetching, then clear
+                // local state so the rendered subtitle takes over.
+                setTimeout(() => setProgress(null), 1500);
+                return;
+              }
+            }
+            // Timed out — sync may still be running, but stop waiting.
+            setProgress('Still syncing — refresh the page in a minute.');
+            setTimeout(() => setProgress(null), 6000);
           });
         }}
         style={buttonStyle(pending)}

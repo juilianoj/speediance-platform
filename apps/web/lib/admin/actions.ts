@@ -96,6 +96,22 @@ export async function resyncMe(): Promise<{ ok: boolean; message: string }> {
   }
 }
 
+/**
+ * Return the current `lastSyncedAt` timestamp for the signed-in user.
+ * Used by the dashboard's SyncBanner to poll for sync completion after
+ * the user clicks Refresh — the sync worker writes this field when it
+ * finishes, so a change tells us the run is done.
+ */
+export async function getMyLastSyncedAt(): Promise<{ lastSyncedAt: string | null }> {
+  const claims = await verifyIdTokenFromCookies();
+  if (!claims) return { lastSyncedAt: null };
+  // Lazy import — keeps admin/actions free of DDB on cold-paths it doesn't
+  // need (the imports above are all Cognito + Lambda).
+  const { loadProfile } = await import('@/app/profile/load-profile');
+  const profile = await loadProfile(claims.sub);
+  return { lastSyncedAt: profile?.lastSyncedAt ?? null };
+}
+
 export interface AdminUser {
   email?: string;
   username: string;
