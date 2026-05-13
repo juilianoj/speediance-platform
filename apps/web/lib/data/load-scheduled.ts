@@ -2,8 +2,7 @@ import 'server-only';
 
 import { cache } from 'react';
 
-import { createSecretsStore } from '@speediance/secrets-store';
-import { SpeedianceClient, type Credentials } from '@speediance/speediance-client';
+import { createRefreshingSpeedianceClient } from '@/lib/speediance/refreshing-client';
 
 /**
  * A scheduled (not-yet-completed) workout on a specific day. Pulled from
@@ -33,24 +32,8 @@ export interface ScheduledItem {
  * active exclusivePlan; `isFinish=0` marks the scheduled ones.
  */
 export const loadScheduledWorkouts = cache(async (userId: string): Promise<ScheduledItem[]> => {
-  const stage = process.env.SST_STAGE ?? 'dev';
-  const secrets = createSecretsStore({ stage });
-  const secret = await secrets.get(userId);
-  if (!secret || !secret.token || !secret.appUserId) return [];
-
-  const creds: Credentials = {
-    userId: secret.appUserId,
-    token: secret.token,
-    region: secret.region,
-    unit: 0,
-    deviceType: secret.deviceType,
-    allowMonsterMoves: secret.allowMonsterMoves,
-  };
-  const client = new SpeedianceClient(creds, {
-    region: secret.region,
-    deviceType: secret.deviceType,
-    allowMonsterMoves: secret.allowMonsterMoves,
-  });
+  const client = await createRefreshingSpeedianceClient(userId);
+  if (!client) return [];
 
   const months = nextThreeMonths();
   const out: ScheduledItem[] = [];

@@ -1,11 +1,9 @@
 import 'server-only';
 
-import { createSecretsStore } from '@speediance/secrets-store';
-import { SpeedianceClient, type Credentials } from '@speediance/speediance-client';
-
 import { createDb } from '@speediance/db';
 
 import type { DashboardWorkout } from '@/app/dashboard/load-dashboard';
+import { createRefreshingSpeedianceClient } from '@/lib/speediance/refreshing-client';
 
 import type { ExerciseSet, ExerciseSummary } from './load-exercises';
 import {
@@ -96,22 +94,8 @@ async function getCourseCurriculum(userId: string, courseId: number): Promise<Cu
   const cacheKey = `${userId}::${courseId}`;
   const cached = COURSE_INFO_CACHE.get(cacheKey);
   if (cached) return cached;
-  const stage = process.env.SST_STAGE ?? 'dev';
-  const secret = await createSecretsStore({ stage }).get(userId);
-  if (!secret?.token || !secret.appUserId) return [];
-  const creds: Credentials = {
-    userId: secret.appUserId,
-    token: secret.token,
-    region: secret.region,
-    unit: 0,
-    deviceType: secret.deviceType,
-    allowMonsterMoves: secret.allowMonsterMoves,
-  };
-  const client = new SpeedianceClient(creds, {
-    region: secret.region,
-    deviceType: secret.deviceType,
-    allowMonsterMoves: secret.allowMonsterMoves,
-  });
+  const client = await createRefreshingSpeedianceClient(userId);
+  if (!client) return [];
   try {
     // Use the public client method so `this` stays bound — pulling `.req` off
     // and calling it bare loses the SpeedianceClient receiver and trips on
