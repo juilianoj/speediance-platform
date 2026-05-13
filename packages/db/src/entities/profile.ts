@@ -38,6 +38,10 @@ export function profileEntity(config: EntityConfiguration) {
         deviceType: { type: 'number' },
         allowMonsterMoves: { type: 'boolean' },
         syncStartDate: { type: 'string' }, // YYYY-MM-DD — sync worker pulls records from here forward
+        /** ISO timestamp of the last successful sync. Surfaced on the
+         *  dashboard so users know how fresh their data is. Written by
+         *  the SyncWorker after a successful syncUser run. */
+        lastSyncedAt: { type: 'string' },
         speedianceSecretArn: { type: 'string' }, // never the raw token; just the Secrets Manager ARN
         schedule: { type: 'string' }, // JSON: day-of-week → preferred slots
         goals: { type: 'string' }, // JSON: free-form user-stated goals for the AI Coach

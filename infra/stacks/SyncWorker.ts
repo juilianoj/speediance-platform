@@ -46,13 +46,21 @@ export function SyncWorker({ database }: SyncWorkerArgs) {
     ],
   });
 
-  // 5am ET (= 09:00 UTC during DST, 10:00 UTC standard). EventBridge cron
-  // doesn't support TZ — Phase 1.4 picks one or installs a small Lambda
-  // that re-evaluates. For now: 10:00 UTC year-round.
-  new sst.aws.Cron('SyncWorkerNightly', {
-    schedule: 'cron(0 10 * * ? *)',
-    function: fn.arn,
-  });
+  // Auto-sync only in prod. Dev's cron used to run too but that meant
+  // every dev experiment got re-clobbered by upstream Speediance state on
+  // a daily basis; manual `resyncMe` from the UI is enough for dev.
+  //
+  // Prod schedule: 05:00 UTC. That lands at midnight EDT (summer) and
+  // 1am EST (winter) — close enough to "overnight" for our family use
+  // case. EventBridge cron has no TZ awareness so DST drift is part of
+  // the tradeoff; we can install a Lambda re-evaluator later if it ever
+  // matters.
+  if (stage === 'prod') {
+    new sst.aws.Cron('SyncWorkerNightly', {
+      schedule: 'cron(0 5 * * ? *)',
+      function: fn.arn,
+    });
+  }
 
   // The real `sst.aws.Function` exposes `.arn` (and `.name`). Earlier we
   // returned `.functionArn`, which only existed in our loose stub typedef.
