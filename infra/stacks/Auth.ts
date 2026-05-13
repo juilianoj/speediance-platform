@@ -18,8 +18,7 @@ const SES_IDENTITY_ARN = `arn:aws:ses:${SES_REGION}:${AWS_ACCOUNT}:identity/${SE
 // first deploy we update this and redeploy. The dev URL is stable.
 const SIGN_IN_URLS: Record<string, string> = {
   dev: 'https://d2wtidficpq5l9.cloudfront.net/login',
-  // prod TBD — fill in after the first prod deploy emits the CloudFront URL.
-  prod: 'https://d2wtidficpq5l9.cloudfront.net/login',
+  prod: 'https://d13plgksrb5db.cloudfront.net/login',
 };
 
 export function Auth() {
