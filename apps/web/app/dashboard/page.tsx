@@ -47,10 +47,6 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     <div style={pageWrapStyle}>
       <Nav current="dashboard" userLabel={String(display)} />
       <main style={mainStyle}>
-        <div style={heroStyle}>
-          <h1 style={h1Style}>Dashboard</h1>
-          <p style={heroSubStyle}>What you&rsquo;ve been doing — and what you should do next.</p>
-        </div>
         {data?.hasCreds && <SyncBanner lastSyncedAt={profile?.lastSyncedAt} />}
         {!data || !data.hasCreds ? (
           <SetupCallout hasProfile={data?.hasProfile ?? false} />
@@ -80,23 +76,6 @@ const mainStyle: React.CSSProperties = {
   maxWidth: 1200,
   margin: '0 auto',
   padding: '0 1.5rem 3rem',
-};
-
-const heroStyle: React.CSSProperties = {
-  padding: '0.5rem 0 1.5rem 0',
-};
-
-const h1Style: React.CSSProperties = {
-  margin: 0,
-  fontSize: '2rem',
-  fontWeight: 700,
-  letterSpacing: '-0.02em',
-};
-
-const heroSubStyle: React.CSSProperties = {
-  margin: '0.4rem 0 0 0',
-  color: '#64748b',
-  fontSize: '0.95rem',
 };
 
 function SetupCallout({ hasProfile }: { hasProfile: boolean }) {

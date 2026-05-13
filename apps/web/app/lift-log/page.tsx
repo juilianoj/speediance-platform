@@ -20,7 +20,7 @@ export default async function LiftLogPage() {
   ]);
 
   return (
-    <PageShell current="liftlog" userLabel={String(claims.email ?? claims.sub)} title="Lift log">
+    <PageShell current="liftlog" userLabel={String(claims.email ?? claims.sub)}>
       <section style={cardStyle}>
         <h2 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, letterSpacing: '-0.01em' }}>
           Workouts you&rsquo;ve done

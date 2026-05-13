@@ -15,14 +15,18 @@ export function PageShell({
 }: {
   current: Parameters<typeof Nav>[0]['current'];
   userLabel: string;
-  title: string;
+  /** Optional page header. Omit on static pages — the nav already shows
+   *  which page you're on, and a redundant "Dashboard / Coach / Lift log"
+   *  banner just takes up real estate. Pass it on dynamic pages where the
+   *  title is real context (a date, a workout name, an exercise name). */
+  title?: string;
   children: ReactNode;
 }) {
   return (
     <div style={pageWrapStyle}>
       <Nav current={current} userLabel={userLabel} />
       <main style={mainStyle}>
-        <h1 style={h1Style}>{title}</h1>
+        {title && <h1 style={h1Style}>{title}</h1>}
         {children}
       </main>
     </div>

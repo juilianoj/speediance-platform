@@ -85,7 +85,7 @@ export default async function AdherencePage({ searchParams }: PageProps) {
   const adherence = totals.scheduled > 0 ? (totals.completed / totals.scheduled) * 100 : 0;
 
   return (
-    <PageShell current="adherence" userLabel={String(claims.email ?? claims.sub)} title="Adherence">
+    <PageShell current="adherence" userLabel={String(claims.email ?? claims.sub)}>
       <section style={kpiGridStyle}>
         <Kpi
           label={`${WEEKS_TO_SHOW}-week adherence`}

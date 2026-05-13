@@ -23,7 +23,7 @@ export default async function AdminPage() {
   const [users, feedback] = await Promise.all([listUsers(), listAllFeedback()]);
 
   return (
-    <PageShell current="admin" userLabel={String(claims.email ?? claims.sub)} title="Admin">
+    <PageShell current="admin" userLabel={String(claims.email ?? claims.sub)}>
       <section style={cardStyle}>
         <h2 style={cardHeadingStyle}>Resync</h2>
         <p style={mutedStyle}>
