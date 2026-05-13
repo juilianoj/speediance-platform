@@ -26,9 +26,22 @@ export default async function ExerciseDetailPage({ params }: PageProps) {
   const { exercise, sets, workoutTitleByStart } = await loadExerciseHistory(claims.sub, exerciseId);
   if (!exercise && sets.length === 0) notFound();
 
-  // Group sets by workout (startTime).
-  const sessions = groupByWorkout(sets);
-  const chartPoints = sessions.map((s) => ({
+  // Sets split into "weighted" (real per-rep detail) and "placeholders"
+  // (curriculum-fallback sessions where Speediance's detail endpoint didn't
+  // return per-rep data — we wrote a single sentinel set so the user still
+  // sees they did the exercise on that day).
+  const weightedSets = sets.filter((s) => (s.weight ?? 0) > 0);
+  const placeholderCount = sets.length - weightedSets.length;
+
+  // Three groupings:
+  //   allSessions: every workout that contained the exercise — drives the
+  //     "Recent sessions" card so the user still sees "you did this on Mar 2".
+  //   weightedSessions: workouts with real weight data — drives the chart
+  //     and "All sets" table, where empty placeholder rows would just be
+  //     noise (long stretches of "— — —" otherwise).
+  const allSessions = groupByWorkout(sets);
+  const weightedSessions = groupByWorkout(weightedSets);
+  const chartPoints = weightedSessions.map((s) => ({
     startTime: s.startTime,
     maxWeight: Math.max(0, ...s.sets.map((x) => x.weight ?? 0)),
     label: shortDate(s.startTime),
@@ -47,29 +60,39 @@ export default async function ExerciseDetailPage({ params }: PageProps) {
       </p>
 
       <section style={summaryGridStyle}>
-        <Stat label="Sessions" value={String(sessions.length)} />
+        <Stat label="Sessions" value={String(allSessions.length)} />
         <Stat label="Best weight" value={fmtWt(exercise?.bestWeight)} />
         <Stat label="Working weight" value={fmtWt(exercise?.workingWeight)} />
         <Stat label="Muscle group" value={exercise?.muscleGroup ?? '—'} />
-        <Stat label="Total sets" value={String(exercise?.totalSets ?? sets.length)} />
+        <Stat label="Total sets" value={String(weightedSets.length)} />
       </section>
 
       <section style={cardStyle}>
         <h2 style={cardHeadingStyle}>Max weight per session</h2>
         <p style={mutedStyle}>Heaviest single set, oldest → newest.</p>
-        <div style={{ marginTop: '1rem' }}>
-          <MaxWeightChart points={[...chartPoints].reverse()} />
-        </div>
+        {chartPoints.length === 0 ? (
+          <p style={{ color: '#888', margin: '1rem 0 0' }}>
+            No per-rep weight data captured for this exercise yet — Speediance only ships per-rep
+            detail for some workout types.
+          </p>
+        ) : (
+          <div style={{ marginTop: '1rem' }}>
+            <MaxWeightChart points={[...chartPoints].reverse()} />
+          </div>
+        )}
       </section>
 
       <section style={cardStyle}>
         <h2 style={cardHeadingStyle}>Recent sessions</h2>
-        <p style={mutedStyle}>Sets per session, drop-sets render as start → end.</p>
-        {sessions.length === 0 ? (
+        <p style={mutedStyle}>
+          Sets per session, drop-sets render as start → end. Sessions where Speediance didn&rsquo;t
+          return per-rep detail show <code>—×?</code>.
+        </p>
+        {allSessions.length === 0 ? (
           <p style={{ color: '#888', margin: '1rem 0 0' }}>No sets logged yet.</p>
         ) : (
           <div style={{ marginTop: '1rem' }}>
-            {sessions.slice(0, 8).map((s) => (
+            {allSessions.slice(0, 8).map((s) => (
               <div
                 key={s.startTime}
                 style={{
@@ -123,7 +146,19 @@ export default async function ExerciseDetailPage({ params }: PageProps) {
 
       <section style={cardStyle}>
         <h2 style={cardHeadingStyle}>All sets</h2>
-        <table style={tableStyle}>
+        <p style={mutedStyle}>
+          Every set with logged weight + reps.
+          {placeholderCount > 0 && (
+            <>
+              {' '}
+              <span style={{ color: '#94a3b8' }}>
+                ({placeholderCount} additional session{placeholderCount === 1 ? '' : 's'} above had
+                no per-rep detail captured — see Recent sessions.)
+              </span>
+            </>
+          )}
+        </p>
+        <table style={{ ...tableStyle, marginTop: '0.75rem' }}>
           <thead>
             <tr>
               <th style={thStyle}>Date</th>
@@ -136,7 +171,7 @@ export default async function ExerciseDetailPage({ params }: PageProps) {
             </tr>
           </thead>
           <tbody>
-            {sets.map((s) => {
+            {weightedSets.map((s) => {
               const wTitle = workoutTitleByStart.get(s.startTime);
               return (
                 <tr key={`${s.startTime}-${s.setNum}`}>
