@@ -40,6 +40,10 @@ export interface UserScopedDb {
      *  profile through a read-then-put cycle (which historically clobbered
      *  fields we forgot to carry over). */
     patch: (input: Partial<Put<'profiles'>>) => Promise<unknown>;
+    /** Permanently remove the profile row. Used by the admin's hard-delete
+     *  flow when removing a user from the platform — workout history rows
+     *  are intentionally left in place since they're cheap to keep. */
+    delete: () => Promise<unknown>;
   };
 
   workouts: {
@@ -209,6 +213,7 @@ export function createDb(opts: DbConfig): CreatedDb {
               .patch({ userId })
               .set(input as Partial<CreateEntityItem<Entities['profiles']>>)
               .go(),
+          delete: () => entities.profiles.delete({ userId }).go(),
         },
 
         workouts: {

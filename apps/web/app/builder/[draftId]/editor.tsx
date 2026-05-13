@@ -129,7 +129,6 @@ export function Editor({ draft, catalog }: Props) {
               Synced to Speediance
             </span>
           )}
-          <DeleteDraftButton draftId={draft.draftId} />
         </div>
       </section>
 
@@ -180,7 +179,26 @@ export function Editor({ draft, catalog }: Props) {
         hasExercises={exercises.length > 0}
         hasUnsavedChanges={saveStatus !== 'idle' && saveStatus !== 'saved'}
       />
+
+      <DangerZone draftId={draft.draftId} />
     </>
+  );
+}
+
+function DangerZone({ draftId }: { draftId: string }) {
+  return (
+    <section
+      style={{
+        ...cardStyle,
+        borderLeft: '3px solid #fecaca',
+      }}
+    >
+      <h2 style={{ ...cardHeadingStyle, color: '#b91c1c' }}>Danger zone</h2>
+      <p style={mutedStyle}>Deleting this draft can&apos;t be undone.</p>
+      <div style={{ marginTop: '0.85rem' }}>
+        <DeleteDraftButton draftId={draftId} />
+      </div>
+    </section>
   );
 }
 
@@ -559,12 +577,15 @@ function TransitionSummary({
     if (a && b && a.equipmentKey !== b.equipmentKey) transitions++;
   }
   if (exercises.length < 2) return null;
-  return (
-    <p style={{ margin: '0.4rem 0 0', fontSize: '0.85rem', color: '#475569' }}>
-      Equipment transitions: <strong>{transitions}</strong> of {exercises.length - 1} possible.
-      {transitions === 0 ? ' Clean order — no setup changes needed.' : ''}
-    </p>
-  );
+  const totalAdjacent = exercises.length - 1;
+  const shared = totalAdjacent - transitions;
+  const message =
+    transitions === 0
+      ? 'Clean order — no equipment changes mid-workout.'
+      : transitions === 1
+        ? `1 equipment change needed (the other ${shared} share setup).`
+        : `${transitions} equipment changes needed (${shared} share setup).`;
+  return <p style={{ margin: '0.4rem 0 0', fontSize: '0.85rem', color: '#475569' }}>{message}</p>;
 }
 
 function SetsTable({
@@ -588,7 +609,7 @@ function SetsTable({
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: '36px 1fr 1fr 1fr 36px',
+          gridTemplateColumns: '32px 90px 110px 110px 28px',
           gap: '0.5rem',
           fontSize: '0.72rem',
           color: '#94a3b8',
@@ -610,13 +631,21 @@ function SetsTable({
           key={i}
           style={{
             display: 'grid',
-            gridTemplateColumns: '36px 1fr 1fr 1fr 36px',
+            gridTemplateColumns: '32px 90px 110px 110px 28px',
             gap: '0.5rem',
             alignItems: 'center',
             padding: '0.2rem 0',
           }}
         >
-          <span style={{ color: '#94a3b8', fontSize: '0.85rem', textAlign: 'center' }}>
+          <span
+            style={{
+              color: '#64748b',
+              fontSize: '0.85rem',
+              fontWeight: 600,
+              textAlign: 'center',
+              fontVariantNumeric: 'tabular-nums',
+            }}
+          >
             {i + 1}
           </span>
           <NumberInput

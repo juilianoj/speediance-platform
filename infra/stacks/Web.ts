@@ -96,10 +96,14 @@ export function Web({ api, auth, database, syncWorker }: WebArgs) {
       },
       // Cognito admin actions for the /admin invite + list-users flow
       // (Phase 4.1) and for the per-user MFA toggle. Scoped to this
-      // stage's user pool.
+      // stage's user pool. The Disable/Enable/Delete actions back the
+      // /admin remove-a-user UI added with §4.6 follow-up.
       {
         actions: [
           'cognito-idp:AdminCreateUser',
+          'cognito-idp:AdminDeleteUser',
+          'cognito-idp:AdminDisableUser',
+          'cognito-idp:AdminEnableUser',
           'cognito-idp:ListUsers',
           'cognito-idp:AdminGetUser',
           'cognito-idp:AdminSetUserMFAPreference',
