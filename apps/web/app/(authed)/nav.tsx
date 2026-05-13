@@ -4,7 +4,7 @@
  * Apple Health / Google Fit feed → no cardio data → opted out).
  *
  * Items live in main nav vs the user-menu dropdown based on frequency:
- *   - main: Dashboard, Coach, Lift log, Muscles, Cardio (when shown),
+ *   - main: Dashboard, Coach, Lift log, Balance, Cardio (when shown),
  *     Consistency — daily-use pages
  *   - dropdown (avatar): Profile, Feedback, Admin, Sign out — chrome
  *
@@ -22,7 +22,7 @@ type Key =
   | 'dashboard'
   | 'liftlog'
   | 'cardio'
-  | 'muscles'
+  | 'balance'
   | 'consistency'
   | 'coach'
   | 'admin'
@@ -39,7 +39,7 @@ const ALL_ITEMS: Item[] = [
   { key: 'dashboard', label: 'Dashboard', href: '/dashboard' },
   { key: 'coach', label: 'Coach', href: '/coach' },
   { key: 'liftlog', label: 'Lift log', href: '/lift-log' },
-  { key: 'muscles', label: 'Muscles', href: '/muscles' },
+  { key: 'balance', label: 'Balance', href: '/balance' },
   { key: 'cardio', label: 'Cardio', href: '/cardio' },
   { key: 'consistency', label: 'Consistency', href: '/consistency' },
 ];

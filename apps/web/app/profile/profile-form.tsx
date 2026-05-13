@@ -115,7 +115,7 @@ export function ProfileForm({
             <option value="female">Female</option>
           </select>
           <span style={hintStyle}>
-            Used to render the silhouette on the Muscles page. Traditional norms.
+            Used to render the silhouette on the Balance page. Traditional norms.
           </span>
         </label>
         <label style={labelStyle}>
