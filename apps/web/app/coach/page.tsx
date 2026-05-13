@@ -33,19 +33,7 @@ export default async function CoachPage() {
   const programs = await loadPrograms(claims.sub);
 
   return (
-    <PageShell current="coach" userLabel={String(claims.email ?? claims.sub)} title="Coach">
-      <p
-        style={{
-          margin: '-0.5rem 0 1.5rem 0',
-          color: '#64748b',
-          fontSize: '0.95rem',
-          maxWidth: 720,
-        }}
-      >
-        Ask plain-English questions about your training. The coach reads your workout history and
-        answers from real data. Ask it to plan a workout and it saves a draft program below.
-      </p>
-
+    <PageShell current="coach" userLabel={String(claims.email ?? claims.sub)}>
       <section style={cardStyle}>
         <CoachChat />
       </section>

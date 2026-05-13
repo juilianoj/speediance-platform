@@ -50,11 +50,7 @@ export default async function MusclesPage() {
   const m90 = sumIn(ninetyAgo);
 
   return (
-    <PageShell
-      current="muscles"
-      userLabel={String(claims.email ?? claims.sub)}
-      title="Muscle balance"
-    >
+    <PageShell current="muscles" userLabel={String(claims.email ?? claims.sub)}>
       <section style={cardStyle}>
         <h2 style={cardHeadingStyle}>30-day balance</h2>
         <p style={mutedStyle}>Set counts by muscle group, with gap callouts.</p>

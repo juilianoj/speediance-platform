@@ -33,11 +33,7 @@ export default async function ProfilePage() {
   const hasSpeedianceCreds = Boolean(existing?.speedianceSecretArn) || Boolean(secret);
 
   return (
-    <PageShell current="profile" userLabel={String(claims.email ?? claims.sub)} title="Profile">
-      <p style={{ color: '#666', margin: '-0.5rem 0 1.5rem 0' }}>
-        Your Speediance login is stored encrypted in AWS Secrets Manager. The sync worker uses it to
-        pull your training history every morning at 5am ET.
-      </p>
+    <PageShell current="profile" userLabel={String(claims.email ?? claims.sub)}>
       <section style={cardStyle}>
         <ProfileForm
           initial={{

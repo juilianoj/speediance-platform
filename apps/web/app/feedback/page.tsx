@@ -31,18 +31,7 @@ export default async function FeedbackPage() {
   const mine = await listMyFeedback();
 
   return (
-    <PageShell current="feedback" userLabel={String(claims.email ?? claims.sub)} title="Feedback">
-      <p
-        style={{
-          margin: '-0.5rem 0 1.5rem 0',
-          color: '#64748b',
-          fontSize: '0.95rem',
-          maxWidth: 720,
-        }}
-      >
-        Notice a bug? Want a new chart or page? Send it here. Every message gets logged for triage.
-      </p>
-
+    <PageShell current="feedback" userLabel={String(claims.email ?? claims.sub)}>
       <section style={cardStyle}>
         <h2 style={cardHeadingStyle}>Send feedback</h2>
         <p style={mutedStyle}>One submission per click — the form clears on success.</p>

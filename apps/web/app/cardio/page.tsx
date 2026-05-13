@@ -33,7 +33,7 @@ export default async function CardioPage() {
   // hooked Apple Health / Google Fit into their Speediance app.
   if (cardio.length === 0) {
     return (
-      <PageShell current="cardio" userLabel={String(claims.email ?? claims.sub)} title="Cardio">
+      <PageShell current="cardio" userLabel={String(claims.email ?? claims.sub)}>
         <section style={cardStyle}>
           <h2 style={cardHeadingStyle}>No cardio sessions yet</h2>
           <p style={{ margin: '0.4rem 0 0.8rem 0', color: '#475569', lineHeight: 1.55 }}>
@@ -101,7 +101,7 @@ export default async function CardioPage() {
   const avgPace = totals.miles > 0 ? totals.minutes / totals.miles : 0;
 
   return (
-    <PageShell current="cardio" userLabel={String(claims.email ?? claims.sub)} title="Cardio">
+    <PageShell current="cardio" userLabel={String(claims.email ?? claims.sub)}>
       <section style={kpiGridStyle}>
         <Kpi label="Sessions" value={String(totals.sessions)} />
         <Kpi label="Miles" value={totals.miles.toFixed(1)} />
