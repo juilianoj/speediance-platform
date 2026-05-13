@@ -8,7 +8,7 @@ import { loadAllWorkouts } from '@/lib/data/load-workouts';
 import { loadProfile } from '../profile/load-profile';
 import { BodyFigure } from './body-figure';
 
-export const metadata = { title: 'Muscle balance — speediance-platform' };
+export const metadata = { title: 'Balance — speediance-platform' };
 
 const LABELS: Record<(typeof MUSCLE_GROUP_ORDER)[number], string> = {
   chest: 'Chest',
@@ -19,7 +19,7 @@ const LABELS: Record<(typeof MUSCLE_GROUP_ORDER)[number], string> = {
   core: 'Core',
 };
 
-export default async function MusclesPage() {
+export default async function BalancePage() {
   const claims = await verifyIdTokenFromCookies();
   if (!claims) redirect('/login');
 
@@ -50,7 +50,7 @@ export default async function MusclesPage() {
   const m90 = sumIn(ninetyAgo);
 
   return (
-    <PageShell current="muscles" userLabel={String(claims.email ?? claims.sub)}>
+    <PageShell current="balance" userLabel={String(claims.email ?? claims.sub)}>
       <section style={cardStyle}>
         <h2 style={cardHeadingStyle}>30-day balance</h2>
         <p style={mutedStyle}>Set counts by muscle group, with gap callouts.</p>

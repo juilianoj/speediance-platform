@@ -38,7 +38,7 @@ export const config = {
     '/lift-log/:path*',
     '/exercises/:path*',
     '/cardio/:path*',
-    '/muscles/:path*',
+    '/balance/:path*',
     '/consistency/:path*',
     '/coach/:path*',
     '/admin/:path*',

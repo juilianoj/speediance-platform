@@ -9,7 +9,7 @@ type SortDir = 'asc' | 'desc';
 type GroupMode = 'muscle' | 'none';
 
 // Display order for muscle-group sections — matches the order on the
-// Muscles page so the user sees the same mental model everywhere.
+// Balance page so the user sees the same mental model everywhere.
 const MUSCLE_ORDER = ['chest', 'shoulders', 'back', 'arms', 'legs', 'core'] as const;
 const UNGROUPED = '__ungrouped__';
 
