@@ -2,7 +2,28 @@
 // Phase 0.2 creates the empty pool + a single client so the Web stack can
 // reference IDs and the Api stack can install a JWT authorizer.
 
+// SES identity ARN used for Cognito invite / password-reset / MFA emails.
+// Must already be verified in us-west-2 (see scripts/bootstrap-ses or
+// `aws ses verify-email-identity --email-address jeffjinkc@gmail.com`).
+// We could vary this per stage but the same Gmail-based sender works for
+// both dev and prod — Cognito's own user-pool isolation handles the rest.
+const SES_SENDER = 'jeffjinkc@gmail.com';
+const SES_FROM_DISPLAY = 'Speediance Platform';
+const AWS_ACCOUNT = '657014345871';
+const SES_REGION = 'us-west-2';
+const SES_IDENTITY_ARN = `arn:aws:ses:${SES_REGION}:${AWS_ACCOUNT}:identity/${SES_SENDER}`;
+
+// Public sign-in URL embedded in the invite email. Stage-scoped — the prod
+// URL is unknown until first deploy, so prod uses a placeholder; after the
+// first deploy we update this and redeploy. The dev URL is stable.
+const SIGN_IN_URLS: Record<string, string> = {
+  dev: 'https://d2wtidficpq5l9.cloudfront.net/login',
+  // prod TBD — fill in after the first prod deploy emits the CloudFront URL.
+  prod: 'https://d2wtidficpq5l9.cloudfront.net/login',
+};
+
 export function Auth() {
+  const signInUrl = SIGN_IN_URLS[$app.stage] ?? SIGN_IN_URLS.dev;
   const userPool = new sst.aws.CognitoUserPool('UserPool', {
     usernames: ['email'],
     // TOTP-based MFA (no SMS — cost, SIM-swap risk). Optional per-user:
@@ -17,8 +38,50 @@ export function Auth() {
         // Invite-only platform — no public signup.
         adminCreateUserConfig: {
           allowAdminCreateUserOnly: true,
+          // Branded invite email — replaces Cognito's default which looks
+          // like phishing. Uses {username} and {####} placeholders (Cognito
+          // substitutes email and temp password respectively).
+          inviteMessageTemplate: {
+            emailSubject: "You're invited to speediance",
+            emailMessage: [
+              'Hi {username},',
+              '',
+              "You've been invited to the speediance platform — a private dashboard that pulls your training history from the Speediance app and shows progress, recommendations, and a personal AI coach.",
+              '',
+              `Sign in: ${signInUrl}`,
+              'Temporary password: {####}',
+              '',
+              "You'll be prompted to set a new password on first sign-in. After that, head to Profile and connect your Speediance account so your training history can sync.",
+              '',
+              '— Speediance Platform',
+            ].join('<br>'),
+          },
         },
         autoVerifiedAttributes: ['email'],
+        // Branded verification / password-reset email. Cognito uses this
+        // template whenever it sends a code via email (ForgotPassword and
+        // email-attribute verification).
+        verificationMessageTemplate: {
+          defaultEmailOption: 'CONFIRM_WITH_CODE',
+          emailSubject: 'Your speediance verification code',
+          emailMessage: [
+            'Your speediance verification code is: <strong>{####}</strong>',
+            '',
+            'It expires in 15 minutes. If you didn&apos;t request this, you can safely ignore the email.',
+            '',
+            '— Speediance Platform',
+          ].join('<br>'),
+        },
+        // Send Cognito emails (invites, password resets, MFA codes) via
+        // SES instead of the default no-reply@verificationemail.com —
+        // better deliverability and a branded display name. The SES
+        // identity must be verified in us-west-2 before this deploys.
+        emailConfiguration: {
+          emailSendingAccount: 'DEVELOPER',
+          sourceArn: SES_IDENTITY_ARN,
+          from: `${SES_FROM_DISPLAY} <${SES_SENDER}>`,
+          replyToEmailAddress: SES_SENDER,
+        },
         // PLUS tier is required for Cognito Threat Protection (compromised
         // credentials, IP risk scoring). ~$0.05/MAU, so ~$0.25/mo for a
         // family of 5 — well within budget. ESSENTIALS (the default) rejects
