@@ -330,12 +330,7 @@ function Pill({
 }
 
 function SetChip({ set }: { set: ExerciseSet }) {
-  const reps = set.finishedReps ?? set.targetReps ?? '?';
-  const isDrop =
-    set.startWeight !== undefined &&
-    set.endWeight !== undefined &&
-    set.startWeight !== set.endWeight;
-  const weight = isDrop ? `${set.startWeight}→${set.endWeight}` : fmtWt(set.weight);
+  const display = chipDisplay(set);
   const flagged = (set.formFlags?.length ?? 0) > 0;
   return (
     <span
@@ -350,10 +345,34 @@ function SetChip({ set }: { set: ExerciseSet }) {
         fontVariantNumeric: 'tabular-nums',
       }}
     >
-      {weight}×{reps}
+      {display}
       {flagged && <span style={{ marginLeft: '0.25rem' }}>⚠</span>}
     </span>
   );
+}
+
+/**
+ * Render text for a Set chip. Three cases:
+ *  - Real drop set (per-rep detail, ordered): "211→198×?" — arrow implies
+ *    actual heavy→light progression.
+ *  - Approximate range from Sam-invite enrichment (no per-rep, but we know
+ *    min, max, volume): "~12×198–211" — tilde says "approximate", en-dash
+ *    says "varied between, order unknown".
+ *  - Standard same-weight set: "35×16".
+ */
+function chipDisplay(s: ExerciseSet): string {
+  const reps = s.finishedReps ?? s.targetReps;
+  const isRange =
+    s.startWeight !== undefined && s.endWeight !== undefined && s.startWeight !== s.endWeight;
+  if (isRange && reps === undefined && s.volume !== undefined) {
+    const avg = (s.startWeight! + s.endWeight!) / 2;
+    const approxReps = Math.max(1, Math.round(s.volume / avg));
+    const lo = Math.min(s.startWeight!, s.endWeight!);
+    const hi = Math.max(s.startWeight!, s.endWeight!);
+    return `~${approxReps}×${lo}–${hi}`;
+  }
+  if (isRange) return `${s.startWeight}→${s.endWeight}×${reps ?? '?'}`;
+  return `${fmtWt(s.weight)}×${reps ?? '?'}`;
 }
 
 function Row({ label, value }: { label: string; value: string }) {
