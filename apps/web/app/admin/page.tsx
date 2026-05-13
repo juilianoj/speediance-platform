@@ -14,7 +14,13 @@ import { getCatalogSize, listUsers } from '@/lib/admin/actions';
 import { COST_FLAG_THRESHOLD_USD, loadCostBreakdown } from '@/lib/admin/cost';
 import { listAllFeedback } from '@/lib/feedback/actions';
 
-import { CatalogRebuildButton, InviteForm, ResyncButton } from './actions';
+import {
+  CatalogRebuildButton,
+  HardDeleteUserButton,
+  InviteForm,
+  ResyncButton,
+  UserEnabledToggle,
+} from './actions';
 
 export const metadata = { title: 'Admin — speediance-platform' };
 
@@ -195,7 +201,11 @@ export default async function AdminPage() {
 
       <section style={cardStyle}>
         <h2 style={cardHeadingStyle}>Users</h2>
-        <p style={mutedStyle}>Everyone in the Cognito pool.</p>
+        <p style={mutedStyle}>
+          Everyone in the Cognito pool. Disable suspends sign-in but keeps data. Delete is
+          irreversible — removes the Cognito user, their Speediance secret, and their profile row.
+          Workout history rows stay in DynamoDB.
+        </p>
         <table style={{ ...tableStyle, marginTop: '0.75rem' }}>
           <thead>
             <tr>
@@ -203,35 +213,49 @@ export default async function AdminPage() {
               <th style={thStyle}>Status</th>
               <th style={thStyle}>Enabled</th>
               <th style={thStyle}>Created</th>
+              <th style={thStyle}>Actions</th>
             </tr>
           </thead>
           <tbody>
             {users.length === 0 && (
               <tr>
-                <td style={tdStyle} colSpan={4}>
+                <td style={tdStyle} colSpan={5}>
                   No users found.
                 </td>
               </tr>
             )}
-            {users.map((u) => (
-              <tr key={u.username}>
-                <td style={tdStyle}>{u.email ?? u.username}</td>
-                <td
-                  style={{
-                    ...tdStyle,
-                    color: u.status === 'CONFIRMED' ? '#0d9488' : '#a06000',
-                  }}
-                >
-                  {u.status}
-                </td>
-                <td style={{ ...tdStyle, color: u.enabled ? '#0d9488' : '#dc2626' }}>
-                  {u.enabled ? 'yes' : 'no'}
-                </td>
-                <td style={{ ...tdStyle, color: '#666' }}>
-                  {u.createdAt ? u.createdAt.slice(0, 10) : '—'}
-                </td>
-              </tr>
-            ))}
+            {users.map((u) => {
+              const isSelf = u.username === claims.sub;
+              return (
+                <tr key={u.username}>
+                  <td style={tdStyle}>{u.email ?? u.username}</td>
+                  <td
+                    style={{
+                      ...tdStyle,
+                      color: u.status === 'CONFIRMED' ? '#0d9488' : '#a06000',
+                    }}
+                  >
+                    {u.status}
+                  </td>
+                  <td style={{ ...tdStyle, color: u.enabled ? '#0d9488' : '#dc2626' }}>
+                    {u.enabled ? 'yes' : 'no'}
+                  </td>
+                  <td style={{ ...tdStyle, color: '#666' }}>
+                    {u.createdAt ? u.createdAt.slice(0, 10) : '—'}
+                  </td>
+                  <td style={tdStyle}>
+                    <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                      <UserEnabledToggle
+                        username={u.username}
+                        enabled={u.enabled}
+                        isSelf={isSelf}
+                      />
+                      <HardDeleteUserButton username={u.username} email={u.email} isSelf={isSelf} />
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </section>

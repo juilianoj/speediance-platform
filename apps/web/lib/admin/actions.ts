@@ -2,6 +2,9 @@
 
 import {
   AdminCreateUserCommand,
+  AdminDeleteUserCommand,
+  AdminDisableUserCommand,
+  AdminEnableUserCommand,
   AdminGetUserCommand,
   AdminSetUserMFAPreferenceCommand,
   CognitoIdentityProviderClient,
@@ -9,6 +12,8 @@ import {
 } from '@aws-sdk/client-cognito-identity-provider';
 import { InvokeCommand, LambdaClient } from '@aws-sdk/client-lambda';
 import { z } from 'zod';
+
+import { createSecretsStore } from '@speediance/secrets-store';
 
 import { verifyIdTokenFromCookies } from '@/lib/auth/session';
 
@@ -239,4 +244,111 @@ export async function listUsers(): Promise<AdminUser[]> {
     enabled: u.Enabled ?? false,
     createdAt: u.UserCreateDate?.toISOString(),
   }));
+}
+
+/**
+ * Toggle a Cognito user's `Enabled` flag. Disabling is reversible — the user
+ * can't sign in, but their data and credentials remain intact. Used as the
+ * first step before a hard delete, or as a standalone soft-suspend.
+ *
+ * Authorization: any signed-in admin can call this. Self-disable is
+ * rejected so an admin can't accidentally lock themselves out.
+ */
+export async function setUserEnabled(
+  username: string,
+  enabled: boolean,
+): Promise<{ ok: boolean; message: string }> {
+  const claims = await verifyIdTokenFromCookies();
+  if (!claims) return { ok: false, message: 'Sign in first.' };
+  if (claims.sub === username) {
+    return { ok: false, message: "Can't disable yourself — ask another admin." };
+  }
+  const userPoolId = process.env.COGNITO_USER_POOL_ID;
+  if (!userPoolId) return { ok: false, message: 'COGNITO_USER_POOL_ID not set.' };
+  try {
+    const client = new CognitoIdentityProviderClient({ region });
+    if (enabled) {
+      await client.send(new AdminEnableUserCommand({ UserPoolId: userPoolId, Username: username }));
+    } else {
+      await client.send(
+        new AdminDisableUserCommand({ UserPoolId: userPoolId, Username: username }),
+      );
+    }
+    return {
+      ok: true,
+      message: enabled ? 'User re-enabled.' : 'User disabled. They can no longer sign in.',
+    };
+  } catch (err: unknown) {
+    return { ok: false, message: err instanceof Error ? err.message : 'Toggle failed.' };
+  }
+}
+
+/**
+ * Hard-delete a Cognito user along with their per-user secret + Profile
+ * row. Workout / Set / Exercise history rows are intentionally left in
+ * place (cheap at family scale; admin can clean up manually if needed).
+ *
+ * Irreversible. The UI gates this behind a typed-confirmation prompt.
+ *
+ * Authorization: any signed-in admin. Self-delete is rejected for the
+ * same reason as `setUserEnabled`.
+ */
+export async function hardDeleteUser(username: string): Promise<{ ok: boolean; message: string }> {
+  const claims = await verifyIdTokenFromCookies();
+  if (!claims) return { ok: false, message: 'Sign in first.' };
+  if (claims.sub === username) {
+    return { ok: false, message: "Can't delete yourself — ask another admin." };
+  }
+  const userPoolId = process.env.COGNITO_USER_POOL_ID;
+  if (!userPoolId) return { ok: false, message: 'COGNITO_USER_POOL_ID not set.' };
+  const stage = process.env.SST_STAGE ?? 'dev';
+  const tableName = process.env.DYNAMO_TABLE_NAME;
+
+  const failures: string[] = [];
+
+  // 1. Delete the Speediance secret (best-effort — it may not exist if the
+  //    user never connected Speediance creds).
+  try {
+    const secrets = createSecretsStore({ stage });
+    await secrets.delete(username);
+  } catch (err: unknown) {
+    if (err instanceof Error && !/ResourceNotFound/i.test(err.message)) {
+      failures.push(`secret: ${err.message}`);
+    }
+  }
+
+  // 2. Delete the Profile DynamoDB row (best-effort — may not exist for
+  //    users who never logged in past the invite).
+  if (tableName) {
+    try {
+      const { createDb } = await import('@speediance/db');
+      const me = createDb({ tableName }).forUser(username);
+      await me.profiles.delete();
+    } catch (err: unknown) {
+      failures.push(`profile: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  // 3. Delete the Cognito user. This is the last step so a failure of the
+  //    Cognito call doesn't leave their data orphaned without a way to
+  //    re-enter — if Cognito fails, the secret + profile are already gone
+  //    but the user can still sign in.
+  try {
+    await new CognitoIdentityProviderClient({ region }).send(
+      new AdminDeleteUserCommand({ UserPoolId: userPoolId, Username: username }),
+    );
+  } catch (err: unknown) {
+    return {
+      ok: false,
+      message: `Cognito delete failed: ${err instanceof Error ? err.message : 'unknown'}.${
+        failures.length > 0 ? ` Earlier: ${failures.join('; ')}.` : ''
+      } Workout history rows are not deleted by this action — clean them up manually if needed.`,
+    };
+  }
+
+  const note = failures.length > 0 ? ` (warnings: ${failures.join('; ')})` : '';
+  return {
+    ok: true,
+    message: `User deleted${note}. Workout history rows remain in DynamoDB — clean them up manually if needed.`,
+  };
 }
