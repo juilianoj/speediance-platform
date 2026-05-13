@@ -17,6 +17,7 @@
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.1045.0",
     "@aws-sdk/client-cognito-identity-provider": "^3.717.0",
+    "@aws-sdk/client-cost-explorer": "^3.1045.0",
     "@aws-sdk/client-lambda": "^3.717.0",
     "@speediance/db": "workspace:*",
     "@speediance/secrets-store": "workspace:*",

@@ -115,6 +115,16 @@ export function Web({ api, auth, database, syncWorker }: WebArgs) {
         actions: ['bedrock:InvokeModel'],
         resources: ['*'],
       },
+      // Cost Explorer (Phase 4.7): read-only access to surface this
+      // stage's month-to-date AWS spend on /admin. Resource '*' is the
+      // Cost Explorer convention — the API doesn't support
+      // resource-level permissions. Risk is bounded: read-only, no
+      // PII / customer data, $0.01 per call and only invoked when an
+      // admin renders /admin.
+      {
+        actions: ['ce:GetCostAndUsage'],
+        resources: ['*'],
+      },
     ],
   });
 
