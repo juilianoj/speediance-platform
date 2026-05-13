@@ -1,9 +1,12 @@
 import 'server-only';
 
+import { randomUUID } from 'crypto';
+
 import { createDb } from '@speediance/db';
 
 import type { DashboardWorkout } from '@/app/dashboard/load-dashboard';
 
+import { listExercises as listCatalog } from '@/lib/catalog/lookup';
 import type { ExerciseSet, ExerciseSummary } from '@/lib/data/load-exercises';
 import { loadNextWorkoutPlan } from '@/lib/data/load-next-workout';
 
@@ -24,7 +27,15 @@ export type ToolName =
   | 'get_exercise_history'
   | 'get_weekly_summary'
   | 'get_next_session_plan'
-  | 'propose_workout';
+  | 'propose_workout'
+  // Builder-integration tools (PR η):
+  | 'list_catalog_exercises'
+  | 'list_workout_drafts'
+  | 'get_workout_draft'
+  | 'create_workout_draft'
+  | 'update_workout_draft'
+  | 'get_balance_gaps'
+  | 'get_plateau_lifts';
 
 export interface ToolSpec {
   name: ToolName;
@@ -145,6 +156,156 @@ export const COACH_TOOLS: ToolSpec[] = [
       },
       required: ['name', 'reasoning', 'exercises'],
     },
+  },
+
+  // ─── Builder-integration tools ─────────────────────────────────────
+  //
+  // The "old" tools above answer questions about the user's history.
+  // These tools let the coach *actively build* and modify the user's
+  // workout drafts — which then live on /builder for the user to
+  // review + push to Speediance. Prefer these over `propose_workout`
+  // (which writes to the older Program table) for any new "build me
+  // a workout" request.
+
+  {
+    name: 'list_catalog_exercises',
+    description:
+      'Search the global Speediance exercise catalog (~885 exercises) and return matches with their groupId, name, muscle group, equipment configuration (cable position, accessories, bench angle), and setup instructions. Use this BEFORE calling create_workout_draft so you have real groupIds — the Speediance API rejects custom-template saves with invalid ids. Supports filtering by name fragment and muscle group; returns up to `limit` results (default 30, max 100).',
+    input_schema: {
+      type: 'object',
+      properties: {
+        search: {
+          type: 'string',
+          description:
+            "Case-insensitive substring match against exercise name. E.g. 'biceps curl', 'lat pulldown'.",
+        },
+        muscleGroup: {
+          type: 'string',
+          description:
+            "Filter to a specific muscle group. Speediance uses values like 'glutes', 'biceps', 'pecs', 'lats', 'quads', 'hamstrings', 'shoulders', 'core'. Try list_catalog_exercises with no filter first to see what's available.",
+        },
+        limit: {
+          type: 'number',
+          description: 'How many results to return (default 30, max 100).',
+        },
+      },
+    },
+  },
+  {
+    name: 'list_workout_drafts',
+    description:
+      "List the user's existing workout drafts — id, name, exercise count, status ('draft' / 'saved-to-speediance'). Use this before update_workout_draft so you have the right draftId, or to check whether a workout the user mentions already exists as a draft.",
+    input_schema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'get_workout_draft',
+    description:
+      'Full contents of one draft: name, notes, every exercise with its groupId and sets[]. Use this before update_workout_draft so you have the current state to diff against.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        draftId: { type: 'string', description: 'The draftId from list_workout_drafts.' },
+      },
+      required: ['draftId'],
+    },
+  },
+  {
+    name: 'create_workout_draft',
+    description:
+      "Create a new workout draft populated with the given exercises. Returns the draftId + a URL the user can open to review the draft (/builder/[draftId]). Each exercise references a `groupId` from list_catalog_exercises and supplies one or more `sets` with reps + (optionally) weight + rest. Prefer this for any 'build me a workout' request — the user can then review, tweak, and click 'Save to Speediance' from the builder UI.",
+    input_schema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Short workout name, e.g. "Upper push — Tue".' },
+        notes: { type: 'string', description: 'Optional 1-2 sentences explaining the focus.' },
+        exercises: {
+          type: 'array',
+          description: 'Ordered list of exercises — order matters for the builder UI.',
+          items: {
+            type: 'object',
+            properties: {
+              groupId: {
+                type: 'string',
+                description:
+                  'The exercise groupId from list_catalog_exercises. Pass as a string even if it looks numeric.',
+              },
+              sets: {
+                type: 'array',
+                description:
+                  'One entry per set. If the user wants 3x10 at 50 lb, pass 3 entries with reps:10, weight:50.',
+                items: {
+                  type: 'object',
+                  properties: {
+                    reps: { type: 'number' },
+                    weight: {
+                      type: 'number',
+                      description: 'Pounds. Omit if leaving for the user to fill.',
+                    },
+                    restSeconds: { type: 'number', description: 'Default 60.' },
+                  },
+                  required: ['reps'],
+                },
+              },
+              notes: {
+                type: 'string',
+                description: 'Optional per-exercise note (e.g. "superset with next exercise").',
+              },
+            },
+            required: ['groupId', 'sets'],
+          },
+        },
+      },
+      required: ['name', 'exercises'],
+    },
+  },
+  {
+    name: 'update_workout_draft',
+    description:
+      "Modify an existing workout draft. Pass any subset of {name, notes, exercises} — only the supplied fields are updated. If you pass `exercises`, it REPLACES the entire list (call get_workout_draft first to preserve existing exercises you don't want to lose).",
+    input_schema: {
+      type: 'object',
+      properties: {
+        draftId: { type: 'string' },
+        name: { type: 'string' },
+        notes: { type: 'string' },
+        exercises: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              groupId: { type: 'string' },
+              sets: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    reps: { type: 'number' },
+                    weight: { type: 'number' },
+                    restSeconds: { type: 'number' },
+                  },
+                  required: ['reps'],
+                },
+              },
+              notes: { type: 'string' },
+            },
+            required: ['groupId', 'sets'],
+          },
+        },
+      },
+      required: ['draftId'],
+    },
+  },
+  {
+    name: 'get_balance_gaps',
+    description:
+      "Identify muscle groups the user has under-trained over the past 30 days, vs their own 30-day average. Returns a list ordered by severity (gap percentage). Use when the user asks 'what should I work on' or you're picking exercises for a balanced workout — biasing toward gap groups beats picking blindly.",
+    input_schema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'get_plateau_lifts',
+    description:
+      "Identify lifts where the user's `bestWeight` hasn't increased in 4+ weeks despite recent sessions. Returns each with `name`, `bestWeight`, `lastDone`, `weeksSinceBestUpdate`. Use this to suggest variety / accessory work when the user says 'I'm stuck on X' or 'feel like I'm plateauing'.",
+    input_schema: { type: 'object', properties: {} },
   },
 ];
 
@@ -309,9 +470,226 @@ export async function runTool(
       }
       return buckets;
     }
+    // ─── Builder-integration tools ───────────────────────────────────
+    case 'list_catalog_exercises': {
+      const search = typeof args.search === 'string' ? args.search.trim().toLowerCase() : '';
+      const muscle = typeof args.muscleGroup === 'string' ? args.muscleGroup.toLowerCase() : '';
+      const limit = Math.min(100, Math.max(1, Number(args.limit ?? 30) | 0));
+      const catalog = await listCatalog();
+      let rows = catalog;
+      if (search) rows = rows.filter((e) => e.name.toLowerCase().includes(search));
+      if (muscle) rows = rows.filter((e) => (e.muscleGroup ?? '').toLowerCase() === muscle);
+      return rows.slice(0, limit).map((e) => ({
+        groupId: e.groupId,
+        name: e.name,
+        muscleGroup: e.muscleGroup,
+        // Equipment summary — concise for token efficiency, has everything
+        // the model needs to pick exercises that share a setup.
+        equipment: {
+          cable: e.outPosition === undefined ? undefined : e.outPosition === 0 ? 'high' : 'low',
+          accessories: e.accessoryNames,
+          bench: e.benchAngle,
+          isBarbell: e.isBarbell,
+          isUnilateral: e.isUnilateral,
+        },
+        setupInstructions: e.setupInstructions,
+        primaryMuscles: e.primaryMuscles,
+      }));
+    }
+
+    case 'list_workout_drafts': {
+      const result = (await me.workoutDrafts.list()) as {
+        data: Array<{
+          draftId: string;
+          name: string;
+          exercises?: unknown[];
+          status?: string;
+          updatedAt?: string;
+        }>;
+      };
+      return (result.data ?? [])
+        .map((d) => ({
+          draftId: d.draftId,
+          name: d.name,
+          exerciseCount: Array.isArray(d.exercises) ? d.exercises.length : 0,
+          status: d.status ?? 'draft',
+          updatedAt: d.updatedAt,
+        }))
+        .sort((a, b) => (a.updatedAt && b.updatedAt && a.updatedAt > b.updatedAt ? -1 : 1));
+    }
+
+    case 'get_workout_draft': {
+      const draftId = String(args.draftId ?? '');
+      if (!draftId) return { error: 'draftId is required' };
+      const res = (await me.workoutDrafts.get(draftId)) as {
+        data: {
+          draftId: string;
+          name: string;
+          notes?: string;
+          exercises?: Array<{
+            groupId: string;
+            sets: Array<{ reps?: number; weight?: number; restSeconds?: number }>;
+            notes?: string;
+          }>;
+          status?: string;
+        } | null;
+      };
+      if (!res?.data) return { error: 'draft not found' };
+      return res.data;
+    }
+
+    case 'create_workout_draft':
+    case 'update_workout_draft': {
+      const isCreate = name === 'create_workout_draft';
+      // Common validation: exercises must be an array of {groupId, sets}.
+      const rawExercises = Array.isArray(args.exercises) ? args.exercises : undefined;
+      const normalized = rawExercises ? normalizeCoachExercises(rawExercises) : undefined;
+      if (rawExercises && !normalized) {
+        return {
+          error:
+            'invalid exercises payload — each must have a string groupId and a non-empty sets array.',
+        };
+      }
+
+      if (isCreate) {
+        const draftId = randomUUID().replace(/-/g, '').slice(0, 16);
+        await me.workoutDrafts.upsert({
+          draftId,
+          name: typeof args.name === 'string' ? args.name : 'Coach-built workout',
+          notes: typeof args.notes === 'string' ? args.notes : undefined,
+          exercises: normalized ?? [],
+          status: 'draft',
+          createdAt: new Date().toISOString(),
+        });
+        return {
+          ok: true,
+          draftId,
+          builderUrl: `/builder/${draftId}`,
+          message:
+            'Draft created. Tell the user it lives at /builder/' +
+            draftId +
+            ' — they can review, tweak, and click "Save to Speediance" to push it.',
+        };
+      } else {
+        const draftId = String(args.draftId ?? '');
+        if (!draftId) return { error: 'draftId is required' };
+        const patch: Record<string, unknown> = {};
+        if (typeof args.name === 'string') patch.name = args.name;
+        if (typeof args.notes === 'string') patch.notes = args.notes;
+        if (normalized) patch.exercises = normalized;
+        if (Object.keys(patch).length === 0) return { error: 'no fields to update' };
+        await me.workoutDrafts.patch(draftId, patch);
+        return { ok: true, draftId, builderUrl: `/builder/${draftId}` };
+      }
+    }
+
+    case 'get_balance_gaps': {
+      const result = (await me.workouts.list()) as { data: DashboardWorkout[] };
+      const cutoff = new Date();
+      cutoff.setUTCDate(cutoff.getUTCDate() - 30);
+      const sums: Record<string, number> = {};
+      for (const w of result.data ?? []) {
+        if (new Date(w.startTime) < cutoff) continue;
+        if (!w.muscleGroupSets) continue;
+        for (const [g, n] of Object.entries(w.muscleGroupSets)) {
+          if (typeof n === 'number') sums[g] = (sums[g] ?? 0) + n;
+        }
+      }
+      const entries = Object.entries(sums);
+      const total = entries.reduce((s, [, n]) => s + n, 0);
+      if (entries.length === 0) {
+        return { message: 'No muscle-group data in the last 30 days.' };
+      }
+      const avg = total / entries.length;
+      return entries
+        .map(([group, sets]) => ({
+          group,
+          sets,
+          gapVsAvg: avg > 0 ? Math.round(((avg - sets) / avg) * 100) : 0,
+        }))
+        .filter((e) => e.gapVsAvg > 25)
+        .sort((a, b) => b.gapVsAvg - a.gapVsAvg);
+    }
+
+    case 'get_plateau_lifts': {
+      const result = (await me.exercises.list()) as { data: ExerciseSummary[] };
+      const now = Date.now();
+      const FOUR_WEEKS_MS = 28 * 24 * 60 * 60 * 1000;
+      return (result.data ?? [])
+        .map((e) => {
+          if (!e.lastDone || !e.bestWeight) return null;
+          // We don't currently track "when the bestWeight was set" — proxy
+          // with lastDone being old AND totalSets being substantial.
+          // Refinement TBD when we add a `bestWeightSetAt` field.
+          const lastDoneMs = new Date(e.lastDone).getTime();
+          const weeksSinceLastDone = Math.floor((now - lastDoneMs) / (7 * 24 * 60 * 60 * 1000));
+          if (now - lastDoneMs > FOUR_WEEKS_MS) return null; // user hasn't done it recently
+          // Heuristic: working weight equals best weight, lots of sets,
+          // last done within 4 weeks → probably plateaued.
+          if (
+            e.workingWeight !== undefined &&
+            e.bestWeight !== undefined &&
+            e.workingWeight >= e.bestWeight - 1 &&
+            (e.totalSets ?? 0) >= 12
+          ) {
+            return {
+              exerciseId: e.exerciseId,
+              name: e.name,
+              muscleGroup: e.muscleGroup,
+              bestWeight: e.bestWeight,
+              workingWeight: e.workingWeight,
+              totalSets: e.totalSets,
+              lastDone: e.lastDone,
+              weeksSinceLastDone,
+            };
+          }
+          return null;
+        })
+        .filter((e): e is NonNullable<typeof e> => e !== null)
+        .sort((a, b) => (b.totalSets ?? 0) - (a.totalSets ?? 0));
+    }
+
     default:
       return { error: `unknown tool: ${String(name)}` };
   }
+}
+
+/**
+ * Coerce a coach-supplied exercises payload into the WorkoutDraft
+ * exercises shape. Returns null if any item is malformed.
+ */
+function normalizeCoachExercises(raw: unknown[]): Array<{
+  groupId: string;
+  sets: Array<{ reps?: number; weight?: number; restSeconds?: number }>;
+  notes?: string;
+}> | null {
+  const out: Array<{
+    groupId: string;
+    sets: Array<{ reps?: number; weight?: number; restSeconds?: number }>;
+    notes?: string;
+  }> = [];
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') return null;
+    const ex = item as Record<string, unknown>;
+    const groupId = typeof ex.groupId === 'string' ? ex.groupId : String(ex.groupId ?? '');
+    if (!groupId) return null;
+    const rawSets = Array.isArray(ex.sets) ? ex.sets : null;
+    if (!rawSets || rawSets.length === 0) return null;
+    const sets = rawSets.map((s) => {
+      const set = (s ?? {}) as Record<string, unknown>;
+      return {
+        reps: typeof set.reps === 'number' ? set.reps : undefined,
+        weight: typeof set.weight === 'number' ? set.weight : undefined,
+        restSeconds: typeof set.restSeconds === 'number' ? set.restSeconds : undefined,
+      };
+    });
+    out.push({
+      groupId,
+      sets,
+      notes: typeof ex.notes === 'string' ? ex.notes : undefined,
+    });
+  }
+  return out;
 }
 
 function thursdayOfIsoWeek(d: Date): string {
