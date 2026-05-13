@@ -115,16 +115,53 @@ export interface UserScopedDb {
   };
 }
 
+/**
+ * Global (non-user-scoped) data accessors. Used for things every user
+ * shares — currently the Speediance exercise catalog. The wrapper keeps
+ * the access pattern consistent (no direct ElectroDB calls outside this
+ * package) without forcing a `userId` argument for data that isn't
+ * actually per-user.
+ */
+export interface GlobalDb {
+  exerciseCatalog: {
+    get: (groupId: string) => Promise<unknown>;
+    list: () => Promise<unknown>;
+    upsert: (input: Put<'exerciseCatalog'>) => Promise<unknown>;
+    /** Bulk write — used by the bootstrap job to insert ~500 rows in
+     *  batches without hammering the table. ElectroDB's bulk-put fans out
+     *  to BatchWrite under the hood (25 items per request). */
+    bulkUpsert: (inputs: Array<Put<'exerciseCatalog'>>) => Promise<unknown>;
+  };
+}
+
 export interface CreatedDb {
   readonly service: DbService;
+  readonly global: GlobalDb;
   forUser(userId: string): UserScopedDb;
 }
 
 export function createDb(opts: DbConfig): CreatedDb {
   const service = createService(opts);
+  const { entities: globalEntities } = service;
+
+  const global: GlobalDb = {
+    exerciseCatalog: {
+      get: (groupId) => globalEntities.exerciseCatalog.get({ groupId }).go(),
+      list: () => globalEntities.exerciseCatalog.query.primary({}).go({ pages: 'all' }),
+      upsert: (input) =>
+        globalEntities.exerciseCatalog
+          .put(input as CreateEntityItem<Entities['exerciseCatalog']>)
+          .go(),
+      bulkUpsert: (inputs) =>
+        globalEntities.exerciseCatalog
+          .put(inputs as Array<CreateEntityItem<Entities['exerciseCatalog']>>)
+          .go(),
+    },
+  };
 
   return {
     service,
+    global,
     forUser(userId: string): UserScopedDb {
       if (!userId || typeof userId !== 'string') {
         throw new TypeError('createDb.forUser(userId): userId must be a non-empty string');

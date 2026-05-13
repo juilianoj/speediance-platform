@@ -9,6 +9,7 @@ import {
   muscleAggregateEntity,
   weekAggregateEntity,
 } from './entities/aggregate.js';
+import { exerciseCatalogEntity } from './entities/exercise-catalog.js';
 import { feedbackEntity } from './entities/feedback.js';
 import { noteEntity } from './entities/note.js';
 import { programEntity } from './entities/program.js';
@@ -44,6 +45,7 @@ export function createService(opts: DbConfig) {
     profiles: profileEntity(cfg),
     feedback: feedbackEntity(cfg),
     notes: noteEntity(cfg),
+    exerciseCatalog: exerciseCatalogEntity(cfg),
   });
 }
 

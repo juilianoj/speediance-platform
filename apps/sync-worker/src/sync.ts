@@ -1,10 +1,8 @@
 import { createDb } from '@speediance/db';
-import {
-  createSecretsStore,
-  SpeedianceSecretSchema,
-  type SpeedianceSecret,
-} from '@speediance/secrets-store';
-import { SpeedianceClient, type Credentials } from '@speediance/speediance-client';
+import { createSecretsStore } from '@speediance/secrets-store';
+import { SpeedianceClient } from '@speediance/speediance-client';
+
+import { createSpeedianceClient } from './speediance-client.js';
 
 export interface SyncSummary {
   userId: string;
@@ -302,58 +300,9 @@ export async function syncUser(userId: string): Promise<SyncSummary> {
   return summary;
 }
 
-/**
- * Build a SpeedianceClient with the user's stored creds + an `onUnauthorized`
- * hook that re-logs in and persists the fresh token to Secrets Manager.
- * The Speediance API only permits one active session per account, so we
- * deliberately reuse the persisted token until it's actually invalid.
- */
-function createSpeedianceClient(
-  userId: string,
-  secret: SpeedianceSecret,
-  secretsApi: ReturnType<typeof createSecretsStore>,
-): SpeedianceClient {
-  const credentials: Credentials | null =
-    secret.token && secret.appUserId
-      ? {
-          userId: secret.appUserId,
-          token: secret.token,
-          region: secret.region,
-          unit: 0,
-          deviceType: secret.deviceType,
-          allowMonsterMoves: secret.allowMonsterMoves,
-        }
-      : null;
-
-  const client = new SpeedianceClient(credentials, {
-    region: secret.region,
-    deviceType: secret.deviceType,
-    allowMonsterMoves: secret.allowMonsterMoves,
-    async onUnauthorized() {
-      console.info(`onUnauthorized: re-logging in for ${userId}`);
-      try {
-        const login = await client.login(secret.email, secret.password);
-        if (!login.ok || !login.credentials) {
-          console.error(`re-login failed for ${userId}: ${login.reason}`);
-          return false;
-        }
-        // Persist the fresh token; on next invocation we skip the re-login.
-        const refreshed = SpeedianceSecretSchema.parse({
-          ...secret,
-          token: login.credentials.token,
-          appUserId: login.credentials.userId,
-          tokenAcquiredAt: new Date().toISOString(),
-        });
-        await secretsApi.put(userId, refreshed);
-        return true;
-      } catch (err) {
-        console.error(`re-login threw for ${userId}`, err);
-        return false;
-      }
-    },
-  });
-  return client;
-}
+// `createSpeedianceClient` was extracted to ./speediance-client.ts so other
+// sync-worker entry points (catalog bootstrap) can share the same re-login
+// pattern. Imported below.
 
 /**
  * Get the exercises a workout was made of, with two strategies:
