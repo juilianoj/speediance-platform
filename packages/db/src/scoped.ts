@@ -113,6 +113,17 @@ export interface UserScopedDb {
       createdAt: string,
     ) => Promise<unknown>;
   };
+
+  workoutDrafts: {
+    list: () => Promise<unknown>;
+    get: (draftId: string) => Promise<unknown>;
+    upsert: (input: Put<'workoutDrafts'>) => Promise<unknown>;
+    /** Partial update — preserves attributes not in `input`. Used for
+     *  incremental edits in the builder (rename, swap exercise, etc.)
+     *  without round-tripping the whole document. */
+    patch: (draftId: string, input: Partial<Put<'workoutDrafts'>>) => Promise<unknown>;
+    delete: (draftId: string) => Promise<unknown>;
+  };
 }
 
 /**
@@ -298,6 +309,21 @@ export function createDb(opts: DbConfig): CreatedDb {
             entities.notes.put({ ...input, userId } as CreateEntityItem<Entities['notes']>).go(),
           delete: (targetType, targetId, createdAt) =>
             entities.notes.delete({ userId, targetType, targetId, createdAt }).go(),
+        },
+
+        workoutDrafts: {
+          list: () => entities.workoutDrafts.query.primary({ userId }).go({ pages: 'all' }),
+          get: (draftId) => entities.workoutDrafts.get({ userId, draftId }).go(),
+          upsert: (input) =>
+            entities.workoutDrafts
+              .put({ ...input, userId } as CreateEntityItem<Entities['workoutDrafts']>)
+              .go(),
+          patch: (draftId, input) =>
+            entities.workoutDrafts
+              .patch({ userId, draftId })
+              .set(input as Partial<CreateEntityItem<Entities['workoutDrafts']>>)
+              .go(),
+          delete: (draftId) => entities.workoutDrafts.delete({ userId, draftId }).go(),
         },
       };
     },
