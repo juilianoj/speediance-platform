@@ -124,6 +124,14 @@ export interface UserScopedDb {
     patch: (draftId: string, input: Partial<Put<'workoutDrafts'>>) => Promise<unknown>;
     delete: (draftId: string) => Promise<unknown>;
   };
+
+  programDrafts: {
+    list: () => Promise<unknown>;
+    get: (programId: string) => Promise<unknown>;
+    upsert: (input: Put<'programDrafts'>) => Promise<unknown>;
+    patch: (programId: string, input: Partial<Put<'programDrafts'>>) => Promise<unknown>;
+    delete: (programId: string) => Promise<unknown>;
+  };
 }
 
 /**
@@ -324,6 +332,21 @@ export function createDb(opts: DbConfig): CreatedDb {
               .set(input as Partial<CreateEntityItem<Entities['workoutDrafts']>>)
               .go(),
           delete: (draftId) => entities.workoutDrafts.delete({ userId, draftId }).go(),
+        },
+
+        programDrafts: {
+          list: () => entities.programDrafts.query.primary({ userId }).go({ pages: 'all' }),
+          get: (programId) => entities.programDrafts.get({ userId, programId }).go(),
+          upsert: (input) =>
+            entities.programDrafts
+              .put({ ...input, userId } as CreateEntityItem<Entities['programDrafts']>)
+              .go(),
+          patch: (programId, input) =>
+            entities.programDrafts
+              .patch({ userId, programId })
+              .set(input as Partial<CreateEntityItem<Entities['programDrafts']>>)
+              .go(),
+          delete: (programId) => entities.programDrafts.delete({ userId, programId }).go(),
         },
       };
     },

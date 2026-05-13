@@ -13,6 +13,7 @@ import { exerciseCatalogEntity } from './entities/exercise-catalog.js';
 import { feedbackEntity } from './entities/feedback.js';
 import { noteEntity } from './entities/note.js';
 import { programEntity } from './entities/program.js';
+import { programDraftEntity } from './entities/program-draft.js';
 import { memoryEntity } from './entities/memory.js';
 import { profileEntity } from './entities/profile.js';
 import { workoutDraftEntity } from './entities/workout-draft.js';
@@ -48,6 +49,7 @@ export function createService(opts: DbConfig) {
     notes: noteEntity(cfg),
     exerciseCatalog: exerciseCatalogEntity(cfg),
     workoutDrafts: workoutDraftEntity(cfg),
+    programDrafts: programDraftEntity(cfg),
   });
 }
 
