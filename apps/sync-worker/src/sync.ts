@@ -359,15 +359,32 @@ async function fetchExercisesValidated(
         ? (courseInfo.actionLibraryList as Array<Record<string, unknown>>)
         : [];
       // Reshape curriculum entries so upsertExercisesAndSets can read them
-      // uniformly: actionLibraryGroupId ← id, actionLibraryName ← title,
-      // finishedReps stays empty (no per-rep data available).
+      // uniformly.
+      //
+      // Two important corrections vs the previous shape:
+      //
+      // 1. `actionLibraryGroupId` must come from `e.groupId`, NOT `e.id`.
+      //    The course-info endpoint returns BOTH ids: `id` is a variant /
+      //    relation id (course-specific), `groupId` is the action-library
+      //    group id that the trainingDetail endpoints also use. Mixing the
+      //    two created duplicate Exercise rows in DDB — same lift under
+      //    two different exerciseIds, half of them showing 0 sets / 0
+      //    weight because they only ever saw the curriculum-fallback path.
+      //
+      // 2. `maxWeight` is populated from `bestOneRepMax`. That field is
+      //    Speediance's own tracking of the user's lifetime best for this
+      //    exercise; falling back to undefined left users with a forest
+      //    of ghost exercises showing BEST=0 even though Speediance knew
+      //    their actual one-rep max. With this in place, the Exercise
+      //    aggregate's bestWeight ends up populated even when our detail
+      //    endpoints can't give us per-rep history.
       return {
         exercises: list.map((e) => ({
-          actionLibraryGroupId: e.id,
+          actionLibraryGroupId: e.groupId,
           actionLibraryName: e.title,
           isBarbell: undefined,
-          trainingPartId2: undefined,
-          maxWeight: undefined,
+          trainingPartId2: typeof e.trainingPartId2 === 'number' ? e.trainingPartId2 : undefined,
+          maxWeight: typeof e.bestOneRepMax === 'number' ? e.bestOneRepMax : undefined,
           finishedReps: [],
         })),
         source: 'curriculum',
