@@ -85,21 +85,32 @@ export async function bootstrapExerciseCatalog(
     }
     console.info(`catalog bootstrap: ${accessoryById.size} accessories cached`);
 
-    // 2. Enumerate every category for the user's device type. The category
-    //    response contains nested `actionLibraryList` arrays carrying the
-    //    individual groupIds.
-    const categories = (await unsafeReq(
-      client,
-      `/api/app/actionLibraryTab/list?deviceType=${secret.deviceType}`,
-    )) as Array<Record<string, unknown>> | null;
-    summary.categoriesSeen = Array.isArray(categories) ? categories.length : 0;
-
+    // 2. Enumerate every exercise via the paginated `actionLibraryGroup/page`
+    //    endpoint. The actionLibraryTab/list endpoint returns just the
+    //    top-level category tabs (Training, Customized, etc.) — it doesn't
+    //    embed the actual exercises. `page` is the right enumeration: max
+    //    pageSize is ~885 today, so two pages of 500 covers everything.
+    //    Loop defensively in case Speediance ever ships more.
+    const PAGE_SIZE = 500;
     const groupIds = new Set<number>();
-    if (Array.isArray(categories)) {
-      for (const cat of categories) {
-        collectGroupIdsFrom(cat, groupIds);
+    for (let pageNo = 1; pageNo <= 20; pageNo++) {
+      const pageResp = (await unsafeReq(
+        client,
+        `/api/app/actionLibraryGroup/page?pageNo=${pageNo}&pageSize=${PAGE_SIZE}&deviceType=${secret.deviceType}`,
+      )) as Array<{ id?: number }> | null;
+      if (!Array.isArray(pageResp) || pageResp.length === 0) break;
+      for (const row of pageResp) {
+        if (typeof row?.id === 'number' && Number.isFinite(row.id)) groupIds.add(row.id);
       }
+      // Stop early if this page is short of the requested size — means we've
+      // exhausted the list.
+      if (pageResp.length < PAGE_SIZE) break;
+      await new Promise((r) => setTimeout(r, 100));
     }
+    // categoriesSeen is now a count of API enumeration pages we walked, not
+    // tab categories. Keeping the field name for backwards-compat on the
+    // summary type; the meaning is "API pages fetched".
+    summary.categoriesSeen = Math.ceil(groupIds.size / PAGE_SIZE);
     summary.groupsDiscovered = groupIds.size;
     console.info(`catalog bootstrap: discovered ${groupIds.size} unique groupIds`);
 
@@ -165,37 +176,6 @@ export async function bootstrapExerciseCatalog(
   summary.finishedAt = new Date().toISOString();
   console.info('CatalogBootstrap', summary);
   return summary;
-}
-
-/**
- * The category response is an unknown shape — different deviceTypes nest
- * groupIds at different depths. Recursively walk anything that looks like
- * it could carry a groupId (raw `id` on an action-library entry, or a
- * `groupId` on a relation).
- */
-function collectGroupIdsFrom(node: unknown, out: Set<number>): void {
-  if (node === null || node === undefined) return;
-  if (Array.isArray(node)) {
-    for (const item of node) collectGroupIdsFrom(item, out);
-    return;
-  }
-  if (typeof node !== 'object') return;
-  const obj = node as Record<string, unknown>;
-  // The action-library tab response shape has `actionLibraryList` arrays
-  // whose items carry an `id` that IS the groupId — confirmed in the
-  // probe by checking a few known exercises.
-  if (Array.isArray(obj.actionLibraryList)) {
-    for (const item of obj.actionLibraryList as Array<Record<string, unknown>>) {
-      const id =
-        typeof item.groupId === 'number'
-          ? item.groupId
-          : typeof item.id === 'number'
-            ? item.id
-            : undefined;
-      if (id !== undefined && Number.isFinite(id)) out.add(id);
-    }
-  }
-  for (const v of Object.values(obj)) collectGroupIdsFrom(v, out);
 }
 
 /**
