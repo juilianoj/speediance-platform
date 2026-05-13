@@ -5,6 +5,8 @@ import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import type { WorkoutDraftRow } from '@/lib/builder/actions';
 import {
   deleteProgram,
+  scheduleProgramAction,
+  unscheduleProgramAction,
   updateProgram,
   type ProgramDraftRow,
   type ProgramSlot,
@@ -204,25 +206,196 @@ export function ProgramEditor({ program, drafts }: Props) {
         )}
       </section>
 
-      <section style={{ ...cardStyle, background: '#f8fafc' }}>
-        <h2 style={cardHeadingStyle}>Schedule to Speediance</h2>
-        <p style={mutedStyle}>
-          Coming next (PR ε) — pick a start date, the platform will save every assigned workout to
-          Speediance and reserve each calendar day.
-        </p>
+      <ScheduleCard
+        program={program}
+        slotsAssigned={slots.length}
+        hasUnsavedChanges={status !== 'idle' && status !== 'saved'}
+      />
+    </>
+  );
+}
+
+function ScheduleCard({
+  program,
+  slotsAssigned,
+  hasUnsavedChanges,
+}: {
+  program: ProgramDraftRow;
+  slotsAssigned: number;
+  hasUnsavedChanges: boolean;
+}) {
+  const [startDate, setStartDate] = useState(program.scheduledStartDate ?? defaultStartDate());
+  const [pending, startTransition] = useTransition();
+  const [result, setResult] = useState<{
+    ok: boolean;
+    message?: string;
+    failures?: number;
+    reservations?: number;
+  } | null>(null);
+
+  const onSchedule = () =>
+    startTransition(async () => {
+      setResult(null);
+      const r = await scheduleProgramAction(program.programId, startDate);
+      setResult(r);
+    });
+
+  const onUnschedule = () =>
+    startTransition(async () => {
+      if (!confirm('Remove all reservations from Speediance? The program stays here as a draft.'))
+        return;
+      setResult(null);
+      const r = await unscheduleProgramAction(program.programId);
+      setResult(r);
+    });
+
+  return (
+    <section
+      style={{
+        ...cardStyle,
+        borderLeft: program.status === 'scheduled' ? '3px solid #0d9488' : '3px solid #94a3b8',
+      }}
+    >
+      <h2 style={cardHeadingStyle}>
+        {program.status === 'scheduled' ? 'Live on Speediance' : 'Schedule to Speediance'}
+      </h2>
+      <p style={mutedStyle}>
+        {program.status === 'scheduled'
+          ? `Currently scheduled starting ${program.scheduledStartDate}. ${
+              program.scheduledReservations?.length ?? 0
+            } reservation${(program.scheduledReservations?.length ?? 0) === 1 ? '' : 's'} live on your Speediance app.`
+          : 'Pick a start date — the platform will save each slotted workout to Speediance and reserve each calendar day. Re-running with a different date moves everything.'}
+      </p>
+
+      <div
+        style={{
+          marginTop: '0.85rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.6rem',
+          flexWrap: 'wrap',
+        }}
+      >
+        <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+          <span style={{ color: '#64748b', fontSize: '0.85rem' }}>Start</span>
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            min={defaultStartDate()}
+            style={{
+              padding: '0.4rem 0.55rem',
+              border: '1px solid #cbd5e1',
+              borderRadius: '6px',
+              fontSize: '0.92rem',
+            }}
+          />
+        </label>
+        <button
+          type="button"
+          onClick={onSchedule}
+          disabled={pending || slotsAssigned === 0 || hasUnsavedChanges}
+          style={primaryButtonStyle(pending || slotsAssigned === 0 || hasUnsavedChanges)}
+          title={
+            slotsAssigned === 0
+              ? 'Assign at least one slot first.'
+              : hasUnsavedChanges
+                ? 'Wait for autosave to finish.'
+                : undefined
+          }
+        >
+          {pending
+            ? 'Scheduling…'
+            : program.status === 'scheduled'
+              ? 'Reschedule'
+              : 'Schedule program'}
+        </button>
+        {program.status === 'scheduled' && (
+          <button
+            type="button"
+            onClick={onUnschedule}
+            disabled={pending}
+            style={secondaryButtonStyle(pending)}
+          >
+            Unschedule
+          </button>
+        )}
+      </div>
+
+      {result && (
         <p
           style={{
             margin: '0.6rem 0 0',
-            color: '#94a3b8',
-            fontSize: '0.85rem',
-            fontStyle: 'italic',
+            fontSize: '0.9rem',
+            color: result.ok ? '#0d9488' : result.reservations ? '#a06000' : '#b91c1c',
           }}
         >
-          Filled slots: {slots.length} of {weekCount * 7} possible.
+          {result.message ?? (result.ok ? '✓ Done.' : 'Action failed.')}
         </p>
-      </section>
-    </>
+      )}
+
+      {program.status === 'scheduled' && (program.scheduledReservations?.length ?? 0) > 0 && (
+        <details style={{ marginTop: '0.85rem' }}>
+          <summary
+            style={{
+              cursor: 'pointer',
+              fontSize: '0.82rem',
+              color: '#64748b',
+              fontWeight: 500,
+            }}
+          >
+            Show scheduled dates
+          </summary>
+          <ul
+            style={{
+              margin: '0.5rem 0 0 0',
+              padding: '0 0 0 1.2rem',
+              fontSize: '0.85rem',
+              color: '#475569',
+            }}
+          >
+            {program.scheduledReservations!.map((r) => (
+              <li key={`${r.date}-${r.templateId}`}>{r.date}</li>
+            ))}
+          </ul>
+        </details>
+      )}
+    </section>
   );
+}
+
+function defaultStartDate(): string {
+  // Default to tomorrow — most users planning a program don't want to
+  // start it today.
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
+function primaryButtonStyle(disabled: boolean): React.CSSProperties {
+  return {
+    padding: '0.5rem 1rem',
+    background: disabled ? '#94a3b8' : '#0b78d1',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '8px',
+    fontWeight: 600,
+    fontSize: '0.9rem',
+    cursor: disabled ? 'not-allowed' : 'pointer',
+  };
+}
+
+function secondaryButtonStyle(disabled: boolean): React.CSSProperties {
+  return {
+    padding: '0.5rem 0.85rem',
+    background: '#fff',
+    color: '#b91c1c',
+    border: '1px solid #fecaca',
+    borderRadius: '8px',
+    fontWeight: 500,
+    fontSize: '0.88rem',
+    cursor: disabled ? 'wait' : 'pointer',
+  };
 }
 
 function SlotCell({
