@@ -161,3 +161,74 @@ export async function deleteDraft(draftId: string): Promise<DraftMutationResult>
     return { ok: false, message: err instanceof Error ? err.message : 'Delete failed.' };
   }
 }
+
+/**
+ * Push the draft to Speediance as a custom training template. The
+ * created template shows up on the user's mobile app and can be
+ * scheduled / started normally from there.
+ *
+ * Re-running is idempotent at the user-visible level — under the hood
+ * we DELETE the previous template and POST a new one, but the user just
+ * sees their template updated. The order (create-then-delete) ensures
+ * there's never a window with no template on the device.
+ */
+export async function saveDraftToSpeediance(draftId: string): Promise<DraftMutationResult> {
+  const claims = await verifyIdTokenFromCookies();
+  if (!claims) return { ok: false, message: 'Sign in first.' };
+  const db = dbOrNull();
+  if (!db) return { ok: false, message: 'DB not configured.' };
+  const me = db.forUser(claims.sub);
+  try {
+    const draftRes = (await me.workoutDrafts.get(draftId)) as { data: WorkoutDraftRow | null };
+    const draft = draftRes?.data;
+    if (!draft) return { ok: false, message: 'Draft not found.' };
+
+    // Lazy import so the server action's cold-path doesn't pull in the
+    // whole Speediance client + secrets store unless this action actually
+    // runs.
+    const { pushDraftToSpeediance } = await import('./save-to-speediance');
+    const { templateCode, templateId } = await pushDraftToSpeediance(claims.sub, draft);
+
+    await me.workoutDrafts.patch(draftId, {
+      status: 'saved-to-speediance',
+      speedianceTemplateCode: templateCode,
+      speedianceTemplateId: templateId,
+    });
+    revalidatePath(`/builder/${draftId}`);
+    revalidatePath('/builder');
+    return { ok: true, draftId };
+  } catch (err) {
+    return {
+      ok: false,
+      message: err instanceof Error ? err.message : 'Save to Speediance failed.',
+    };
+  }
+}
+
+/** Remove the draft's Speediance template (status flips back to draft). */
+export async function unsaveDraftFromSpeediance(draftId: string): Promise<DraftMutationResult> {
+  const claims = await verifyIdTokenFromCookies();
+  if (!claims) return { ok: false, message: 'Sign in first.' };
+  const db = dbOrNull();
+  if (!db) return { ok: false, message: 'DB not configured.' };
+  const me = db.forUser(claims.sub);
+  try {
+    const draftRes = (await me.workoutDrafts.get(draftId)) as { data: WorkoutDraftRow | null };
+    const draft = draftRes?.data;
+    if (!draft) return { ok: false, message: 'Draft not found.' };
+
+    const { removeDraftFromSpeediance } = await import('./save-to-speediance');
+    await removeDraftFromSpeediance(claims.sub, draft);
+
+    await me.workoutDrafts.patch(draftId, {
+      status: 'draft',
+      speedianceTemplateCode: undefined,
+      speedianceTemplateId: undefined,
+    });
+    revalidatePath(`/builder/${draftId}`);
+    revalidatePath('/builder');
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : 'Unsave failed.' };
+  }
+}

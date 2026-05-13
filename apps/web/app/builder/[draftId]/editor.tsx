@@ -5,6 +5,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from
 import type { CatalogExercise } from '@/lib/catalog/lookup';
 import {
   deleteDraft,
+  saveDraftToSpeediance,
+  unsaveDraftFromSpeediance,
   updateDraft,
   type DraftExercise,
   type WorkoutDraftRow,
@@ -169,8 +171,161 @@ export function Editor({ draft, catalog }: Props) {
           }
         />
       </section>
+
+      <SpeedianceSaveCard
+        draftId={draft.draftId}
+        status={draft.status}
+        templateCode={draft.speedianceTemplateCode}
+        hasExercises={exercises.length > 0}
+        hasUnsavedChanges={saveStatus !== 'idle' && saveStatus !== 'saved'}
+      />
     </>
   );
+}
+
+/**
+ * Save-to-Speediance action card. Shows different controls based on
+ * status:
+ *  - `draft`: "Save to Speediance" button (creates the template).
+ *  - `saved-to-speediance`: "Update Speediance copy" + "Remove from
+ *    Speediance" buttons, plus a small confirmation that the template
+ *    is live on the user's mobile app.
+ */
+function SpeedianceSaveCard({
+  draftId,
+  status,
+  templateCode,
+  hasExercises,
+  hasUnsavedChanges,
+}: {
+  draftId: string;
+  status: 'draft' | 'saved-to-speediance';
+  templateCode: string | undefined;
+  hasExercises: boolean;
+  hasUnsavedChanges: boolean;
+}) {
+  const [pending, startTransition] = useTransition();
+  const [result, setResult] = useState<{ ok: boolean; message?: string } | null>(null);
+
+  const onSave = () =>
+    startTransition(async () => {
+      setResult(null);
+      const r = await saveDraftToSpeediance(draftId);
+      setResult(r);
+    });
+
+  const onUnsave = () =>
+    startTransition(async () => {
+      if (!confirm('Remove this workout from Speediance? It will stay here as a draft.')) return;
+      setResult(null);
+      const r = await unsaveDraftFromSpeediance(draftId);
+      setResult(r);
+    });
+
+  return (
+    <section
+      style={{
+        ...cardStyle,
+        borderLeft: status === 'saved-to-speediance' ? '3px solid #0d9488' : '3px solid #94a3b8',
+      }}
+    >
+      <h2 style={cardHeadingStyle}>
+        {status === 'saved-to-speediance' ? 'Live on Speediance' : 'Save to Speediance'}
+      </h2>
+      <p style={mutedStyle}>
+        {status === 'saved-to-speediance'
+          ? 'This workout is in your Speediance app and ready to schedule or start. Edits here stay private until you click "Update Speediance copy".'
+          : 'Push this draft to your Speediance mobile app as a custom training template. You can still edit it here afterward.'}
+      </p>
+
+      <div
+        style={{
+          marginTop: '0.85rem',
+          display: 'flex',
+          gap: '0.6rem',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+        }}
+      >
+        <button
+          type="button"
+          onClick={onSave}
+          disabled={pending || !hasExercises || hasUnsavedChanges}
+          style={primarySaveButtonStyle(pending || !hasExercises || hasUnsavedChanges)}
+          title={
+            !hasExercises
+              ? 'Add at least one exercise first.'
+              : hasUnsavedChanges
+                ? 'Wait for autosave to finish.'
+                : status === 'saved-to-speediance'
+                  ? 'Replaces the existing Speediance template with the current draft.'
+                  : 'Pushes this workout to Speediance.'
+          }
+        >
+          {pending
+            ? 'Pushing…'
+            : status === 'saved-to-speediance'
+              ? 'Update Speediance copy'
+              : 'Save to Speediance'}
+        </button>
+        {status === 'saved-to-speediance' && (
+          <button
+            type="button"
+            onClick={onUnsave}
+            disabled={pending}
+            style={secondaryButtonStyle(pending)}
+          >
+            Remove from Speediance
+          </button>
+        )}
+        {templateCode && (
+          <span style={{ color: '#94a3b8', fontSize: '0.78rem', fontFamily: 'monospace' }}>
+            Template: {templateCode.slice(0, 8)}…
+          </span>
+        )}
+      </div>
+
+      {result && (
+        <p
+          style={{
+            margin: '0.6rem 0 0',
+            fontSize: '0.9rem',
+            color: result.ok ? '#0d9488' : '#b91c1c',
+          }}
+        >
+          {result.ok
+            ? '✓ Synced to Speediance. Open the mobile app to see it.'
+            : (result.message ?? 'Action failed.')}
+        </p>
+      )}
+    </section>
+  );
+}
+
+function primarySaveButtonStyle(disabled: boolean): React.CSSProperties {
+  return {
+    padding: '0.6rem 1.1rem',
+    background: disabled ? '#94a3b8' : '#0b78d1',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '8px',
+    fontWeight: 600,
+    fontSize: '0.92rem',
+    cursor: disabled ? 'not-allowed' : 'pointer',
+  };
+}
+
+function secondaryButtonStyle(disabled: boolean): React.CSSProperties {
+  return {
+    padding: '0.6rem 0.95rem',
+    background: '#fff',
+    color: '#b91c1c',
+    border: '1px solid #fecaca',
+    borderRadius: '8px',
+    fontWeight: 500,
+    fontSize: '0.9rem',
+    cursor: disabled ? 'wait' : 'pointer',
+  };
 }
 
 function moveExercise(
