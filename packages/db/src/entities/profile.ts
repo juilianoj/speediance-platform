@@ -45,6 +45,27 @@ export function profileEntity(config: EntityConfiguration) {
         speedianceSecretArn: { type: 'string' }, // never the raw token; just the Secrets Manager ARN
         schedule: { type: 'string' }, // JSON: day-of-week → preferred slots
         goals: { type: 'string' }, // JSON: free-form user-stated goals for the AI Coach
+        /** Structured coaching preferences injected into the Coach's system
+         *  prompt on every call. Keep it small — system-prompt overhead
+         *  multiplies across every turn. Free-form/long context belongs in
+         *  the `memory` entity instead. */
+        coachPrefs: {
+          type: 'map',
+          properties: {
+            primaryGoal: {
+              type: [
+                'strength',
+                'hypertrophy',
+                'general-fitness',
+                'fat-loss',
+                'endurance',
+              ] as const,
+            },
+            sessionsPerWeek: { type: 'number' },
+            sessionMinutes: { type: 'number' },
+            equipmentConstraints: { type: 'string' },
+          },
+        },
         createdAt: { type: 'string' },
         updatedAt: { type: 'string', watch: '*', set: () => new Date().toISOString() },
       },

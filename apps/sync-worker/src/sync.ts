@@ -1,6 +1,6 @@
 import { createDb } from '@speediance/db';
 import { createSecretsStore } from '@speediance/secrets-store';
-import { SpeedianceClient } from '@speediance/speediance-client';
+import { type SpeedianceClient } from '@speediance/speediance-client';
 
 import { createSpeedianceClient } from './speediance-client.js';
 

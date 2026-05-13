@@ -48,6 +48,10 @@ export default async function ProfilePage() {
             hideCardio: existing?.hideCardio,
             unit: existing?.unit ?? 1, // imperial by default for US users
             syncStartDate: existing?.syncStartDate ?? defaultSyncStart(),
+            primaryGoal: existing?.coachPrefs?.primaryGoal,
+            sessionsPerWeek: existing?.coachPrefs?.sessionsPerWeek,
+            sessionMinutes: existing?.coachPrefs?.sessionMinutes,
+            equipmentConstraints: existing?.coachPrefs?.equipmentConstraints,
           }}
           hasSpeedianceCreds={hasSpeedianceCreds}
         />

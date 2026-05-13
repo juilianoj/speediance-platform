@@ -3,7 +3,7 @@
 import { useFormState, useFormStatus } from 'react-dom';
 
 import { saveProfile } from '@/lib/profile/actions';
-import type { ProfileSaveResult } from '@/lib/profile/schemas';
+import type { PrimaryGoal, ProfileSaveResult } from '@/lib/profile/schemas';
 
 interface InitialValues {
   speedianceEmail: string;
@@ -15,6 +15,10 @@ interface InitialValues {
   hideCardio?: boolean;
   unit: number;
   syncStartDate?: string;
+  primaryGoal?: PrimaryGoal;
+  sessionsPerWeek?: number;
+  sessionMinutes?: number;
+  equipmentConstraints?: string;
 }
 
 export function ProfileForm({
@@ -135,6 +139,65 @@ export function ProfileForm({
           Hide the Cardio section
           <span style={{ ...hintStyle, marginLeft: '0.4rem' }}>
             (uncheck to re-enable once you&apos;ve connected Apple Health / Google Fit)
+          </span>
+        </label>
+      </section>
+
+      <section style={sectionStyle}>
+        <h2 style={h2Style}>Coaching preferences</h2>
+        <p style={hintStyle}>
+          The AI Coach sees these on every chat. Leave blank to let the coach ask each time.
+        </p>
+        <label style={labelStyle}>
+          Primary goal
+          <select name="primaryGoal" defaultValue={initial.primaryGoal ?? ''} style={inputStyle}>
+            <option value="">No preference</option>
+            <option value="strength">Strength</option>
+            <option value="hypertrophy">Hypertrophy</option>
+            <option value="general-fitness">General fitness</option>
+            <option value="fat-loss">Fat loss</option>
+            <option value="endurance">Endurance</option>
+          </select>
+        </label>
+        <label style={labelStyle}>
+          Sessions per week
+          <input
+            name="sessionsPerWeek"
+            type="number"
+            min="1"
+            max="7"
+            step="1"
+            defaultValue={initial.sessionsPerWeek ?? ''}
+            placeholder="e.g. 4"
+            style={inputStyle}
+          />
+        </label>
+        <label style={labelStyle}>
+          Typical session length (minutes)
+          <input
+            name="sessionMinutes"
+            type="number"
+            min="15"
+            max="120"
+            step="5"
+            defaultValue={initial.sessionMinutes ?? ''}
+            placeholder="e.g. 45"
+            style={inputStyle}
+          />
+        </label>
+        <label style={labelStyle}>
+          Equipment / movement constraints
+          <input
+            name="equipmentConstraints"
+            type="text"
+            maxLength={200}
+            defaultValue={initial.equipmentConstraints ?? ''}
+            placeholder="e.g. no overhead pressing — left shoulder"
+            style={inputStyle}
+          />
+          <span style={hintStyle}>
+            Free text. For longer-running context (recurring injuries, scheduling notes), tell the
+            Coach directly — it&apos;ll save those as memories.
           </span>
         </label>
       </section>
