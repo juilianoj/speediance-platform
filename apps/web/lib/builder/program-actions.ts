@@ -145,3 +145,69 @@ export async function deleteProgram(programId: string): Promise<ProgramMutationR
     return { ok: false, message: err instanceof Error ? err.message : 'Delete failed.' };
   }
 }
+
+/**
+ * Schedule the program to Speediance starting on `startDate`. Materializes
+ * each slot to (date + templateId) and persists the resulting reservations
+ * back to the program row. Idempotent — running again with a different
+ * date unreserves the prior dates first.
+ */
+export async function scheduleProgramAction(
+  programId: string,
+  startDate: string,
+): Promise<ProgramMutationResult & { failures?: number; reservations?: number }> {
+  const claims = await verifyIdTokenFromCookies();
+  if (!claims) return { ok: false, message: 'Sign in first.' };
+  const db = dbOrNull();
+  if (!db) return { ok: false, message: 'DB not configured.' };
+  const me = db.forUser(claims.sub);
+  try {
+    const programRes = (await me.programDrafts.get(programId)) as {
+      data: ProgramDraftRow | null;
+    };
+    const program = programRes?.data;
+    if (!program) return { ok: false, message: 'Program not found.' };
+    if (program.slots.length === 0) {
+      return { ok: false, message: 'Program has no slots assigned.' };
+    }
+
+    const { scheduleProgram } = await import('./program-schedule');
+    const summary = await scheduleProgram(claims.sub, program, startDate);
+    revalidatePath(`/builder/programs/${programId}`);
+    revalidatePath('/builder');
+    revalidatePath('/dashboard');
+    return {
+      ok: summary.ok,
+      message: summary.message,
+      reservations: summary.reservations.length,
+      failures: summary.failures.length,
+      programId,
+    };
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : 'Schedule failed.' };
+  }
+}
+
+export async function unscheduleProgramAction(programId: string): Promise<ProgramMutationResult> {
+  const claims = await verifyIdTokenFromCookies();
+  if (!claims) return { ok: false, message: 'Sign in first.' };
+  const db = dbOrNull();
+  if (!db) return { ok: false, message: 'DB not configured.' };
+  const me = db.forUser(claims.sub);
+  try {
+    const programRes = (await me.programDrafts.get(programId)) as {
+      data: ProgramDraftRow | null;
+    };
+    const program = programRes?.data;
+    if (!program) return { ok: false, message: 'Program not found.' };
+
+    const { unscheduleProgram } = await import('./program-schedule');
+    const r = await unscheduleProgram(claims.sub, program);
+    revalidatePath(`/builder/programs/${programId}`);
+    revalidatePath('/builder');
+    revalidatePath('/dashboard');
+    return r;
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : 'Unschedule failed.' };
+  }
+}
