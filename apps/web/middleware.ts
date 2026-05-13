@@ -39,7 +39,7 @@ export const config = {
     '/exercises/:path*',
     '/cardio/:path*',
     '/muscles/:path*',
-    '/adherence/:path*',
+    '/consistency/:path*',
     '/coach/:path*',
     '/admin/:path*',
     '/workouts/:path*',

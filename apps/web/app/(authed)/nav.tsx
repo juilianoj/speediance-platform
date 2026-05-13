@@ -5,7 +5,7 @@
  *
  * Items live in main nav vs the user-menu dropdown based on frequency:
  *   - main: Dashboard, Coach, Lift log, Muscles, Cardio (when shown),
- *     Adherence — daily-use pages
+ *     Consistency — daily-use pages
  *   - dropdown (avatar): Profile, Feedback, Admin, Sign out — chrome
  *
  * Coach sits up front (right after Dashboard) because the AI coach is the
@@ -23,7 +23,7 @@ type Key =
   | 'liftlog'
   | 'cardio'
   | 'muscles'
-  | 'adherence'
+  | 'consistency'
   | 'coach'
   | 'admin'
   | 'feedback'
@@ -41,7 +41,7 @@ const ALL_ITEMS: Item[] = [
   { key: 'liftlog', label: 'Lift log', href: '/lift-log' },
   { key: 'muscles', label: 'Muscles', href: '/muscles' },
   { key: 'cardio', label: 'Cardio', href: '/cardio' },
-  { key: 'adherence', label: 'Adherence', href: '/adherence' },
+  { key: 'consistency', label: 'Consistency', href: '/consistency' },
 ];
 
 const USER_MENU_ITEMS = [
