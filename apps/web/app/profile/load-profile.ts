@@ -16,6 +16,8 @@ export interface LoadedProfile {
   deviceType?: number;
   allowMonsterMoves?: boolean;
   syncStartDate?: string;
+  /** ISO timestamp of the most recent successful sync run. */
+  lastSyncedAt?: string;
   speedianceSecretArn?: string;
   /** When true, the user has opted out of the Cardio nav item + page. We
    *  don't have cardio data unless they've connected Apple Health / Google

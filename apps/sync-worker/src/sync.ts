@@ -217,12 +217,11 @@ export async function syncUser(userId: string): Promise<SyncSummary> {
       }
     }
 
-    // No profile write here. Earlier versions called `profiles.upsert(...)`
-    // to "mark synced", but ElectroDB upsert is a full-record put — it wiped
-    // every field not passed (email, deviceType, allowMonsterMoves, bodyweight,
-    // gender, …) and broke the profile page on the next render. The SyncRun
-    // audit log is enough; the user's profile is set on /profile and shouldn't
-    // be touched by the worker.
+    // Record the successful sync timestamp so the dashboard can show how
+    // fresh the data is. `patch` is a partial update — unlike `upsert` it
+    // won't clobber the other profile fields (which is what the earlier
+    // upsert-here did before it was deleted).
+    await me.profiles.patch({ lastSyncedAt: new Date().toISOString() });
   } catch (err) {
     ok = false;
     errorMsg = err instanceof Error ? err.message : String(err);

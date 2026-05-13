@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 
 import { Nav } from '@/app/(authed)/nav';
+import { loadProfile } from '@/app/profile/load-profile';
 import { verifyIdTokenFromCookies } from '@/lib/auth/session';
 import { loadNextWorkoutPlan } from '@/lib/data/load-next-workout';
 import { loadScheduledDates } from '@/lib/data/load-scheduled';
@@ -10,6 +11,7 @@ import { YearHeatmap } from './heatmap';
 import { loadDashboard, type DashboardData, type DashboardWorkout } from './load-dashboard';
 import { MuscleGroupChart } from './muscle-group-chart';
 import { NextSessionCard } from './next-session-card';
+import { SyncBanner } from './sync-banner';
 import { WeeklyChart } from './weekly-chart';
 
 export const metadata = {
@@ -33,11 +35,13 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     loadNextWorkoutPlan(claims.sub, preferredTitle),
     loadAllWorkouts(claims.sub),
     loadScheduledDates(claims.sub),
+    loadProfile(claims.sub),
   ]);
   const data = settled[0].status === 'fulfilled' ? settled[0].value : null;
   const next = settled[1].status === 'fulfilled' ? settled[1].value : null;
   const allWorkouts = settled[2].status === 'fulfilled' ? settled[2].value : [];
   const scheduledDates = settled[3].status === 'fulfilled' ? settled[3].value : new Set<string>();
+  const profile = settled[4].status === 'fulfilled' ? settled[4].value : null;
 
   return (
     <div style={pageWrapStyle}>
@@ -47,6 +51,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
           <h1 style={h1Style}>Dashboard</h1>
           <p style={heroSubStyle}>What you&rsquo;ve been doing — and what you should do next.</p>
         </div>
+        {data?.hasCreds && <SyncBanner lastSyncedAt={profile?.lastSyncedAt} />}
         {!data || !data.hasCreds ? (
           <SetupCallout hasProfile={data?.hasProfile ?? false} />
         ) : (
