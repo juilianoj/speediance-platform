@@ -24,6 +24,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
+    "@speediance/coach-safety": "workspace:*",
     "@speediance/db": "workspace:*",
     "zod": "^3.24.1"
   },

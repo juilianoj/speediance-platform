@@ -3,7 +3,7 @@ import 'server-only';
 import { createDb } from '@speediance/db';
 
 import type { DashboardWorkout } from '@/app/dashboard/load-dashboard';
-import { clampWeight } from '@/lib/safety/weight-cap';
+import { clampWeight } from '@speediance/coach-safety';
 import { createRefreshingSpeedianceClient } from '@/lib/speediance/refreshing-client';
 
 import type { ExerciseSet, ExerciseSummary } from './load-exercises';

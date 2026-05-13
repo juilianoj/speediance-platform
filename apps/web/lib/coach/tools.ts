@@ -10,7 +10,7 @@ import type { ProgramDraftRow } from '@/lib/builder/program-actions';
 import { listExercises as listCatalog } from '@/lib/catalog/lookup';
 import type { ExerciseSet, ExerciseSummary } from '@/lib/data/load-exercises';
 import { loadNextWorkoutPlan } from '@/lib/data/load-next-workout';
-import { clampWeight } from '@/lib/safety/weight-cap';
+import { clampWeight } from '@speediance/coach-safety';
 
 /**
  * Tools the AI coach can call. Each tool is a pure function of (userId,
