@@ -1,22 +1,24 @@
 import 'server-only';
 
-import { loadScheduledWorkouts } from './load-scheduled';
+import { loadScheduledWorkouts, type ScheduledItem } from './load-scheduled';
+import { isMobilityScheduledItem } from './mobility-detection';
 
 /**
  * Roadmap §3.3 — Recovery / stretch injector.
  *
  * Detects runs of 3+ consecutive days that are all scheduled with lift
- * (non-cardio) workouts in the user's upcoming calendar, and surfaces a
+ * (non-mobility) workouts in the user's upcoming calendar, and surfaces a
  * banner the user can act on with one click ("Create mobility draft").
  *
- * Heuristic (intentional v1): "lift day" = at least one non-cardio
- * scheduled item on that calendar day. The Speediance API doesn't tag
- * a workout as mobility/yoga first-class — the catalog has a
- * `muscleGroup` per exercise but no top-level "this whole course is a
- * recovery course." So mobility courses scheduled by the user will be
- * mis-classified as lift days. That's the deliberate v1 trade-off: we'd
- * rather over-warn than miss the case the roadmap names. A v2 can lean
- * on the course catalog once we tag mobility courses.
+ * Mobility detection (v2): the Speediance API doesn't tag a course as
+ * mobility/yoga first-class. We rely on a title-keyword heuristic
+ * (`isMobilityScheduledItem`) — if the scheduled item's title contains
+ * any of a small set of mobility / recovery terms, we don't count it as
+ * a lift day. That's deliberately conservative; some mobility courses
+ * with bare names like "Cooldown" or "Reset" may still slip through and
+ * over-trigger the warning. A v3 could check `courseCategoryName` on a
+ * past completed workout for the same `courseId`, which Speediance
+ * categorizes more reliably.
  *
  * Scoped to a 14-day horizon so the dashboard doesn't badger the user
  * about a hypothetical 3-day block six weeks out.
@@ -45,14 +47,22 @@ export async function loadRecoveryWarnings(userId: string): Promise<RecoveryWarn
   const scheduled = await loadScheduledWorkouts(userId);
   if (scheduled.length === 0) return [];
 
-  // Build a set of YYYY-MM-DD strings that have at least one non-cardio
-  // scheduled item. We don't actually know whether a course is cardio
-  // from the calendar item shape (cardio surfaces in completed-workout
-  // metadata, not in scheduled prescriptions), so we treat every
-  // scheduled day as a lift day for v1. This is the deliberate
-  // over-warn trade-off documented at the top of the file.
+  // Bucket scheduled items by date and check whether at least one item
+  // on that day is a real lift (i.e. NOT mobility-tagged by title). A
+  // day with only mobility entries doesn't add to the streak — and is
+  // also a fine candidate for the streak-breaker, since the user
+  // already gave themselves the recovery slot.
+  const itemsByDate = new Map<string, ScheduledItem[]>();
+  for (const item of scheduled) {
+    const list = itemsByDate.get(item.date) ?? [];
+    list.push(item);
+    itemsByDate.set(item.date, list);
+  }
   const liftDays = new Set<string>();
-  for (const item of scheduled) liftDays.add(item.date);
+  for (const [date, items] of itemsByDate) {
+    const hasLift = items.some((it) => !isMobilityScheduledItem(it));
+    if (hasLift) liftDays.add(date);
+  }
 
   const today = todayIso();
   const horizon = addDaysIso(today, HORIZON_DAYS);
