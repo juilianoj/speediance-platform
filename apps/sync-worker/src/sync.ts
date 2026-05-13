@@ -67,17 +67,27 @@ async function listProfiles(): Promise<ProfileLite[]> {
 
 /**
  * Sync every profile that has Speediance creds wired up. Serialised with
- * a 2-second delay between users so we don't hammer the Speediance API.
+ * a 5-second delay between users so we don't hammer the Speediance API
+ * (matches roadmap §4.5). `syncUser` swallows its own errors so one
+ * failing user can't block the rest of the run.
  */
+const INTER_USER_DELAY_MS = 5000;
+
 export async function syncAllUsers(): Promise<SyncSummary[]> {
   const profiles = await listProfiles();
   const targets = profiles.filter((p) => p.speedianceSecretArn);
   console.info(`syncAllUsers: ${profiles.length} profiles, ${targets.length} with creds`);
 
   const summaries: SyncSummary[] = [];
-  for (const p of targets) {
-    summaries.push(await syncUser(p.userId));
-    await new Promise((r) => setTimeout(r, 2000));
+  for (let i = 0; i < targets.length; i++) {
+    const target = targets[i];
+    if (!target) continue;
+    summaries.push(await syncUser(target.userId));
+    // Skip the trailing delay after the last user so the Lambda doesn't
+    // burn 5s of paid time waiting for nothing.
+    if (i < targets.length - 1) {
+      await new Promise((r) => setTimeout(r, INTER_USER_DELAY_MS));
+    }
   }
   return summaries;
 }
