@@ -1,6 +1,8 @@
 'use client';
 
 import { useRef, useState, useTransition } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 import { askCoach, type CoachMessage } from '@/lib/coach/actions';
 
@@ -168,7 +170,90 @@ function Bubble({ m }: { m: CoachMessage }) {
   const isUser = m.role === 'user';
   return (
     <div style={isUser ? bubbleUser : bubbleAssistant}>
-      <div style={{ whiteSpace: 'pre-wrap' }}>{m.content}</div>
+      {isUser ? (
+        // User messages are plain text — what they typed is what they meant.
+        <div style={{ whiteSpace: 'pre-wrap' }}>{m.content}</div>
+      ) : (
+        // Coach messages may contain markdown — links to /builder draftIds,
+        // bold for emphasis, tables for set/rep summaries. Render them.
+        <div style={assistantMarkdownStyle}>
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
+              a: ({ href, children }) => (
+                <a
+                  href={href}
+                  style={{ color: '#0b78d1', textDecoration: 'underline' }}
+                  // Internal /builder links should stay in-tab; offsite
+                  // shouldn't ever come from the coach, but be defensive.
+                  {...(href?.startsWith('http')
+                    ? { target: '_blank', rel: 'noopener noreferrer' }
+                    : {})}
+                >
+                  {children}
+                </a>
+              ),
+              p: ({ children }) => <p style={{ margin: '0 0 0.4rem 0' }}>{children}</p>,
+              ul: ({ children }) => (
+                <ul style={{ margin: '0 0 0.4rem 1.1rem', padding: 0 }}>{children}</ul>
+              ),
+              ol: ({ children }) => (
+                <ol style={{ margin: '0 0 0.4rem 1.4rem', padding: 0 }}>{children}</ol>
+              ),
+              table: ({ children }) => (
+                <table
+                  style={{
+                    borderCollapse: 'collapse',
+                    margin: '0.3rem 0',
+                    fontSize: '0.88rem',
+                  }}
+                >
+                  {children}
+                </table>
+              ),
+              th: ({ children }) => (
+                <th
+                  style={{
+                    padding: '0.3rem 0.55rem',
+                    borderBottom: '1px solid #cbd5e1',
+                    textAlign: 'left',
+                    color: '#475569',
+                    fontWeight: 600,
+                  }}
+                >
+                  {children}
+                </th>
+              ),
+              td: ({ children }) => (
+                <td
+                  style={{
+                    padding: '0.25rem 0.55rem',
+                    borderBottom: '1px solid #f1f5f9',
+                    verticalAlign: 'top',
+                  }}
+                >
+                  {children}
+                </td>
+              ),
+              code: ({ children }) => (
+                <code
+                  style={{
+                    background: '#f1f5f9',
+                    padding: '0.05rem 0.3rem',
+                    borderRadius: '3px',
+                    fontSize: '0.85em',
+                    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+                  }}
+                >
+                  {children}
+                </code>
+              ),
+            }}
+          >
+            {m.content}
+          </ReactMarkdown>
+        </div>
+      )}
       {m.toolsUsed && m.toolsUsed.length > 0 && (
         <div
           style={{
@@ -183,6 +268,12 @@ function Bubble({ m }: { m: CoachMessage }) {
     </div>
   );
 }
+
+const assistantMarkdownStyle: React.CSSProperties = {
+  // Reset the default browser margins ReactMarkdown emits — bubbles look
+  // tight by default, and the per-element overrides above handle spacing.
+  lineHeight: 1.5,
+};
 
 const chipsHeadingStyle: React.CSSProperties = {
   color: '#64748b',
