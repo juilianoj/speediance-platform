@@ -117,6 +117,48 @@ export async function createDraft(): Promise<never> {
 }
 
 /**
+ * Scaffold a mobility / recovery draft (roadmap §3.3). Triggered from the
+ * dashboard recovery-warning banner when the user has 3+ consecutive lift
+ * days scheduled. Creates an empty draft with a recovery-themed name and
+ * intent notes — the user fills in the exercises (or asks the coach to).
+ *
+ * Deliberately doesn't pick exercises automatically: the Speediance
+ * catalog has no first-class "mobility / yoga" tag, so picking exercises
+ * heuristically would be wrong half the time. The coach (`/coach`) can
+ * propose specific mobility moves on demand once the user opens the
+ * draft.
+ */
+export async function createMobilityDraft(suggestedDate?: string): Promise<DraftMutationResult> {
+  const claims = await verifyIdTokenFromCookies();
+  if (!claims) return { ok: false, message: 'Sign in first.' };
+  const db = dbOrNull();
+  if (!db) return { ok: false, message: 'DB not configured.' };
+  const draftId = newDraftId();
+  const dateSuffix = suggestedDate ? ` — ${formatShortDate(suggestedDate)}` : '';
+  const me = db.forUser(claims.sub);
+  await me.workoutDrafts.upsert({
+    draftId,
+    name: `Mobility / Recovery${dateSuffix}`,
+    notes:
+      'Suggested by the dashboard recovery detector — your scheduled calendar has 3+ consecutive lift days. ' +
+      'Build a 20-30 min mobility session (foam roll, hip openers, thoracic spine work, light stretching) or ask the coach for specific moves.',
+    exercises: [],
+    status: 'draft',
+    createdAt: new Date().toISOString(),
+  });
+  revalidatePath('/builder');
+  return { ok: true, draftId };
+}
+
+function formatShortDate(iso: string): string {
+  const d = new Date(`${iso}T00:00:00Z`);
+  const m = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][
+    d.getUTCMonth()
+  ];
+  return `${m} ${d.getUTCDate()}`;
+}
+
+/**
  * Apply a partial update to a draft. Used for renames, exercise reorders,
  * set edits, etc. Validates input shape via Zod so a hostile client can't
  * smuggle extra fields onto the DDB row.
