@@ -7,14 +7,6 @@ type Theme = 'light' | 'dark';
 const COOKIE_NAME = 'spd-theme';
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 365; // one year
 
-function readCookie(): Theme | null {
-  if (typeof document === 'undefined') return null;
-  const match = document.cookie.split('; ').find((row) => row.startsWith(`${COOKIE_NAME}=`));
-  if (!match) return null;
-  const value = match.split('=')[1];
-  return value === 'dark' || value === 'light' ? value : null;
-}
-
 function writeCookie(theme: Theme) {
   // Long-lived; SameSite=Lax so the cookie travels with normal navigation
   // but not with cross-site requests. No need for Secure here because the
@@ -76,24 +68,4 @@ export function ThemeToggle() {
       {isDark ? '☀' : '☾'}
     </button>
   );
-}
-
-/**
- * One-shot client component that fires once after first paint: if the
- * user has no theme cookie AND their OS prefers dark, write the cookie
- * + flip data-theme so subsequent navigations stay dark.
- *
- * Rendered alongside `<ThemeToggle>` in the Nav. Returns null — it has
- * no visual presence.
- */
-export function ThemePrefDetector() {
-  useEffect(() => {
-    if (readCookie() !== null) return; // user has already chosen
-    const prefersDark =
-      typeof window !== 'undefined' &&
-      window.matchMedia &&
-      window.matchMedia('(prefers-color-scheme: dark)').matches;
-    if (prefersDark) applyTheme('dark');
-  }, []);
-  return null;
 }

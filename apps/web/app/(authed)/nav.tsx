@@ -18,7 +18,7 @@ import { loadProfile } from '@/app/profile/load-profile';
 import { SpeedianceMark } from '@/app/speediance-mark';
 import { verifyIdTokenFromCookies } from '@/lib/auth/session';
 
-import { ThemePrefDetector, ThemeToggle } from './theme-toggle';
+import { ThemeToggle } from './theme-toggle';
 import { UserMenu } from './user-menu';
 
 type Key =
@@ -122,7 +122,6 @@ export async function Nav({ current, userLabel }: { current: Key; userLabel: str
           ))}
         </nav>
         <ThemeToggle />
-        <ThemePrefDetector />
         <UserMenu email={userLabel} items={USER_MENU_ITEMS} />
       </div>
     </header>
