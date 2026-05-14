@@ -84,7 +84,7 @@ function SubmitButton() {
         padding: '0.65rem 1.2rem',
         background: pending
           ? 'var(--border-strong)'
-          : 'linear-gradient(135deg, #0b78d1 0%, #0b5fa8 100%)',
+          : 'linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%)',
         color: 'white',
         border: 'none',
         borderRadius: '10px',

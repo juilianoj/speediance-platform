@@ -74,7 +74,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
 }
 
 const pageWrapStyle: React.CSSProperties = {
-  background: 'linear-gradient(180deg, #f5f8fc 0%, #f7f8fa 280px)',
+  background: 'linear-gradient(180deg, var(--bg-page-gradient-top) 0%, var(--bg-page) 280px)',
   minHeight: '100vh',
   fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif',
   color: 'var(--text)',
@@ -91,7 +91,7 @@ function SetupCallout({ hasProfile }: { hasProfile: boolean }) {
     <section
       style={{
         padding: '1.5rem',
-        border: '1px solid #d9e6f5',
+        border: '1px solid var(--border)',
         borderRadius: '10px',
         background: 'var(--accent-soft)',
       }}
@@ -201,7 +201,7 @@ function DashboardBody({
       </section>
 
       {/* Next session — actionable recommendations the user opens the app for. */}
-      <section style={{ ...cardStyle, borderTop: '3px solid #0b78d1' }}>
+      <section style={{ ...cardStyle, borderTop: '3px solid var(--accent)' }}>
         <div style={cardHeaderStyle}>
           <h2 style={cardHeadingStyle}>Next session</h2>
           <p style={mutedStyle}>
