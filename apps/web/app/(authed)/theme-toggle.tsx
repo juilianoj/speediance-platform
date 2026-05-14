@@ -4,37 +4,44 @@ import { useEffect, useState } from 'react';
 
 type Theme = 'light' | 'dark';
 
-const STORAGE_KEY = 'spd-theme';
+const COOKIE_NAME = 'spd-theme';
+const COOKIE_MAX_AGE = 60 * 60 * 24 * 365; // one year
 
-function readTheme(): Theme {
-  if (typeof document === 'undefined') return 'light';
-  const attr = document.documentElement.getAttribute('data-theme');
-  return attr === 'dark' ? 'dark' : 'light';
+function readCookie(): Theme | null {
+  if (typeof document === 'undefined') return null;
+  const match = document.cookie.split('; ').find((row) => row.startsWith(`${COOKIE_NAME}=`));
+  if (!match) return null;
+  const value = match.split('=')[1];
+  return value === 'dark' || value === 'light' ? value : null;
+}
+
+function writeCookie(theme: Theme) {
+  // Long-lived; SameSite=Lax so the cookie travels with normal navigation
+  // but not with cross-site requests. No need for Secure here because the
+  // value isn't sensitive — it's a UI preference.
+  document.cookie = `${COOKIE_NAME}=${theme}; path=/; max-age=${COOKIE_MAX_AGE}; SameSite=Lax`;
 }
 
 function applyTheme(theme: Theme) {
   document.documentElement.setAttribute('data-theme', theme);
-  try {
-    localStorage.setItem(STORAGE_KEY, theme);
-  } catch {
-    // localStorage can throw in private-browsing modes; ignore — the
-    // bootstrap script falls back to system preference next paint.
-  }
+  writeCookie(theme);
+}
+
+function readDomTheme(): Theme {
+  if (typeof document === 'undefined') return 'light';
+  return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
 }
 
 /**
- * Compact light/dark toggle. The initial theme is set by the inline
- * script in `layout.tsx` before React hydrates, so this component only
- * needs to handle clicks and keep its own visible state in sync.
- *
- * Renders a sun/moon glyph rather than text so it fits the existing
- * Nav alongside the user-menu chip.
+ * Sun / moon toggle in the nav. The actual data-theme attribute is set
+ * server-side by `RootLayout` reading the cookie — this component just
+ * needs to flip it on click and persist the choice for the next request.
  */
 export function ThemeToggle() {
   const [theme, setTheme] = useState<Theme>('light');
 
   useEffect(() => {
-    setTheme(readTheme());
+    setTheme(readDomTheme());
   }, []);
 
   const flip = () => {
@@ -69,4 +76,24 @@ export function ThemeToggle() {
       {isDark ? '☀' : '☾'}
     </button>
   );
+}
+
+/**
+ * One-shot client component that fires once after first paint: if the
+ * user has no theme cookie AND their OS prefers dark, write the cookie
+ * + flip data-theme so subsequent navigations stay dark.
+ *
+ * Rendered alongside `<ThemeToggle>` in the Nav. Returns null — it has
+ * no visual presence.
+ */
+export function ThemePrefDetector() {
+  useEffect(() => {
+    if (readCookie() !== null) return; // user has already chosen
+    const prefersDark =
+      typeof window !== 'undefined' &&
+      window.matchMedia &&
+      window.matchMedia('(prefers-color-scheme: dark)').matches;
+    if (prefersDark) applyTheme('dark');
+  }, []);
+  return null;
 }
