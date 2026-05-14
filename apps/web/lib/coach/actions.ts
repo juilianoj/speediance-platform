@@ -14,6 +14,7 @@ import { createDb } from '@speediance/db';
 import { verifyIdTokenFromCookies } from '@/lib/auth/session';
 
 import { loadCoachContext, renderCoachContextBlock } from './load-context';
+import { queueWriteTool, WRITE_TOOLS, type ProposedAction } from './plan';
 import { COACH_TOOLS, runTool, type ToolName } from './tools';
 
 // Bedrock cross-region inference profile for Claude Sonnet 4.6. The "us."
@@ -34,12 +35,22 @@ export interface CoachMessage {
   content: string;
   /** Optional per-turn trace — tool names called for transparency. */
   toolsUsed?: ToolName[];
+  /** Write-side actions the assistant queued during this turn. The drawer
+   *  renders them as a plan card with an Approve / Cancel control. */
+  proposedActions?: ProposedAction[];
+  /** Status of the plan card (set client-side after the user interacts). */
+  planStatus?: 'pending' | 'running' | 'done' | 'failed' | 'cancelled';
+  /** Per-action execution results, populated after `executePlan` runs. */
+  planResults?: Array<{ id: string; ok: boolean; error?: string }>;
 }
 
 interface AskResult {
   ok: true;
   reply: string;
   toolsUsed: ToolName[];
+  /** Write-side actions the agent decided to take, deferred until the
+   *  user approves them via the plan card in the drawer. */
+  proposedActions: ProposedAction[];
 }
 
 interface AskError {
@@ -95,6 +106,12 @@ export async function askCoach(
 
   const client = new BedrockRuntimeClient({ region: REGION });
   const toolsUsed: ToolName[] = [];
+  // Per-turn queue of write-side actions the agent decided to take.
+  // Read tools execute inline (the agent needs real data to reason),
+  // but anything that mutates DDB or hits the Speediance write API
+  // accumulates here and surfaces to the user as a plan they have to
+  // approve before anything actually happens.
+  const proposedActions: ProposedAction[] = [];
 
   const coachContext = await loadCoachContext(claims.sub);
   const userContextBlock = renderCoachContextBlock(coachContext);
@@ -129,6 +146,18 @@ export async function askCoach(
     'oversized weights before they hit the draft — so if you try to push',
     'above the cap, the draft will save with a smaller weight than you asked',
     "for. Don't fight it.",
+    '',
+    'PLAN-AND-CONFIRM: every write-side tool you call (create / update /',
+    'schedule / unschedule workouts and programs) is QUEUED, not executed.',
+    'The server returns a synthetic `{ ok: true, queued: true, … }` result',
+    'so you can keep reasoning and chain steps (e.g. create a workout draft,',
+    'then a program that references its draftId, then schedule the program).',
+    'The user sees a plan card in the drawer with every queued action and',
+    'has to click Approve before anything actually saves to DDB or pushes',
+    'to Speediance. Your final reply should END with a one-line summary of',
+    'what the plan does — e.g. "I queued 1 workout + 1 program + a schedule',
+    'push starting Monday." Then stop. Don\'t pre-celebrate ("Done!") —',
+    "the actions haven't run yet.",
     '',
     'When the user asks you to build / plan / draft / create a SINGLE workout,',
     'USE the builder tools — never just describe it in prose:',
@@ -238,13 +267,14 @@ export async function askCoach(
         if (block.toolUse) {
           const tname = block.toolUse.name as ToolName;
           const tuseId = block.toolUse.toolUseId ?? 'unknown';
+          const toolArgs = (block.toolUse.input ?? {}) as Record<string, unknown>;
           toolsUsed.push(tname);
           try {
-            const result = await runTool(
-              claims.sub,
-              tname,
-              (block.toolUse.input ?? {}) as Record<string, unknown>,
-            );
+            // Write tools are queued for user approval; read tools execute
+            // inline so the agent has real data to reason against.
+            const result = WRITE_TOOLS.has(tname)
+              ? queueWriteTool(tname, toolArgs, proposedActions)
+              : await runTool(claims.sub, tname, toolArgs);
             // Bedrock's tool_result `json` field MUST be a JSON object
             // (not an array). Wrap raw arrays in { items: [...] } so the
             // model still gets clean structured input regardless of what
@@ -280,7 +310,12 @@ export async function askCoach(
       .join('\n')
       .trim();
     await flushAudit(true);
-    return { ok: true, reply: text || '(no answer)', toolsUsed };
+    return {
+      ok: true,
+      reply: text || '(no answer)',
+      toolsUsed,
+      proposedActions,
+    };
   }
 
   await flushAudit(false);
