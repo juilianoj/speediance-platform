@@ -5,6 +5,8 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
 import { askCoach, type CoachMessage } from '@/lib/coach/actions';
+import { type ProposedAction } from '@/lib/coach/plan';
+import { executePlan } from '@/lib/coach/plan-actions';
 
 const SUGGESTED_PROMPTS = [
   'What did I do yesterday?',
@@ -128,9 +130,61 @@ export function AssistantDrawer() {
       }
       setMessages((m) => [
         ...m,
-        { role: 'assistant', content: res.reply, toolsUsed: res.toolsUsed },
+        {
+          role: 'assistant',
+          content: res.reply,
+          toolsUsed: res.toolsUsed,
+          proposedActions: res.proposedActions,
+          planStatus: (res.proposedActions ?? []).length > 0 ? 'pending' : undefined,
+        },
       ]);
     });
+  };
+
+  // Approve every queued action for one assistant message. Updates the
+  // message in-place with status + per-step results.
+  const approvePlan = (messageIdx: number, actions: ProposedAction[]) => {
+    setMessages((m) =>
+      m.map((msg, i) => (i === messageIdx ? { ...msg, planStatus: 'running' } : msg)),
+    );
+    startTransition(async () => {
+      try {
+        const res = await executePlan(actions);
+        setMessages((m) =>
+          m.map((msg, i) =>
+            i === messageIdx
+              ? {
+                  ...msg,
+                  planStatus: res.ok ? 'done' : 'failed',
+                  planResults: res.results.map((r) => ({
+                    id: r.id,
+                    ok: r.ok,
+                    error: r.error,
+                  })),
+                }
+              : msg,
+          ),
+        );
+      } catch (err) {
+        setMessages((m) =>
+          m.map((msg, i) => {
+            if (i !== messageIdx) return msg;
+            const message = err instanceof Error ? err.message : 'Plan execution failed.';
+            return {
+              ...msg,
+              planStatus: 'failed',
+              planResults: actions.map((a) => ({ id: a.id, ok: false, error: message })),
+            };
+          }),
+        );
+      }
+    });
+  };
+
+  const cancelPlan = (messageIdx: number) => {
+    setMessages((m) =>
+      m.map((msg, i) => (i === messageIdx ? { ...msg, planStatus: 'cancelled' } : msg)),
+    );
   };
 
   const clear = () => {
@@ -213,7 +267,19 @@ export function AssistantDrawer() {
           )}
 
           {messages.map((m, i) => (
-            <Bubble key={i} m={m} />
+            <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <Bubble m={m} />
+              {m.role === 'assistant' && m.proposedActions && m.proposedActions.length > 0 && (
+                <PlanCard
+                  actions={m.proposedActions}
+                  status={m.planStatus ?? 'pending'}
+                  results={m.planResults}
+                  pending={pending}
+                  onApprove={() => approvePlan(i, m.proposedActions ?? [])}
+                  onCancel={() => cancelPlan(i)}
+                />
+              )}
+            </div>
           ))}
           {pending && (
             <div style={{ ...bubbleAssistant, color: 'var(--text-faint)' }}>Thinking…</div>
@@ -246,6 +312,136 @@ export function AssistantDrawer() {
         </form>
       </aside>
     </>
+  );
+}
+
+/**
+ * Plan card — surfaces the queued write actions after every turn the
+ * assistant decided to do something. One Approve button runs every
+ * action in order; Cancel drops the whole plan. Per-action results
+ * show inline after the run so partial failures are visible.
+ */
+function PlanCard({
+  actions,
+  status,
+  results,
+  pending,
+  onApprove,
+  onCancel,
+}: {
+  actions: ProposedAction[];
+  status: 'pending' | 'running' | 'done' | 'failed' | 'cancelled';
+  results?: Array<{ id: string; ok: boolean; error?: string }>;
+  pending: boolean;
+  onApprove: () => void;
+  onCancel: () => void;
+}) {
+  const resultById = new Map((results ?? []).map((r) => [r.id, r]));
+  const statusBanner = (() => {
+    switch (status) {
+      case 'running':
+        return { color: 'var(--accent)', label: 'Running…' };
+      case 'done':
+        return { color: 'var(--success)', label: '✓ Approved & executed' };
+      case 'failed':
+        return { color: 'var(--danger)', label: 'Some steps failed — see details' };
+      case 'cancelled':
+        return { color: 'var(--text-faint)', label: 'Cancelled — nothing was saved' };
+      case 'pending':
+      default:
+        return { color: 'var(--warning)', label: 'Awaiting approval' };
+    }
+  })();
+
+  return (
+    <div
+      style={{
+        border: '1px solid var(--border)',
+        borderLeft:
+          status === 'done'
+            ? '3px solid var(--success)'
+            : status === 'failed'
+              ? '3px solid var(--danger)'
+              : status === 'cancelled'
+                ? '3px solid var(--text-faint)'
+                : '3px solid var(--accent)',
+        borderRadius: '10px',
+        background: 'var(--bg-card)',
+        padding: '0.7rem 0.85rem',
+        fontSize: '0.85rem',
+        color: 'var(--text)',
+        boxShadow: 'var(--shadow-card-sm)',
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'baseline',
+          marginBottom: '0.45rem',
+        }}
+      >
+        <strong
+          style={{ fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}
+        >
+          Plan ({actions.length} step{actions.length === 1 ? '' : 's'})
+        </strong>
+        <span style={{ color: statusBanner.color, fontSize: '0.75rem', fontWeight: 600 }}>
+          {statusBanner.label}
+        </span>
+      </div>
+      <ol style={{ margin: 0, padding: '0 0 0 1.2rem', display: 'grid', gap: '0.25rem' }}>
+        {actions.map((a) => {
+          const r = resultById.get(a.id);
+          const stepColor = r ? (r.ok ? 'var(--success)' : 'var(--danger)') : 'var(--text)';
+          return (
+            <li key={a.id} style={{ color: stepColor, lineHeight: 1.45 }}>
+              {a.summary}
+              {r && !r.ok && r.error && (
+                <span style={{ color: 'var(--danger)', fontSize: '0.78rem' }}> — {r.error}</span>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+      {status === 'pending' && (
+        <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.6rem' }}>
+          <button
+            type="button"
+            onClick={onApprove}
+            disabled={pending}
+            style={{
+              padding: '0.4rem 0.85rem',
+              background: 'var(--accent)',
+              color: 'var(--text-on-accent)',
+              border: 'none',
+              borderRadius: '7px',
+              fontWeight: 600,
+              cursor: pending ? 'wait' : 'pointer',
+              fontSize: '0.82rem',
+            }}
+          >
+            Approve & run
+          </button>
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={pending}
+            style={{
+              padding: '0.4rem 0.85rem',
+              background: 'transparent',
+              color: 'var(--text-muted)',
+              border: '1px solid var(--border-strong)',
+              borderRadius: '7px',
+              fontSize: '0.82rem',
+              cursor: pending ? 'wait' : 'pointer',
+            }}
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 
