@@ -137,6 +137,14 @@ export interface UserScopedDb {
     delete: (programId: string) => Promise<unknown>;
   };
 
+  coachInvocations: {
+    /** Every coach turn this user has run, ordered ascending by SK
+     *  (startedAt). Caller can filter by month for the per-user spend
+     *  roll-up. */
+    list: () => Promise<unknown>;
+    put: (input: Put<'coachInvocations'>) => Promise<unknown>;
+  };
+
   apiKeys: {
     /** The active MCP key row for this user, or null. Reads return the
      *  full secret — only do this on the server, and never log the value. */
@@ -402,6 +410,14 @@ export function createDb(opts: DbConfig): CreatedDb {
               .set(input as Partial<CreateEntityItem<Entities['programDrafts']>>)
               .go(),
           delete: (programId) => entities.programDrafts.delete({ userId, programId }).go(),
+        },
+
+        coachInvocations: {
+          list: () => entities.coachInvocations.query.primary({ userId }).go({ pages: 'all' }),
+          put: (input) =>
+            entities.coachInvocations
+              .put({ ...input, userId } as CreateEntityItem<Entities['coachInvocations']>)
+              .go(),
         },
 
         apiKeys: {

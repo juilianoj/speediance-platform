@@ -9,6 +9,7 @@ import {
   type Tool,
   type ToolResultContentBlock,
 } from '@aws-sdk/client-bedrock-runtime';
+import { createDb } from '@speediance/db';
 
 import { verifyIdTokenFromCookies } from '@/lib/auth/session';
 
@@ -57,6 +58,35 @@ export async function askCoach(
 ): Promise<AskResult | AskError> {
   const claims = await verifyIdTokenFromCookies();
   if (!claims) return { ok: false, message: 'Sign in to chat.' };
+
+  // Per-turn audit (roadmap §4.7 v2) — captures tokens + duration for
+  // the /admin Bedrock-spend roll-up. Filled in across the loop;
+  // flushed once on every exit path (success or AskError).
+  const startedAt = new Date().toISOString();
+  const startMs = Date.now();
+  const audit = { inputTokens: 0, outputTokens: 0, iterations: 0 };
+  const flushAudit = async (ok: boolean) => {
+    const tableName = process.env.DYNAMO_TABLE_NAME;
+    if (!tableName) return;
+    try {
+      const me = createDb({ tableName }).forUser(claims.sub);
+      await me.coachInvocations.put({
+        startedAt,
+        finishedAt: new Date().toISOString(),
+        modelId: MODEL_ID,
+        inputTokens: audit.inputTokens,
+        outputTokens: audit.outputTokens,
+        iterations: audit.iterations,
+        durationMs: Date.now() - startMs,
+        ok,
+        toolsUsed: toolsUsed.join(',').slice(0, 1024),
+      });
+    } catch (err) {
+      // Audit is best-effort — losing one row is far less bad than
+      // failing the user-facing turn because the audit write blew up.
+      console.warn('coachInvocation audit write failed', err);
+    }
+  };
 
   const client = new BedrockRuntimeClient({ region: REGION });
   const toolsUsed: ToolName[] = [];
@@ -127,6 +157,7 @@ export async function askCoach(
   ].join('\n');
 
   for (let iter = 0; iter < MAX_TOOL_ITERATIONS; iter++) {
+    audit.iterations = iter + 1;
     const input: ConverseCommandInput = {
       modelId: MODEL_ID,
       system: [{ text: systemPrompt }],
@@ -159,6 +190,7 @@ export async function askCoach(
       // Anthropic use-case form per account before invoking Claude on
       // Bedrock. Translate the raw message into something actionable.
       if (/use case details have not been submitted/i.test(raw)) {
+        await flushAudit(false);
         return {
           ok: false,
           message:
@@ -166,17 +198,29 @@ export async function askCoach(
         };
       }
       if (/AccessDenied|not authorized/i.test(raw)) {
+        await flushAudit(false);
         return {
           ok: false,
           message:
             "Bedrock denied the request. Check the Lambda's IAM role has `bedrock:InvokeModel` and that the configured model is approved for this account.",
         };
       }
+      await flushAudit(false);
       return { ok: false, message: `Coach error: ${raw}` };
     }
 
+    // Accumulate Bedrock-reported usage across iterations so the audit
+    // row reflects the whole turn, not just the last Converse call.
+    if (resp.usage) {
+      audit.inputTokens += resp.usage.inputTokens ?? 0;
+      audit.outputTokens += resp.usage.outputTokens ?? 0;
+    }
+
     const out = resp.output?.message;
-    if (!out) return { ok: false, message: 'Bedrock returned no message.' };
+    if (!out) {
+      await flushAudit(false);
+      return { ok: false, message: 'Bedrock returned no message.' };
+    }
 
     if (resp.stopReason === 'tool_use') {
       messages.push(out);
@@ -226,9 +270,11 @@ export async function askCoach(
       .map((b) => b.text ?? '')
       .join('\n')
       .trim();
+    await flushAudit(true);
     return { ok: true, reply: text || '(no answer)', toolsUsed };
   }
 
+  await flushAudit(false);
   return {
     ok: false,
     message:
