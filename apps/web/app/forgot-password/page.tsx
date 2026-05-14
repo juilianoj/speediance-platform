@@ -36,14 +36,14 @@ const wrapStyle: React.CSSProperties = {
     'radial-gradient(circle at 100% 100%, #ede5fb 0%, transparent 55%), ' +
     'linear-gradient(180deg, #f7f8fa 0%, #ffffff 100%)',
   fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif',
-  color: '#0f172a',
+  color: 'var(--text)',
 };
 
 const panelStyle: React.CSSProperties = {
   width: '100%',
   maxWidth: 420,
-  background: '#ffffff',
-  border: '1px solid #e5e7eb',
+  background: 'var(--bg-card)',
+  border: '1px solid var(--border)',
   borderRadius: '16px',
   padding: '2rem 2rem 2.25rem 2rem',
   boxShadow: '0 12px 40px rgba(15,23,42,0.08), 0 2px 4px rgba(15,23,42,0.04)',
@@ -59,7 +59,7 @@ const brandRowStyle: React.CSSProperties = {
 const brandTextStyle: React.CSSProperties = {
   fontSize: '1.05rem',
   fontWeight: 800,
-  color: '#0f172a',
+  color: 'var(--text)',
   letterSpacing: '-0.02em',
 };
 
@@ -72,7 +72,7 @@ const h1Style: React.CSSProperties = {
 
 const subStyle: React.CSSProperties = {
   margin: '0.35rem 0 0 0',
-  color: '#64748b',
+  color: 'var(--text-muted)',
   fontSize: '0.92rem',
   lineHeight: 1.5,
 };

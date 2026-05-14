@@ -117,7 +117,9 @@ export function WorkoutGroupsList({ groups }: { groups: WorkoutGroup[] }) {
   };
 
   if (groups.length === 0) {
-    return <p style={{ color: '#94a3b8', margin: '0.75rem 0 0 0' }}>No workouts logged yet.</p>;
+    return (
+      <p style={{ color: 'var(--text-faint)', margin: '0.75rem 0 0 0' }}>No workouts logged yet.</p>
+    );
   }
 
   return (
@@ -139,7 +141,7 @@ export function WorkoutGroupsList({ groups }: { groups: WorkoutGroup[] }) {
           placeholder="Filter workouts…"
           style={{
             padding: '0.5rem 0.75rem',
-            border: '1px solid #cbd5e1',
+            border: '1px solid var(--border-strong)',
             borderRadius: '8px',
             fontSize: '0.92rem',
             flex: '1 1 240px',
@@ -158,7 +160,7 @@ export function WorkoutGroupsList({ groups }: { groups: WorkoutGroup[] }) {
         <div
           style={{
             display: 'flex',
-            border: '1px solid #cbd5e1',
+            border: '1px solid var(--border-strong)',
             borderRadius: '8px',
             overflow: 'hidden',
             fontSize: '0.85rem',
@@ -172,8 +174,8 @@ export function WorkoutGroupsList({ groups }: { groups: WorkoutGroup[] }) {
               style={{
                 padding: '0.45rem 0.7rem',
                 border: 'none',
-                background: viewMode === m ? '#0b78d1' : '#fff',
-                color: viewMode === m ? '#fff' : '#475569',
+                background: viewMode === m ? 'var(--accent)' : 'var(--bg-card)',
+                color: viewMode === m ? '#fff' : 'var(--text-muted)',
                 cursor: 'pointer',
                 fontWeight: viewMode === m ? 600 : 500,
                 fontSize: '0.85rem',
@@ -188,13 +190,13 @@ export function WorkoutGroupsList({ groups }: { groups: WorkoutGroup[] }) {
             {allCollapsed ? 'Expand all' : 'Collapse all'}
           </button>
         )}
-        <span style={{ color: '#94a3b8', fontSize: '0.85rem' }}>
+        <span style={{ color: 'var(--text-faint)', fontSize: '0.85rem' }}>
           {filtered.length} of {groups.length}
         </span>
       </div>
 
       {sections.length === 0 ? (
-        <p style={{ color: '#94a3b8', margin: '0.75rem 0 0 0' }}>No workouts match.</p>
+        <p style={{ color: 'var(--text-faint)', margin: '0.75rem 0 0 0' }}>No workouts match.</p>
       ) : (
         sections.map((s) => {
           const collapsedHere = isCollapsed(s.key);
@@ -209,7 +211,7 @@ export function WorkoutGroupsList({ groups }: { groups: WorkoutGroup[] }) {
                   style={{
                     display: 'inline-block',
                     width: '0.6rem',
-                    color: '#94a3b8',
+                    color: 'var(--text-faint)',
                     transition: 'transform 100ms',
                     transform: collapsedHere ? 'rotate(-90deg)' : 'none',
                   }}
@@ -217,7 +219,7 @@ export function WorkoutGroupsList({ groups }: { groups: WorkoutGroup[] }) {
                   ▾
                 </span>
                 <span>{s.label}</span>
-                <span style={{ color: '#94a3b8', fontWeight: 500, fontSize: '0.74rem' }}>
+                <span style={{ color: 'var(--text-faint)', fontWeight: 500, fontSize: '0.74rem' }}>
                   {s.rows.length}
                 </span>
               </button>
@@ -246,10 +248,10 @@ export function WorkoutGroupsList({ groups }: { groups: WorkoutGroup[] }) {
                   <div
                     style={{
                       marginTop: '0.6rem',
-                      border: '1px solid #e5e7eb',
+                      border: '1px solid var(--border)',
                       borderRadius: '8px',
                       overflow: 'hidden',
-                      background: '#fff',
+                      background: 'var(--bg-card)',
                     }}
                   >
                     {s.rows.map((g, i) => (
@@ -262,7 +264,7 @@ export function WorkoutGroupsList({ groups }: { groups: WorkoutGroup[] }) {
                           gap: '1.2rem',
                           alignItems: 'center',
                           padding: '0.7rem 1rem',
-                          borderTop: i === 0 ? 'none' : '1px solid #f1f5f9',
+                          borderTop: i === 0 ? 'none' : '1px solid var(--border-faint)',
                           textDecoration: 'none',
                           color: 'inherit',
                           fontSize: '0.92rem',
@@ -279,18 +281,26 @@ export function WorkoutGroupsList({ groups }: { groups: WorkoutGroup[] }) {
                           {g.title}
                         </div>
                         <span
-                          style={{ color: '#64748b', fontSize: '0.82rem', whiteSpace: 'nowrap' }}
+                          style={{
+                            color: 'var(--text-muted)',
+                            fontSize: '0.82rem',
+                            whiteSpace: 'nowrap',
+                          }}
                         >
                           {g.count}×
                         </span>
                         <span
-                          style={{ color: '#64748b', fontSize: '0.82rem', whiteSpace: 'nowrap' }}
+                          style={{
+                            color: 'var(--text-muted)',
+                            fontSize: '0.82rem',
+                            whiteSpace: 'nowrap',
+                          }}
                         >
                           last {shortDate(g.lastDone)}
                         </span>
                         <span
                           style={{
-                            color: '#94a3b8',
+                            color: 'var(--text-faint)',
                             fontSize: '0.82rem',
                             whiteSpace: 'nowrap',
                             fontVariantNumeric: 'tabular-nums',
@@ -329,10 +339,10 @@ function shortDate(iso: string): string {
 const tileStyle: React.CSSProperties = {
   display: 'block',
   padding: '0.85rem 1rem',
-  border: '1px solid #e5e7eb',
+  border: '1px solid var(--border)',
   borderLeft: '3px solid #0b78d1',
   borderRadius: '8px',
-  background: '#fff',
+  background: 'var(--bg-card)',
   textDecoration: 'none',
   color: 'inherit',
 };
@@ -347,26 +357,26 @@ const tileMetaStyle: React.CSSProperties = {
   display: 'flex',
   gap: '0.85rem',
   marginTop: '0.4rem',
-  color: '#64748b',
+  color: 'var(--text-muted)',
   fontSize: '0.78rem',
   fontVariantNumeric: 'tabular-nums',
 };
 
 const selectStyle: React.CSSProperties = {
   padding: '0.5rem 0.7rem',
-  border: '1px solid #cbd5e1',
+  border: '1px solid var(--border-strong)',
   borderRadius: '8px',
   fontSize: '0.92rem',
-  background: '#fff',
+  background: 'var(--bg-card)',
 };
 
 const ghostButtonStyle: React.CSSProperties = {
   padding: '0.5rem 0.7rem',
-  border: '1px solid #cbd5e1',
+  border: '1px solid var(--border-strong)',
   borderRadius: '8px',
   fontSize: '0.85rem',
-  background: '#fff',
-  color: '#475569',
+  background: 'var(--bg-card)',
+  color: 'var(--text-muted)',
   cursor: 'pointer',
   fontWeight: 500,
 };
@@ -379,12 +389,12 @@ const sectionHeaderStyle: React.CSSProperties = {
   textAlign: 'left',
   padding: '0.5rem 0.6rem',
   border: 'none',
-  background: '#f8fafc',
+  background: 'var(--bg-subtle)',
   borderRadius: '6px',
   cursor: 'pointer',
   fontSize: '0.78rem',
   fontWeight: 700,
   textTransform: 'uppercase',
   letterSpacing: '0.06em',
-  color: '#475569',
+  color: 'var(--text-muted)',
 };

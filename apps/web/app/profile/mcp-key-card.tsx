@@ -87,7 +87,7 @@ export function McpKeyCard({ initialPrefix }: Props) {
     <div>
       <header style={{ marginBottom: '0.75rem' }}>
         <strong style={{ fontSize: '0.95rem' }}>MCP API key (remote Claude Desktop)</strong>
-        <p style={{ margin: '0.3rem 0 0 0', color: '#666', fontSize: '0.85rem' }}>
+        <p style={{ margin: '0.3rem 0 0 0', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
           Generate a key, paste it into Claude Desktop&apos;s <code>mcpServers</code> config, and
           you can chat with your training data from anywhere — not just the laptop you installed the
           local MCP server on. See{' '}
@@ -118,7 +118,7 @@ export function McpKeyCard({ initialPrefix }: Props) {
           <button
             type="button"
             onClick={onAcknowledge}
-            style={{ ...primaryButtonStyle, background: '#0d9488' }}
+            style={{ ...primaryButtonStyle, background: 'var(--success)' }}
           >
             I&apos;ve copied it
           </button>
@@ -131,7 +131,7 @@ export function McpKeyCard({ initialPrefix }: Props) {
         </div>
       ) : (
         <div style={banner('neutral')}>
-          <p style={{ margin: 0, fontSize: '0.9rem', color: '#666' }}>
+          <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-muted)' }}>
             No active MCP key. Generate one to use Claude Desktop remotely.
           </p>
         </div>
@@ -149,7 +149,7 @@ export function McpKeyCard({ initialPrefix }: Props) {
       </div>
 
       {error && (
-        <p style={{ marginTop: '0.5rem', color: '#b91c1c', fontSize: '0.85rem' }}>{error}</p>
+        <p style={{ marginTop: '0.5rem', color: 'var(--danger)', fontSize: '0.85rem' }}>{error}</p>
       )}
     </div>
   );
@@ -159,8 +159,8 @@ function banner(kind: 'success' | 'neutral'): React.CSSProperties {
   return {
     padding: '0.75rem 1rem',
     borderRadius: '6px',
-    background: kind === 'success' ? '#ecfdf5' : '#f7f7f8',
-    border: `1px solid ${kind === 'success' ? '#a7f3d0' : '#e5e7eb'}`,
+    background: kind === 'success' ? 'var(--accent-soft)' : 'var(--bg-subtle)',
+    border: `1px solid ${kind === 'success' ? 'var(--success)' : 'var(--border)'}`,
     fontSize: '0.9rem',
   };
 }
@@ -169,13 +169,13 @@ const keyInputStyle: React.CSSProperties = {
   padding: '0.5rem 0.6rem',
   fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
   fontSize: '0.85rem',
-  border: '1px solid #d0d0d0',
+  border: '1px solid var(--border-strong)',
   borderRadius: '6px',
 };
 
 const primaryButtonStyle: React.CSSProperties = {
   padding: '0.5rem 0.9rem',
-  background: '#0b78d1',
+  background: 'var(--accent)',
   color: 'white',
   border: 'none',
   borderRadius: '6px',
@@ -187,5 +187,5 @@ const primaryButtonStyle: React.CSSProperties = {
 
 const danger: React.CSSProperties = {
   ...primaryButtonStyle,
-  background: '#dc2626',
+  background: 'var(--danger)',
 };

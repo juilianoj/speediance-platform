@@ -76,25 +76,27 @@ function ProgramCard({ p }: { p: ProgramRow }) {
     <div
       style={{
         padding: '1rem 1.1rem',
-        border: '1px solid #e5e7eb',
+        border: '1px solid var(--border)',
         borderRadius: '8px',
-        background: '#fafbfc',
+        background: 'var(--bg-subtle)',
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
         <strong style={{ fontSize: '0.95rem' }}>{p.name ?? 'Untitled program'}</strong>
-        <span style={{ color: '#888', fontSize: '0.78rem' }}>
+        <span style={{ color: 'var(--text-faint)', fontSize: '0.78rem' }}>
           {p.status ?? 'draft'} · {p.createdAt ? p.createdAt.slice(0, 10) : '—'}
         </span>
       </div>
       {plan.focus && (
-        <p style={{ margin: '0.4rem 0 0 0', color: '#666', fontSize: '0.88rem' }}>{plan.focus}</p>
+        <p style={{ margin: '0.4rem 0 0 0', color: 'var(--text-muted)', fontSize: '0.88rem' }}>
+          {plan.focus}
+        </p>
       )}
       {p.coachReasoning && (
         <p
           style={{
             margin: '0.4rem 0 0 0',
-            color: '#444',
+            color: 'var(--text)',
             fontSize: '0.88rem',
             fontStyle: 'italic',
           }}
@@ -104,14 +106,19 @@ function ProgramCard({ p }: { p: ProgramRow }) {
       )}
       {plan.exercises && plan.exercises.length > 0 && (
         <ul
-          style={{ margin: '0.6rem 0 0 1.2rem', padding: 0, fontSize: '0.88rem', color: '#1a1a1a' }}
+          style={{
+            margin: '0.6rem 0 0 1.2rem',
+            padding: 0,
+            fontSize: '0.88rem',
+            color: 'var(--text)',
+          }}
         >
           {plan.exercises.map((ex, i) => (
             <li key={i}>
               <strong>{ex.name}</strong> — {ex.sets ?? '?'}×{ex.reps ?? '?'}
               {ex.weight ? ` @ ${ex.weight} lb` : ''}
               {ex.rest_seconds ? ` · ${ex.rest_seconds}s rest` : ''}
-              {ex.notes && <span style={{ color: '#888' }}> · {ex.notes}</span>}
+              {ex.notes && <span style={{ color: 'var(--text-faint)' }}> · {ex.notes}</span>}
             </li>
           ))}
         </ul>

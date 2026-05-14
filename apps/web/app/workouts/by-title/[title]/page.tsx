@@ -31,8 +31,8 @@ export default async function WorkoutByTitlePage({ params, searchParams }: PageP
 
   return (
     <PageShell current="liftlog" userLabel={String(claims.email ?? claims.sub)} title={group.title}>
-      <p style={{ margin: '-0.5rem 0 1rem 0', color: '#666' }}>
-        <a href="/dashboard" style={{ color: '#0b78d1', textDecoration: 'none' }}>
+      <p style={{ margin: '-0.5rem 0 1rem 0', color: 'var(--text-muted)' }}>
+        <a href="/dashboard" style={{ color: 'var(--accent)', textDecoration: 'none' }}>
           ← Back
         </a>
       </p>
@@ -67,7 +67,7 @@ export default async function WorkoutByTitlePage({ params, searchParams }: PageP
                   <td style={tdStyle}>
                     <a
                       href={`/workouts/${encodeURIComponent(w.startTime)}`}
-                      style={{ color: '#0b78d1', textDecoration: 'none', fontWeight: 500 }}
+                      style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: 500 }}
                     >
                       {shortDate(w.startTime)}
                     </a>
@@ -114,17 +114,17 @@ export default async function WorkoutByTitlePage({ params, searchParams }: PageP
                 >
                   <a
                     href={`/exercises/${encodeURIComponent(ex.exerciseId)}`}
-                    style={{ color: '#0b78d1', textDecoration: 'none', fontWeight: 500 }}
+                    style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: 500 }}
                   >
                     {ex.name}
                   </a>
-                  <span style={{ color: '#888', fontSize: '0.85rem' }}>
+                  <span style={{ color: 'var(--text-faint)', fontSize: '0.85rem' }}>
                     {ex.muscleGroup ?? '—'} · best {ex.bestWeight ? `${ex.bestWeight}` : '—'} · last{' '}
                     {ex.workingWeight ? `${ex.workingWeight}` : '—'}
                   </span>
                 </div>
                 {history.length === 0 ? (
-                  <p style={{ color: '#888', margin: 0, fontSize: '0.85rem' }}>
+                  <p style={{ color: 'var(--text-faint)', margin: 0, fontSize: '0.85rem' }}>
                     No weighted sets logged.
                   </p>
                 ) : (
@@ -142,7 +142,7 @@ export default async function WorkoutByTitlePage({ params, searchParams }: PageP
 function MiniChart({ points }: { points: Array<{ x: string; y: number }> }) {
   const filtered = points.filter((p) => p.y > 0);
   if (filtered.length === 0) {
-    return <p style={{ color: '#888', margin: 0, fontSize: '0.85rem' }}>No data.</p>;
+    return <p style={{ color: 'var(--text-faint)', margin: 0, fontSize: '0.85rem' }}>No data.</p>;
   }
   const w = Math.max(360, filtered.length * 45);
   const h = 90;
@@ -176,7 +176,7 @@ function Stat({ label, value }: { label: string; value: string }) {
     <div style={cardStyle}>
       <div
         style={{
-          color: '#666',
+          color: 'var(--text-muted)',
           fontSize: '0.72rem',
           textTransform: 'uppercase',
           letterSpacing: '0.06em',

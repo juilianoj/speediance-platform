@@ -16,7 +16,7 @@ const LABELS: Record<(typeof MUSCLE_GROUP_ORDER)[number], string> = {
   core: 'Core',
 };
 
-const FILL = '#0b78d1';
+const FILL = 'var(--accent)';
 
 export function MuscleGroupChart({ sets }: { sets: MuscleGroupSets }) {
   const rows = MUSCLE_GROUP_ORDER.map((g) => ({
@@ -26,7 +26,11 @@ export function MuscleGroupChart({ sets }: { sets: MuscleGroupSets }) {
   }));
   const total = rows.reduce((s, r) => s + r.value, 0);
   if (total === 0) {
-    return <p style={{ color: '#888', margin: 0 }}>No muscle-group data in the last 30 days.</p>;
+    return (
+      <p style={{ color: 'var(--text-faint)', margin: 0 }}>
+        No muscle-group data in the last 30 days.
+      </p>
+    );
   }
   const max = Math.max(...rows.map((r) => r.value), 1);
 
@@ -46,12 +50,12 @@ export function MuscleGroupChart({ sets }: { sets: MuscleGroupSets }) {
               fontSize: '0.9rem',
             }}
           >
-            <span style={{ color: '#444' }}>{r.label}</span>
+            <span style={{ color: 'var(--text)' }}>{r.label}</span>
             <div
               style={{
                 position: 'relative',
                 height: '18px',
-                background: '#f1f4f8',
+                background: 'var(--bg-subtle)',
                 borderRadius: '4px',
                 overflow: 'hidden',
               }}
@@ -66,8 +70,14 @@ export function MuscleGroupChart({ sets }: { sets: MuscleGroupSets }) {
                 }}
               />
             </div>
-            <span style={{ color: '#666', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-              {r.value} <span style={{ color: '#aaa' }}>({pct.toFixed(0)}%)</span>
+            <span
+              style={{
+                color: 'var(--text-muted)',
+                textAlign: 'right',
+                fontVariantNumeric: 'tabular-nums',
+              }}
+            >
+              {r.value} <span style={{ color: 'var(--text-faint)' }}>({pct.toFixed(0)}%)</span>
             </span>
           </div>
         );

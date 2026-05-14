@@ -123,7 +123,7 @@ export function LiftLogTable({ exercises }: { exercises: ExerciseSummary[] }) {
           placeholder="Filter by name…"
           style={{
             padding: '0.5rem 0.75rem',
-            border: '1px solid #cbd5e1',
+            border: '1px solid var(--border-strong)',
             borderRadius: '8px',
             fontSize: '0.92rem',
             flex: '1 1 240px',
@@ -154,14 +154,14 @@ export function LiftLogTable({ exercises }: { exercises: ExerciseSummary[] }) {
             {allCollapsed ? 'Expand all' : 'Collapse all'}
           </button>
         )}
-        <span style={{ color: '#94a3b8', fontSize: '0.85rem' }}>
+        <span style={{ color: 'var(--text-faint)', fontSize: '0.85rem' }}>
           {filteredRows.length} of {exercises.length}
         </span>
       </div>
 
       <div style={{ overflowX: 'auto' }}>
         {filteredRows.length === 0 ? (
-          <p style={{ color: '#94a3b8', margin: '1rem 0 0 0' }}>No exercises match.</p>
+          <p style={{ color: 'var(--text-faint)', margin: '1rem 0 0 0' }}>No exercises match.</p>
         ) : sections ? (
           sections.map((s) => {
             const collapsedHere = isCollapsed(s.key);
@@ -178,21 +178,21 @@ export function LiftLogTable({ exercises }: { exercises: ExerciseSummary[] }) {
                     textAlign: 'left',
                     padding: '0.5rem 0.6rem',
                     border: 'none',
-                    background: '#f8fafc',
+                    background: 'var(--bg-subtle)',
                     borderRadius: '6px',
                     cursor: 'pointer',
                     fontSize: '0.78rem',
                     fontWeight: 700,
                     textTransform: 'uppercase',
                     letterSpacing: '0.06em',
-                    color: '#475569',
+                    color: 'var(--text-muted)',
                   }}
                 >
                   <span
                     style={{
                       display: 'inline-block',
                       width: '0.6rem',
-                      color: '#94a3b8',
+                      color: 'var(--text-faint)',
                       transition: 'transform 100ms',
                       transform: collapsedHere ? 'rotate(-90deg)' : 'none',
                     }}
@@ -200,7 +200,9 @@ export function LiftLogTable({ exercises }: { exercises: ExerciseSummary[] }) {
                     ▾
                   </span>
                   <span>{s.label}</span>
-                  <span style={{ color: '#94a3b8', fontWeight: 500, fontSize: '0.74rem' }}>
+                  <span
+                    style={{ color: 'var(--text-faint)', fontWeight: 500, fontSize: '0.74rem' }}
+                  >
                     {s.rows.length}
                   </span>
                 </button>
@@ -273,7 +275,7 @@ function Th({
         textAlign: right ? 'right' : 'left',
         cursor: 'pointer',
         userSelect: 'none',
-        color: active ? '#0b78d1' : '#64748b',
+        color: active ? 'var(--accent)' : 'var(--text-muted)',
       }}
     >
       {label}
@@ -288,32 +290,40 @@ function Row({ e, showGroup }: { e: ExerciseSummary; showGroup: boolean }) {
       ? e.bestWeight - e.workingWeight
       : undefined;
   return (
-    <tr style={{ borderTop: '1px solid #f1f5f9' }}>
+    <tr style={{ borderTop: '1px solid var(--border-faint)' }}>
       <td style={tdStyle}>
         <a
           href={`/exercises/${encodeURIComponent(e.exerciseId)}`}
-          style={{ color: '#0b78d1', textDecoration: 'none', fontWeight: 500 }}
+          style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: 500 }}
         >
           {e.name}
           {e.isUnilateral && (
-            <span style={{ marginLeft: '0.4rem', color: '#94a3b8', fontSize: '0.72rem' }}>L/R</span>
+            <span style={{ marginLeft: '0.4rem', color: 'var(--text-faint)', fontSize: '0.72rem' }}>
+              L/R
+            </span>
           )}
         </a>
       </td>
-      {showGroup && <td style={{ ...tdStyle, color: '#64748b' }}>{e.muscleGroup ?? '—'}</td>}
-      <td style={{ ...tdStyle, color: '#64748b' }}>{e.lastDone ? formatDate(e.lastDone) : '—'}</td>
+      {showGroup && (
+        <td style={{ ...tdStyle, color: 'var(--text-muted)' }}>{e.muscleGroup ?? '—'}</td>
+      )}
+      <td style={{ ...tdStyle, color: 'var(--text-muted)' }}>
+        {e.lastDone ? formatDate(e.lastDone) : '—'}
+      </td>
       <td style={{ ...tdStyle, textAlign: 'right' }}>{fmtWt(e.workingWeight)}</td>
       <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 700 }}>{fmtWt(e.bestWeight)}</td>
       <td
         style={{
           ...tdStyle,
           textAlign: 'right',
-          color: headroom === 0 ? '#0d9488' : '#64748b',
+          color: headroom === 0 ? 'var(--success)' : 'var(--text-muted)',
         }}
       >
         {headroom === undefined ? '—' : headroom === 0 ? 'at PR' : headroom.toFixed(0)}
       </td>
-      <td style={{ ...tdStyle, textAlign: 'right', color: '#64748b' }}>{e.totalSets ?? '—'}</td>
+      <td style={{ ...tdStyle, textAlign: 'right', color: 'var(--text-muted)' }}>
+        {e.totalSets ?? '—'}
+      </td>
     </tr>
   );
 }
@@ -359,7 +369,7 @@ const thStyle: React.CSSProperties = {
   fontSize: '0.74rem',
   textTransform: 'uppercase',
   letterSpacing: '0.06em',
-  borderBottom: '1px solid #e5e7eb',
+  borderBottom: '1px solid var(--border)',
 };
 
 const tdStyle: React.CSSProperties = {
@@ -369,19 +379,19 @@ const tdStyle: React.CSSProperties = {
 
 const selectStyle: React.CSSProperties = {
   padding: '0.5rem 0.7rem',
-  border: '1px solid #cbd5e1',
+  border: '1px solid var(--border-strong)',
   borderRadius: '8px',
   fontSize: '0.92rem',
-  background: '#fff',
+  background: 'var(--bg-card)',
 };
 
 const ghostButtonStyle: React.CSSProperties = {
   padding: '0.5rem 0.7rem',
-  border: '1px solid #cbd5e1',
+  border: '1px solid var(--border-strong)',
   borderRadius: '8px',
   fontSize: '0.85rem',
-  background: '#fff',
-  color: '#475569',
+  background: 'var(--bg-card)',
+  color: 'var(--text-muted)',
   cursor: 'pointer',
   fontWeight: 500,
 };

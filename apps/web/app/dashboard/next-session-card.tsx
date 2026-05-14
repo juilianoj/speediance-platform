@@ -29,7 +29,7 @@ export function NextSessionCard({
 
   if (options.length === 0) {
     return (
-      <p style={{ color: '#94a3b8', margin: 0 }}>
+      <p style={{ color: 'var(--text-faint)', margin: 0 }}>
         No workouts logged yet. After your first sync this will show last weight + suggested next
         weight per lift.
       </p>
@@ -43,7 +43,7 @@ export function NextSessionCard({
     <>
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
         <label
-          style={{ color: '#64748b', fontSize: '0.85rem', fontWeight: 600 }}
+          style={{ color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 600 }}
           htmlFor="next-workout-select"
         >
           Show recommendations for
@@ -54,10 +54,10 @@ export function NextSessionCard({
           onChange={change}
           style={{
             padding: '0.5rem 0.75rem',
-            border: '1px solid #cbd5e1',
+            border: '1px solid var(--border-strong)',
             borderRadius: '8px',
             fontSize: '0.95rem',
-            background: '#fff',
+            background: 'var(--bg-card)',
             minWidth: '320px',
             flex: '1 1 360px',
             maxWidth: '560px',
@@ -72,20 +72,26 @@ export function NextSessionCard({
       </div>
 
       {!plan || plan.lifts.length === 0 ? (
-        <p style={{ color: '#94a3b8', marginTop: '1rem' }}>
+        <p style={{ color: 'var(--text-faint)', marginTop: '1rem' }}>
           No exercise data is available for this workout yet — try again after the next sync.
         </p>
       ) : (
         <>
-          <p style={{ margin: '0.85rem 0 0.75rem 0', color: '#64748b', fontSize: '0.85rem' }}>
+          <p
+            style={{
+              margin: '0.85rem 0 0.75rem 0',
+              color: 'var(--text-muted)',
+              fontSize: '0.85rem',
+            }}
+          >
             {source?.kind === 'scheduled' ? (
               <>
-                Up next: <strong style={{ color: '#0f172a' }}>{plan.title}</strong> · scheduled{' '}
+                Up next: <strong style={{ color: 'var(--text)' }}>{plan.title}</strong> · scheduled{' '}
                 {shortDate(source.date)}.
               </>
             ) : (
               <>
-                Most recent: <strong style={{ color: '#0f172a' }}>{plan.title}</strong> ·{' '}
+                Most recent: <strong style={{ color: 'var(--text)' }}>{plan.title}</strong> ·{' '}
                 {shortDate(source?.date ?? '')}.
               </>
             )}
@@ -95,14 +101,14 @@ export function NextSessionCard({
                 Last completed{' '}
                 <a
                   href={`/workouts/${encodeURIComponent(lastCompleted.startTime)}`}
-                  style={{ color: '#0b78d1', textDecoration: 'none' }}
+                  style={{ color: 'var(--accent)', textDecoration: 'none' }}
                 >
                   {shortDate(lastCompleted.startTime)}
                 </a>
                 .
               </>
             )}{' '}
-            <span style={{ color: '#94a3b8' }}>
+            <span style={{ color: 'var(--text-faint)' }}>
               &quot;Plan&quot; is Speediance&apos;s prescription for this workout. &quot;Last&quot;
               + &quot;Suggest&quot; come from your lifetime history when you&apos;ve logged the lift
               before.

@@ -35,8 +35,8 @@ export default async function ScheduledDayPage({ params }: PageProps) {
       userLabel={String(claims.email ?? claims.sub)}
       title={`Scheduled · ${friendlyDate(date)}`}
     >
-      <p style={{ margin: '-0.5rem 0 1rem 0', color: '#666' }}>
-        <a href="/dashboard" style={{ color: '#0b78d1', textDecoration: 'none' }}>
+      <p style={{ margin: '-0.5rem 0 1rem 0', color: 'var(--text-muted)' }}>
+        <a href="/dashboard" style={{ color: 'var(--accent)', textDecoration: 'none' }}>
           ← Back to dashboard
         </a>
       </p>
@@ -44,7 +44,7 @@ export default async function ScheduledDayPage({ params }: PageProps) {
       {result.plans.length === 0 ? (
         <div style={cardStyle}>
           <h2 style={cardHeadingStyle}>Nothing scheduled here</h2>
-          <p style={{ margin: '0.4rem 0 0 0', color: '#64748b' }}>
+          <p style={{ margin: '0.4rem 0 0 0', color: 'var(--text-muted)' }}>
             Speediance&apos;s calendar doesn&apos;t list a workout for {friendlyDate(date)}, or you
             already completed everything on that day. The dashboard heatmap may be showing a stale
             view — refresh after the next sync.
@@ -54,7 +54,13 @@ export default async function ScheduledDayPage({ params }: PageProps) {
         result.plans.map((plan, i) => (
           <div key={i} style={cardStyle}>
             <h2 style={cardHeadingStyle}>{plan.title ?? 'Workout'}</h2>
-            <p style={{ margin: '0.35rem 0 1rem 0', color: '#64748b', fontSize: '0.85rem' }}>
+            <p
+              style={{
+                margin: '0.35rem 0 1rem 0',
+                color: 'var(--text-muted)',
+                fontSize: '0.85rem',
+              }}
+            >
               Scheduled {friendlyDate(date)}.
               {plan.lastCompleted && (
                 <>
@@ -62,14 +68,14 @@ export default async function ScheduledDayPage({ params }: PageProps) {
                   Last completed{' '}
                   <a
                     href={`/workouts/${encodeURIComponent(plan.lastCompleted.startTime)}`}
-                    style={{ color: '#0b78d1', textDecoration: 'none' }}
+                    style={{ color: 'var(--accent)', textDecoration: 'none' }}
                   >
                     {friendlyDate(plan.lastCompleted.startTime.slice(0, 10))}
                   </a>
                   .
                 </>
               )}{' '}
-              <span style={{ color: '#94a3b8' }}>
+              <span style={{ color: 'var(--text-faint)' }}>
                 &quot;Plan&quot; is Speediance&apos;s prescription. &quot;Suggest&quot; uses your
                 lifetime log when the lift has history, otherwise echoes the plan.
               </span>

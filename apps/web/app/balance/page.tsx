@@ -77,12 +77,14 @@ export default async function BalancePage() {
         <div style={{ overflowX: 'auto', marginTop: '0.75rem' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.92rem' }}>
             <thead>
-              <tr style={{ textAlign: 'left', color: '#666' }}>
-                <th style={{ padding: '0.6rem', borderBottom: '1px solid #e5e7eb' }}>Group</th>
+              <tr style={{ textAlign: 'left', color: 'var(--text-muted)' }}>
+                <th style={{ padding: '0.6rem', borderBottom: '1px solid var(--border)' }}>
+                  Group
+                </th>
                 <th
                   style={{
                     padding: '0.6rem',
-                    borderBottom: '1px solid #e5e7eb',
+                    borderBottom: '1px solid var(--border)',
                     textAlign: 'right',
                   }}
                 >
@@ -91,7 +93,7 @@ export default async function BalancePage() {
                 <th
                   style={{
                     padding: '0.6rem',
-                    borderBottom: '1px solid #e5e7eb',
+                    borderBottom: '1px solid var(--border)',
                     textAlign: 'right',
                   }}
                 >
@@ -100,7 +102,7 @@ export default async function BalancePage() {
                 <th
                   style={{
                     padding: '0.6rem',
-                    borderBottom: '1px solid #e5e7eb',
+                    borderBottom: '1px solid var(--border)',
                     textAlign: 'right',
                   }}
                 >
@@ -110,19 +112,19 @@ export default async function BalancePage() {
             </thead>
             <tbody>
               {MUSCLE_GROUP_ORDER.map((g) => (
-                <tr key={g} style={{ borderTop: '1px solid #f1f1f1' }}>
+                <tr key={g} style={{ borderTop: '1px solid var(--border-faint)' }}>
                   <td style={{ padding: '0.6rem' }}>{LABELS[g]}</td>
                   <td
                     style={{
                       padding: '0.6rem',
                       textAlign: 'right',
-                      color: (wk[g] ?? 0) === 0 ? '#dc2626' : '#1a1a1a',
+                      color: (wk[g] ?? 0) === 0 ? 'var(--danger)' : 'var(--text)',
                     }}
                   >
                     {wk[g] ?? 0}
                   </td>
                   <td style={{ padding: '0.6rem', textAlign: 'right' }}>{m30[g] ?? 0}</td>
-                  <td style={{ padding: '0.6rem', textAlign: 'right', color: '#666' }}>
+                  <td style={{ padding: '0.6rem', textAlign: 'right', color: 'var(--text-muted)' }}>
                     {m90[g] ?? 0}
                   </td>
                 </tr>
@@ -140,7 +142,9 @@ function Bars({ sets }: { sets: MuscleGroupSets }) {
   const total = rows.reduce((s, r) => s + r.v, 0);
   const max = Math.max(...rows.map((r) => r.v), 1);
   if (total === 0) {
-    return <p style={{ color: '#888', margin: '1rem 0 0' }}>No sets in the last 30 days.</p>;
+    return (
+      <p style={{ color: 'var(--text-faint)', margin: '1rem 0 0' }}>No sets in the last 30 days.</p>
+    );
   }
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginTop: '0.75rem' }}>
@@ -158,11 +162,11 @@ function Bars({ sets }: { sets: MuscleGroupSets }) {
               fontSize: '0.9rem',
             }}
           >
-            <span style={{ color: '#444' }}>{r.label}</span>
+            <span style={{ color: 'var(--text)' }}>{r.label}</span>
             <div
               style={{
                 height: '18px',
-                background: '#f1f4f8',
+                background: 'var(--bg-subtle)',
                 borderRadius: '4px',
                 overflow: 'hidden',
               }}
@@ -171,13 +175,13 @@ function Bars({ sets }: { sets: MuscleGroupSets }) {
                 style={{
                   width: `${w}%`,
                   height: '100%',
-                  background: '#0b78d1',
+                  background: 'var(--accent)',
                   opacity: 0.85,
                 }}
               />
             </div>
-            <span style={{ color: '#666', textAlign: 'right' }}>
-              {r.v} <span style={{ color: '#aaa' }}>({pct.toFixed(0)}%)</span>
+            <span style={{ color: 'var(--text-muted)', textAlign: 'right' }}>
+              {r.v} <span style={{ color: 'var(--text-faint)' }}>({pct.toFixed(0)}%)</span>
             </span>
           </div>
         );
@@ -194,7 +198,7 @@ function Gaps({ sets }: { sets: MuscleGroupSets }) {
   const gaps = rows.filter((r) => r.v < avg * 0.5);
   if (gaps.length === 0) {
     return (
-      <p style={{ color: '#0d9488', margin: '1rem 0 0', fontSize: '0.9rem' }}>
+      <p style={{ color: 'var(--success)', margin: '1rem 0 0', fontSize: '0.9rem' }}>
         Balance looks healthy — no muscle group is below 50% of the average.
       </p>
     );
@@ -204,7 +208,7 @@ function Gaps({ sets }: { sets: MuscleGroupSets }) {
       style={{
         marginTop: '1rem',
         padding: '0.75rem 1rem',
-        background: '#fef3c7',
+        background: 'var(--warning-bg)',
         border: '1px solid #fde68a',
         borderRadius: '6px',
         fontSize: '0.9rem',

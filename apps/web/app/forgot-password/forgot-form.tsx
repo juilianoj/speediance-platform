@@ -93,7 +93,7 @@ function ConfirmStep({ email, onBack }: { email: string; onBack: () => void }) {
 
   return (
     <form action={action} style={formStyle}>
-      <p style={{ color: '#0f172a', fontSize: '0.92rem', margin: 0 }}>
+      <p style={{ color: 'var(--text)', fontSize: '0.92rem', margin: 0 }}>
         If that email is registered, a 6-digit code is on its way. It expires in 15 minutes.
       </p>
       <input type="hidden" name="email" value={email} />
@@ -123,7 +123,7 @@ function ConfirmStep({ email, onBack }: { email: string; onBack: () => void }) {
           style={inputStyle}
         />
       </label>
-      <p style={{ color: '#94a3b8', fontSize: '0.78rem', margin: 0 }}>
+      <p style={{ color: 'var(--text-faint)', fontSize: '0.78rem', margin: 0 }}>
         12+ characters, mixed case, a number, and a symbol.
       </p>
       {result?.state === 'error' && <p style={errorStyle}>{result.message}</p>}
@@ -165,7 +165,7 @@ const labelStyle: React.CSSProperties = {
   gap: '0.4rem',
   fontSize: '0.82rem',
   fontWeight: 600,
-  color: '#475569',
+  color: 'var(--text-muted)',
   textTransform: 'uppercase',
   letterSpacing: '0.05em',
 };
@@ -173,10 +173,10 @@ const labelStyle: React.CSSProperties = {
 const inputStyle: React.CSSProperties = {
   padding: '0.7rem 0.85rem',
   fontSize: '0.95rem',
-  border: '1px solid #cbd5e1',
+  border: '1px solid var(--border-strong)',
   borderRadius: '10px',
-  background: '#fff',
-  color: '#0f172a',
+  background: 'var(--bg-card)',
+  color: 'var(--text)',
   fontFamily: 'inherit',
   outline: 'none',
 };
@@ -195,7 +195,7 @@ const buttonStyle: React.CSSProperties = {
 
 const textButtonStyle: React.CSSProperties = {
   background: 'transparent',
-  color: '#64748b',
+  color: 'var(--text-muted)',
   border: 'none',
   fontSize: '0.85rem',
   cursor: 'pointer',
@@ -204,7 +204,7 @@ const textButtonStyle: React.CSSProperties = {
 };
 
 const linkStyle: React.CSSProperties = {
-  color: '#64748b',
+  color: 'var(--text-muted)',
   fontSize: '0.85rem',
   textDecoration: 'none',
   textAlign: 'center',
@@ -224,17 +224,17 @@ const primaryLinkStyle: React.CSSProperties = {
 
 const errorStyle: React.CSSProperties = {
   padding: '0.6rem 0.8rem',
-  background: '#fef2f2',
+  background: 'var(--danger-bg)',
   border: '1px solid #fecaca',
   borderRadius: '8px',
-  color: '#b91c1c',
+  color: 'var(--danger)',
   fontSize: '0.88rem',
   margin: 0,
 };
 
 const successStyle: React.CSSProperties = {
   padding: '0.85rem 1rem',
-  background: '#ecfdf5',
+  background: 'var(--accent-soft)',
   border: '1px solid #a7f3d0',
   borderRadius: '10px',
   color: '#065f46',

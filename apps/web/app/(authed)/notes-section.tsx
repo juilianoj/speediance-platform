@@ -32,7 +32,7 @@ export async function NotesSection({ targetType, targetId, label }: Props) {
       <AddNoteForm targetType={targetType} targetId={targetId} />
 
       {notes.length === 0 ? (
-        <p style={{ color: '#94a3b8', margin: '1rem 0 0 0', fontSize: '0.9rem' }}>
+        <p style={{ color: 'var(--text-faint)', margin: '1rem 0 0 0', fontSize: '0.9rem' }}>
           No notes yet. Add the first one above.
         </p>
       ) : (
@@ -50,10 +50,10 @@ export async function NotesSection({ targetType, targetId, label }: Props) {
             <li
               key={n.createdAt}
               style={{
-                border: '1px solid #e5e7eb',
+                border: '1px solid var(--border)',
                 borderRadius: '8px',
                 padding: '0.7rem 0.85rem',
-                background: '#fafbfc',
+                background: 'var(--bg-subtle)',
                 display: 'grid',
                 gridTemplateColumns: '1fr auto',
                 gap: '0.6rem',
@@ -63,7 +63,7 @@ export async function NotesSection({ targetType, targetId, label }: Props) {
               <div>
                 <div
                   style={{
-                    color: '#94a3b8',
+                    color: 'var(--text-faint)',
                     fontSize: '0.72rem',
                     fontWeight: 600,
                     textTransform: 'uppercase',
@@ -78,7 +78,7 @@ export async function NotesSection({ targetType, targetId, label }: Props) {
                     fontSize: '0.93rem',
                     lineHeight: 1.45,
                     whiteSpace: 'pre-wrap',
-                    color: '#1f2937',
+                    color: 'var(--text)',
                   }}
                 >
                   {n.body}

@@ -79,7 +79,7 @@ export default async function AdminPage() {
           Everything users have submitted. Newest first. Status mutation is Phase 4.x.
         </p>
         {feedback.length === 0 ? (
-          <p style={{ color: '#94a3b8', margin: '0.75rem 0 0 0' }}>None yet.</p>
+          <p style={{ color: 'var(--text-faint)', margin: '0.75rem 0 0 0' }}>None yet.</p>
         ) : (
           <table style={{ ...tableStyle, marginTop: '0.75rem' }}>
             <thead>
@@ -95,16 +95,16 @@ export default async function AdminPage() {
               {feedback.map((f) => (
                 <tr key={`${f.userId}-${f.createdAt}`}>
                   <td style={tdStyle}>{f.createdAt.slice(0, 10)}</td>
-                  <td style={{ ...tdStyle, color: '#64748b', fontSize: '0.85rem' }}>
+                  <td style={{ ...tdStyle, color: 'var(--text-muted)', fontSize: '0.85rem' }}>
                     {f.userEmail ?? f.userId.slice(0, 8)}
                   </td>
-                  <td style={{ ...tdStyle, color: '#64748b' }}>{f.category}</td>
+                  <td style={{ ...tdStyle, color: 'var(--text-muted)' }}>{f.category}</td>
                   <td style={tdStyle}>
                     <div style={{ fontWeight: 500 }}>{f.subject}</div>
                     {f.body && (
                       <div
                         style={{
-                          color: '#64748b',
+                          color: 'var(--text-muted)',
                           fontSize: '0.82rem',
                           marginTop: '0.2rem',
                           whiteSpace: 'pre-wrap',
@@ -114,7 +114,7 @@ export default async function AdminPage() {
                       </div>
                     )}
                   </td>
-                  <td style={{ ...tdStyle, color: '#64748b' }}>{f.status ?? 'open'}</td>
+                  <td style={{ ...tdStyle, color: 'var(--text-muted)' }}>{f.status ?? 'open'}</td>
                 </tr>
               ))}
             </tbody>
@@ -131,7 +131,7 @@ export default async function AdminPage() {
           flagged red.
         </p>
         {coachSpend.rows.length === 0 ? (
-          <p style={{ color: '#94a3b8', margin: '0.75rem 0 0 0', fontSize: '0.85rem' }}>
+          <p style={{ color: 'var(--text-faint)', margin: '0.75rem 0 0 0', fontSize: '0.85rem' }}>
             No coach turns logged this month yet.
           </p>
         ) : (
@@ -147,7 +147,7 @@ export default async function AdminPage() {
               <span style={{ fontSize: '1.4rem', fontWeight: 700 }}>
                 ${coachSpend.totalUsd.toFixed(2)}
               </span>
-              <span style={{ color: '#94a3b8', fontSize: '0.85rem' }}>
+              <span style={{ color: 'var(--text-faint)', fontSize: '0.85rem' }}>
                 across {coachSpend.totalTurns.toLocaleString()} turns · since{' '}
                 {coachSpend.monthStart}
               </span>
@@ -201,7 +201,7 @@ export default async function AdminPage() {
                         style={{
                           ...tdStyle,
                           textAlign: 'right',
-                          color: r.maxDurationMs > 45000 ? '#a06000' : '#666',
+                          color: r.maxDurationMs > 45000 ? 'var(--warning)' : 'var(--text-muted)',
                           fontVariantNumeric: 'tabular-nums',
                         }}
                       >
@@ -212,7 +212,7 @@ export default async function AdminPage() {
                           ...tdStyle,
                           textAlign: 'right',
                           fontVariantNumeric: 'tabular-nums',
-                          color: over ? '#dc2626' : '#0f172a',
+                          color: over ? 'var(--danger)' : 'var(--text)',
                           fontWeight: over ? 700 : 400,
                         }}
                       >
@@ -248,18 +248,18 @@ export default async function AdminPage() {
                 style={{
                   fontSize: '1.4rem',
                   fontWeight: 700,
-                  color: cost.total > COST_FLAG_THRESHOLD_USD ? '#dc2626' : '#0f172a',
+                  color: cost.total > COST_FLAG_THRESHOLD_USD ? 'var(--danger)' : 'var(--text)',
                 }}
               >
                 ${cost.total.toFixed(2)}
               </span>
-              <span style={{ color: '#94a3b8', fontSize: '0.85rem' }}>
+              <span style={{ color: 'var(--text-faint)', fontSize: '0.85rem' }}>
                 {cost.unit} · since {cost.monthStart}
               </span>
               {cost.total > COST_FLAG_THRESHOLD_USD && (
                 <span
                   style={{
-                    color: '#dc2626',
+                    color: 'var(--danger)',
                     fontSize: '0.85rem',
                     fontWeight: 600,
                     marginLeft: '0.6rem',
@@ -270,7 +270,7 @@ export default async function AdminPage() {
               )}
             </div>
             {cost.lines.length === 0 ? (
-              <p style={{ color: '#94a3b8', margin: 0, fontSize: '0.85rem' }}>
+              <p style={{ color: 'var(--text-faint)', margin: 0, fontSize: '0.85rem' }}>
                 No services have billed yet this month.
               </p>
             ) : (
@@ -301,7 +301,7 @@ export default async function AdminPage() {
             )}
           </div>
         ) : (
-          <p style={{ color: '#a06000', margin: '0.75rem 0 0 0', fontSize: '0.85rem' }}>
+          <p style={{ color: 'var(--warning)', margin: '0.75rem 0 0 0', fontSize: '0.85rem' }}>
             {cost.reason}
           </p>
         )}
@@ -340,15 +340,15 @@ export default async function AdminPage() {
                   <td
                     style={{
                       ...tdStyle,
-                      color: u.status === 'CONFIRMED' ? '#0d9488' : '#a06000',
+                      color: u.status === 'CONFIRMED' ? 'var(--success)' : 'var(--warning)',
                     }}
                   >
                     {u.status}
                   </td>
-                  <td style={{ ...tdStyle, color: u.enabled ? '#0d9488' : '#dc2626' }}>
+                  <td style={{ ...tdStyle, color: u.enabled ? 'var(--success)' : 'var(--danger)' }}>
                     {u.enabled ? 'yes' : 'no'}
                   </td>
-                  <td style={{ ...tdStyle, color: '#666' }}>
+                  <td style={{ ...tdStyle, color: 'var(--text-muted)' }}>
                     {u.createdAt ? u.createdAt.slice(0, 10) : '—'}
                   </td>
                   <td style={tdStyle}>

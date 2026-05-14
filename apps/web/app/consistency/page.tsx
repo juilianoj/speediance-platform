@@ -145,7 +145,7 @@ export default async function ConsistencyPage({ searchParams }: PageProps) {
             type="submit"
             style={{
               padding: '0.55rem 1rem',
-              background: '#0b78d1',
+              background: 'var(--accent)',
               color: '#fff',
               border: 'none',
               borderRadius: '6px',
@@ -185,13 +185,13 @@ export default async function ConsistencyPage({ searchParams }: PageProps) {
                   <tr key={b.weekStartIso}>
                     <td style={tdStyle}>{b.label}</td>
                     <td style={{ ...tdStyle, textAlign: 'right' }}>{b.sessions}</td>
-                    <td style={{ ...tdStyle, textAlign: 'right', color: '#64748b' }}>
+                    <td style={{ ...tdStyle, textAlign: 'right', color: 'var(--text-muted)' }}>
                       {b.strengthSessions}
                     </td>
-                    <td style={{ ...tdStyle, textAlign: 'right', color: '#64748b' }}>
+                    <td style={{ ...tdStyle, textAlign: 'right', color: 'var(--text-muted)' }}>
                       {b.cardioSessions}
                     </td>
-                    <td style={{ ...tdStyle, color: '#64748b', fontSize: '0.85rem' }}>
+                    <td style={{ ...tdStyle, color: 'var(--text-muted)', fontSize: '0.85rem' }}>
                       {[...b.days]
                         .sort()
                         .map((d) => DOW_NAMES[d]?.[0] ?? '?')
@@ -201,13 +201,18 @@ export default async function ConsistencyPage({ searchParams }: PageProps) {
                       style={{
                         ...tdStyle,
                         textAlign: 'right',
-                        color: pct >= 100 ? '#0d9488' : pct === 0 ? '#dc2626' : '#0f172a',
+                        color:
+                          pct >= 100
+                            ? 'var(--success)'
+                            : pct === 0
+                              ? 'var(--danger)'
+                              : 'var(--text)',
                         fontWeight: 600,
                       }}
                     >
                       {pct.toFixed(0)}%
                     </td>
-                    <td style={{ ...tdStyle, textAlign: 'right', color: '#64748b' }}>
+                    <td style={{ ...tdStyle, textAlign: 'right', color: 'var(--text-muted)' }}>
                       {Math.round(b.volume).toLocaleString()}
                     </td>
                   </tr>
@@ -260,7 +265,7 @@ function Kpi({ label, value, sub }: { label: string; value: string; sub?: string
     <div style={cardStyle}>
       <div
         style={{
-          color: '#64748b',
+          color: 'var(--text-muted)',
           fontSize: '0.7rem',
           textTransform: 'uppercase',
           letterSpacing: '0.08em',
@@ -271,7 +276,9 @@ function Kpi({ label, value, sub }: { label: string; value: string; sub?: string
       </div>
       <div style={{ fontSize: '1.5rem', fontWeight: 800, marginTop: '0.25rem' }}>{value}</div>
       {sub && (
-        <div style={{ color: '#94a3b8', fontSize: '0.78rem', marginTop: '0.2rem' }}>{sub}</div>
+        <div style={{ color: 'var(--text-faint)', fontSize: '0.78rem', marginTop: '0.2rem' }}>
+          {sub}
+        </div>
       )}
     </div>
   );
@@ -292,7 +299,7 @@ const fieldLabelStyle: React.CSSProperties = {
 
 const fieldSpanStyle: React.CSSProperties = {
   fontSize: '0.78rem',
-  color: '#64748b',
+  color: 'var(--text-muted)',
   fontWeight: 600,
   textTransform: 'uppercase',
   letterSpacing: '0.05em',
@@ -300,8 +307,8 @@ const fieldSpanStyle: React.CSSProperties = {
 
 const inputStyle: React.CSSProperties = {
   padding: '0.5rem 0.7rem',
-  border: '1px solid #cbd5e1',
+  border: '1px solid var(--border-strong)',
   borderRadius: '6px',
   fontSize: '0.95rem',
-  background: '#fff',
+  background: 'var(--bg-card)',
 };

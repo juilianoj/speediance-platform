@@ -250,7 +250,7 @@ function MfaSetupStep({
         Add this account to your authenticator app (1Password, Authy, Google Authenticator). Scan
         the QR or type the secret in manually, then enter the 6-digit code your app shows.
       </p>
-      <p style={{ fontSize: '0.85rem', color: '#a06000', margin: 0 }}>
+      <p style={{ fontSize: '0.85rem', color: 'var(--warning)', margin: 0 }}>
         Finish within about 3 minutes — the setup link expires and you&rsquo;ll need to sign in
         again.
       </p>
@@ -261,8 +261,8 @@ function MfaSetupStep({
           alignItems: 'center',
           gap: '0.75rem',
           padding: '1rem',
-          background: '#fafafa',
-          border: '1px solid #e0e0e0',
+          background: 'var(--bg-subtle)',
+          border: '1px solid var(--border)',
           borderRadius: '6px',
         }}
       >
@@ -277,7 +277,7 @@ function MfaSetupStep({
             fontSize: '0.85rem',
             letterSpacing: '0.05em',
             wordBreak: 'break-all',
-            color: '#444',
+            color: 'var(--text)',
           }}
         >
           {formattedSecret}

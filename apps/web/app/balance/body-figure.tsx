@@ -129,8 +129,8 @@ export function BodyFigure({ sets, width = 240, gender = 'male' }: Props) {
                 flex: '0 0 auto',
               }}
             />
-            <span style={{ color: '#64748b' }}>{LABELS[g]}</span>
-            <span style={{ marginLeft: 'auto', color: '#0f172a', fontWeight: 600 }}>
+            <span style={{ color: 'var(--text-muted)' }}>{LABELS[g]}</span>
+            <span style={{ marginLeft: 'auto', color: 'var(--text)', fontWeight: 600 }}>
               {sets[g] ?? 0}
             </span>
           </div>

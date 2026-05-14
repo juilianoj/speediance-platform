@@ -22,8 +22,8 @@ export default async function BuilderEditorPage({ params }: PageProps) {
 
   return (
     <PageShell current="builder" userLabel={String(claims.email ?? claims.sub)} title={draft.name}>
-      <p style={{ margin: '-0.5rem 0 1rem 0', color: '#666' }}>
-        <a href="/builder" style={{ color: '#0b78d1', textDecoration: 'none' }}>
+      <p style={{ margin: '-0.5rem 0 1rem 0', color: 'var(--text-muted)' }}>
+        <a href="/builder" style={{ color: 'var(--accent)', textDecoration: 'none' }}>
           ← Back to drafts
         </a>
       </p>

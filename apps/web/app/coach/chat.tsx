@@ -265,7 +265,7 @@ function Bubble({ m }: { m: CoachMessage }) {
         <div
           style={{
             marginTop: '0.4rem',
-            color: isUser ? 'rgba(255,255,255,0.7)' : '#94a3b8',
+            color: isUser ? 'rgba(255,255,255,0.7)' : 'var(--text-faint)',
             fontSize: '0.72rem',
           }}
         >

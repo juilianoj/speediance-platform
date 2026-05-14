@@ -56,13 +56,13 @@ export function AddNoteForm({
         style={{
           width: '100%',
           padding: '0.65rem 0.8rem',
-          border: '1px solid #cbd5e1',
+          border: '1px solid var(--border-strong)',
           borderRadius: '8px',
           fontSize: '0.95rem',
           fontFamily: 'inherit',
           resize: 'vertical',
           minHeight: '4.5rem',
-          background: pending ? '#f8fafc' : '#fff',
+          background: pending ? 'var(--bg-subtle)' : 'var(--bg-card)',
         }}
       />
       <div
@@ -74,9 +74,11 @@ export function AddNoteForm({
         }}
       >
         {error ? (
-          <span style={{ color: '#b91c1c', fontSize: '0.85rem' }}>{error}</span>
+          <span style={{ color: 'var(--danger)', fontSize: '0.85rem' }}>{error}</span>
         ) : (
-          <span style={{ color: '#94a3b8', fontSize: '0.78rem' }}>⌘/Ctrl + Enter to save</span>
+          <span style={{ color: 'var(--text-faint)', fontSize: '0.78rem' }}>
+            ⌘/Ctrl + Enter to save
+          </span>
         )}
         <button
           type="button"
@@ -84,8 +86,8 @@ export function AddNoteForm({
           disabled={pending || body.trim().length === 0}
           style={{
             padding: '0.5rem 1rem',
-            background: pending || body.trim().length === 0 ? '#94a3b8' : '#0b78d1',
-            color: '#fff',
+            background: pending || body.trim().length === 0 ? 'var(--text-faint)' : 'var(--accent)',
+            color: 'var(--text-on-accent)',
             border: 'none',
             borderRadius: '8px',
             fontWeight: 600,
@@ -129,7 +131,7 @@ export function DeleteNoteButton({
       style={{
         background: 'transparent',
         border: 'none',
-        color: pending ? '#cbd5e1' : '#94a3b8',
+        color: pending ? 'var(--border-strong)' : 'var(--text-faint)',
         cursor: pending ? 'wait' : 'pointer',
         fontSize: '0.85rem',
         padding: '0.25rem 0.4rem',

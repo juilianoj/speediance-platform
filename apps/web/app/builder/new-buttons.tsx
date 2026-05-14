@@ -18,7 +18,7 @@ export function NewWorkoutButton({ disabled }: { disabled?: boolean }) {
       }
       style={{
         padding: '0.6rem 1.1rem',
-        background: disabled ? '#94a3b8' : '#0b78d1',
+        background: disabled ? 'var(--text-faint)' : 'var(--accent)',
         color: '#fff',
         border: 'none',
         borderRadius: '8px',
@@ -46,7 +46,7 @@ export function NewProgramButton({ disabled }: { disabled?: boolean }) {
       title={disabled ? 'Build at least one workout first.' : undefined}
       style={{
         padding: '0.6rem 1.1rem',
-        background: disabled ? '#94a3b8' : '#0b78d1',
+        background: disabled ? 'var(--text-faint)' : 'var(--accent)',
         color: '#fff',
         border: 'none',
         borderRadius: '8px',

@@ -238,14 +238,15 @@ const sectionStyle: React.CSSProperties = {
   flexDirection: 'column',
   gap: '1rem',
   padding: '1.25rem',
-  border: '1px solid #e0e0e0',
+  border: '1px solid var(--border)',
   borderRadius: '8px',
-  background: '#fff',
+  background: 'var(--bg-card)',
 };
 
 const h2Style: React.CSSProperties = {
   margin: '0 0 0.25rem 0',
   fontSize: '1.05rem',
+  color: 'var(--text)',
 };
 
 const labelStyle: React.CSSProperties = {
@@ -253,6 +254,7 @@ const labelStyle: React.CSSProperties = {
   flexDirection: 'column',
   gap: '0.4rem',
   fontSize: '0.95rem',
+  color: 'var(--text)',
 };
 
 const checkboxLabelStyle: React.CSSProperties = {
@@ -260,40 +262,43 @@ const checkboxLabelStyle: React.CSSProperties = {
   alignItems: 'center',
   gap: '0.6rem',
   fontSize: '0.95rem',
+  color: 'var(--text)',
 };
 
 const hintStyle: React.CSSProperties = {
   fontSize: '0.8rem',
-  color: '#777',
+  color: 'var(--text-muted)',
   fontWeight: 'normal',
 };
 
 const inputStyle: React.CSSProperties = {
   padding: '0.6rem 0.75rem',
   fontSize: '1rem',
-  border: '1px solid #d0d0d0',
+  border: '1px solid var(--border-strong)',
   borderRadius: '6px',
+  background: 'var(--bg-input)',
+  color: 'var(--text)',
 };
 
 const buttonStyle: React.CSSProperties = {
   padding: '0.7rem 1rem',
   fontSize: '1rem',
   fontWeight: 600,
-  background: '#0b78d1',
-  color: 'white',
+  background: 'var(--accent)',
+  color: 'var(--text-on-accent)',
   border: 'none',
   borderRadius: '6px',
   cursor: 'pointer',
 };
 
 const successStyle: React.CSSProperties = {
-  color: '#2a7d34',
+  color: 'var(--success)',
   fontSize: '0.95rem',
   margin: 0,
 };
 
 const errorStyle: React.CSSProperties = {
-  color: '#a00',
+  color: 'var(--danger)',
   fontSize: '0.9rem',
   margin: 0,
 };
