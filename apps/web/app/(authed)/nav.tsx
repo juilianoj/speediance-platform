@@ -4,13 +4,13 @@
  * Apple Health / Google Fit feed → no cardio data → opted out).
  *
  * Items live in main nav vs the user-menu dropdown based on frequency:
- *   - main: Dashboard, Coach, Lift log, Balance, Cardio (when shown),
+ *   - main: Dashboard, Builder, Lift log, Balance, Cardio (when shown),
  *     Consistency — daily-use pages
  *   - dropdown (avatar): Profile, Feedback, Admin, Sign out — chrome
  *
- * Coach sits up front (right after Dashboard) because the AI coach is the
- * primary value-add of this platform and where users will spend most of
- * their time.
+ * The coach used to have its own nav link / page. It's now ambient via
+ * the `<AssistantButton>` (`✦ Ask`) in the nav header — accessible from
+ * every authed page via the slide-out drawer.
  */
 import Link from 'next/link';
 
@@ -28,7 +28,6 @@ type Key =
   | 'cardio'
   | 'balance'
   | 'consistency'
-  | 'coach'
   | 'builder'
   | 'admin'
   | 'feedback'
@@ -42,7 +41,6 @@ interface Item {
 
 const ALL_ITEMS: Item[] = [
   { key: 'dashboard', label: 'Dashboard', href: '/dashboard' },
-  { key: 'coach', label: 'Coach', href: '/coach' },
   { key: 'builder', label: 'Builder', href: '/builder' },
   { key: 'liftlog', label: 'Lift log', href: '/lift-log' },
   { key: 'balance', label: 'Balance', href: '/balance' },

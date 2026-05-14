@@ -125,7 +125,7 @@ export default async function AdminPage() {
       <section style={cardStyle}>
         <h2 style={cardHeadingStyle}>Coach spend (per user, month-to-date)</h2>
         <p style={mutedStyle}>
-          Bedrock token usage logged from every /coach turn × published per-token prices. The
+          Bedrock token usage logged from every assistant turn × published per-token prices. The
           variable chunk of AWS spend is almost entirely Bedrock at family scale, so this is the
           number to watch for runaway prompts. Anyone above ${coachSpend.flagThresholdUsd}/mo is
           flagged red.
