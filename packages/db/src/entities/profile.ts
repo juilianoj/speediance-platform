@@ -66,6 +66,12 @@ export function profileEntity(config: EntityConfiguration) {
             equipmentConstraints: { type: 'string' },
           },
         },
+        /** Display-safe prefix of the user's active MCP API key, e.g.
+         *  "spd_xxxxxxxx". Surfaced on /profile so the user can recognise
+         *  their key without us round-tripping the secret. The full key
+         *  lives in the `apiKey` entity (USER#{id} / APIKEY) and is shown
+         *  exactly once at generation time. Absent = no active key. */
+        mcpApiKeyPrefix: { type: 'string' },
         createdAt: { type: 'string' },
         updatedAt: { type: 'string', watch: '*', set: () => new Date().toISOString() },
       },

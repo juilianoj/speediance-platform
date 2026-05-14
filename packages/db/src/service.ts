@@ -9,6 +9,7 @@ import {
   muscleAggregateEntity,
   weekAggregateEntity,
 } from './entities/aggregate.js';
+import { apiKeyEntity, apiKeyLookupEntity } from './entities/apiKey.js';
 import { coachInvocationEntity } from './entities/coach-invocation.js';
 import { exerciseCatalogEntity } from './entities/exercise-catalog.js';
 import { feedbackEntity } from './entities/feedback.js';
@@ -52,6 +53,8 @@ export function createService(opts: DbConfig) {
     workoutDrafts: workoutDraftEntity(cfg),
     programDrafts: programDraftEntity(cfg),
     coachInvocations: coachInvocationEntity(cfg),
+    apiKeys: apiKeyEntity(cfg),
+    apiKeyLookups: apiKeyLookupEntity(cfg),
   });
 }
 
