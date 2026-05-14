@@ -137,7 +137,7 @@ const titleStyle: React.CSSProperties = {
 
 const subtitleStyle: React.CSSProperties = {
   fontSize: '0.92rem',
-  color: '#334155',
+  color: 'var(--text)',
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
@@ -148,7 +148,7 @@ function buttonStyle(pending: boolean): React.CSSProperties {
     padding: '0.55rem 1rem',
     fontSize: '0.88rem',
     fontWeight: 600,
-    background: pending ? '#94a3b8' : 'linear-gradient(135deg, #22d3ee 0%, #0b78d1 100%)',
+    background: pending ? 'var(--text-faint)' : 'linear-gradient(135deg, #22d3ee 0%, #0b78d1 100%)',
     color: '#ffffff',
     border: 'none',
     borderRadius: '8px',

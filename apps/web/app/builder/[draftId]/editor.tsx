@@ -114,12 +114,12 @@ export function Editor({ draft, catalog }: Props) {
           }}
         >
           <SaveBadge status={saveStatus} />
-          {errorMessage && <span style={{ color: '#b91c1c' }}>{errorMessage}</span>}
+          {errorMessage && <span style={{ color: 'var(--danger)' }}>{errorMessage}</span>}
           <span style={{ flex: 1 }} />
           {draft.status === 'saved-to-speediance' && (
             <span
               style={{
-                color: '#0d9488',
+                color: 'var(--success)',
                 fontSize: '0.74rem',
                 fontWeight: 700,
                 textTransform: 'uppercase',
@@ -193,7 +193,7 @@ function DangerZone({ draftId }: { draftId: string }) {
         borderLeft: '3px solid #fecaca',
       }}
     >
-      <h2 style={{ ...cardHeadingStyle, color: '#b91c1c' }}>Danger zone</h2>
+      <h2 style={{ ...cardHeadingStyle, color: 'var(--danger)' }}>Danger zone</h2>
       <p style={mutedStyle}>Deleting this draft can&apos;t be undone.</p>
       <div style={{ marginTop: '0.85rem' }}>
         <DeleteDraftButton draftId={draftId} />
@@ -298,7 +298,9 @@ function SpeedianceSaveCard({
           </button>
         )}
         {templateCode && (
-          <span style={{ color: '#94a3b8', fontSize: '0.78rem', fontFamily: 'monospace' }}>
+          <span
+            style={{ color: 'var(--text-faint)', fontSize: '0.78rem', fontFamily: 'monospace' }}
+          >
             Template: {templateCode.slice(0, 8)}…
           </span>
         )}
@@ -309,7 +311,7 @@ function SpeedianceSaveCard({
           style={{
             margin: '0.6rem 0 0',
             fontSize: '0.9rem',
-            color: result.ok ? '#0d9488' : '#b91c1c',
+            color: result.ok ? 'var(--success)' : 'var(--danger)',
           }}
         >
           {result.ok
@@ -324,7 +326,7 @@ function SpeedianceSaveCard({
 function primarySaveButtonStyle(disabled: boolean): React.CSSProperties {
   return {
     padding: '0.6rem 1.1rem',
-    background: disabled ? '#94a3b8' : '#0b78d1',
+    background: disabled ? 'var(--text-faint)' : 'var(--accent)',
     color: '#fff',
     border: 'none',
     borderRadius: '8px',
@@ -337,8 +339,8 @@ function primarySaveButtonStyle(disabled: boolean): React.CSSProperties {
 function secondaryButtonStyle(disabled: boolean): React.CSSProperties {
   return {
     padding: '0.6rem 0.95rem',
-    background: '#fff',
-    color: '#b91c1c',
+    background: 'var(--bg-card)',
+    color: 'var(--danger)',
     border: '1px solid #fecaca',
     borderRadius: '8px',
     fontWeight: 500,
@@ -362,10 +364,11 @@ function moveExercise(
 }
 
 function SaveBadge({ status }: { status: SaveStatus }) {
-  if (status === 'idle') return <span style={{ color: '#94a3b8' }}>All changes saved.</span>;
-  if (status === 'saving') return <span style={{ color: '#0b78d1' }}>Saving…</span>;
-  if (status === 'saved') return <span style={{ color: '#0d9488' }}>✓ Saved</span>;
-  return <span style={{ color: '#b91c1c' }}>Save failed</span>;
+  if (status === 'idle')
+    return <span style={{ color: 'var(--text-faint)' }}>All changes saved.</span>;
+  if (status === 'saving') return <span style={{ color: 'var(--accent)' }}>Saving…</span>;
+  if (status === 'saved') return <span style={{ color: 'var(--success)' }}>✓ Saved</span>;
+  return <span style={{ color: 'var(--danger)' }}>Save failed</span>;
 }
 
 function DeleteDraftButton({ draftId }: { draftId: string }) {
@@ -385,7 +388,7 @@ function DeleteDraftButton({ draftId }: { draftId: string }) {
       style={{
         background: 'transparent',
         border: '1px solid #fecaca',
-        color: '#b91c1c',
+        color: 'var(--danger)',
         borderRadius: '6px',
         padding: '0.35rem 0.7rem',
         fontSize: '0.82rem',
@@ -440,8 +443,8 @@ function ExerciseCard({
             gap: '0.4rem',
             padding: '0.35rem 0.7rem',
             margin: '0 0 0.35rem 0.35rem',
-            background: '#fef3c7',
-            color: '#92400e',
+            background: 'var(--warning-bg)',
+            color: 'var(--warning-text)',
             borderRadius: '4px',
             fontSize: '0.78rem',
             width: 'fit-content',
@@ -452,9 +455,9 @@ function ExerciseCard({
       )}
       <div
         style={{
-          border: '1px solid #e5e7eb',
+          border: '1px solid var(--border)',
           borderRadius: '10px',
-          background: '#fff',
+          background: 'var(--bg-card)',
           padding: '0.9rem 1rem',
         }}
       >
@@ -467,7 +470,7 @@ function ExerciseCard({
                 style={{
                   margin: '0.45rem 0 0',
                   fontSize: '0.85rem',
-                  color: '#475569',
+                  color: 'var(--text-muted)',
                   fontStyle: 'italic',
                 }}
               >
@@ -500,10 +503,10 @@ function ExerciseCard({
             marginTop: '0.6rem',
             width: '100%',
             padding: '0.45rem 0.6rem',
-            border: '1px solid #e5e7eb',
+            border: '1px solid var(--border)',
             borderRadius: '6px',
             fontSize: '0.85rem',
-            background: '#fafbfc',
+            background: 'var(--bg-subtle)',
           }}
         />
       </div>
@@ -531,8 +534,8 @@ function EquipmentChips({ entry }: { entry: CatalogExercise | undefined }) {
           key={i}
           style={{
             padding: '0.18rem 0.5rem',
-            background: '#eef5fc',
-            color: '#0b5fa8',
+            background: 'var(--bg-chip)',
+            color: 'var(--accent-strong)',
             borderRadius: '999px',
             fontSize: '0.72rem',
             fontWeight: 500,
@@ -585,7 +588,11 @@ function TransitionSummary({
       : transitions === 1
         ? `1 equipment change needed (the other ${shared} share setup).`
         : `${transitions} equipment changes needed (${shared} share setup).`;
-  return <p style={{ margin: '0.4rem 0 0', fontSize: '0.85rem', color: '#475569' }}>{message}</p>;
+  return (
+    <p style={{ margin: '0.4rem 0 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+      {message}
+    </p>
+  );
 }
 
 function SetsTable({
@@ -612,7 +619,7 @@ function SetsTable({
           gridTemplateColumns: '32px 90px 110px 110px 28px',
           gap: '0.5rem',
           fontSize: '0.72rem',
-          color: '#94a3b8',
+          color: 'var(--text-faint)',
           fontWeight: 700,
           textTransform: 'uppercase',
           letterSpacing: '0.05em',
@@ -639,7 +646,7 @@ function SetsTable({
         >
           <span
             style={{
-              color: '#64748b',
+              color: 'var(--text-muted)',
               fontSize: '0.85rem',
               fontWeight: 600,
               textAlign: 'center',
@@ -682,8 +689,8 @@ function SetsTable({
         style={{
           marginTop: '0.4rem',
           padding: '0.35rem 0.7rem',
-          background: '#f1f5f9',
-          color: '#475569',
+          background: 'var(--bg-subtle)',
+          color: 'var(--text-muted)',
           border: '1px dashed #cbd5e1',
           borderRadius: '6px',
           fontSize: '0.82rem',
@@ -727,7 +734,7 @@ function NumberInput({
       step={step}
       style={{
         padding: '0.4rem 0.55rem',
-        border: '1px solid #cbd5e1',
+        border: '1px solid var(--border-strong)',
         borderRadius: '6px',
         fontSize: '0.92rem',
         fontVariantNumeric: 'tabular-nums',
@@ -758,9 +765,9 @@ function IconButton({
       style={{
         width: '28px',
         height: '28px',
-        background: '#fff',
-        color: disabled ? '#cbd5e1' : '#475569',
-        border: '1px solid #e5e7eb',
+        background: 'var(--bg-card)',
+        color: disabled ? 'var(--border-strong)' : 'var(--text-muted)',
+        border: '1px solid var(--border)',
         borderRadius: '6px',
         cursor: disabled ? 'not-allowed' : 'pointer',
         fontSize: '0.82rem',
@@ -810,7 +817,7 @@ function ExerciseSearch({
       style={{
         marginTop: '1rem',
         padding: '0.85rem 1rem',
-        background: '#f8fafc',
+        background: 'var(--bg-subtle)',
         border: '1px dashed #cbd5e1',
         borderRadius: '10px',
       }}
@@ -831,10 +838,10 @@ function ExerciseSearch({
           style={{
             flex: '1 1 240px',
             padding: '0.55rem 0.75rem',
-            border: '1px solid #cbd5e1',
+            border: '1px solid var(--border-strong)',
             borderRadius: '8px',
             fontSize: '0.92rem',
-            background: '#fff',
+            background: 'var(--bg-card)',
           }}
         />
         <select
@@ -842,10 +849,10 @@ function ExerciseSearch({
           onChange={(e) => setMuscleFilter(e.target.value)}
           style={{
             padding: '0.55rem 0.7rem',
-            border: '1px solid #cbd5e1',
+            border: '1px solid var(--border-strong)',
             borderRadius: '8px',
             fontSize: '0.92rem',
-            background: '#fff',
+            background: 'var(--bg-card)',
           }}
         >
           {muscleGroups.map((g) => (
@@ -869,7 +876,7 @@ function ExerciseSearch({
           }}
         >
           {results.length === 0 ? (
-            <li style={{ color: '#94a3b8', fontSize: '0.88rem', padding: '0.4rem' }}>
+            <li style={{ color: 'var(--text-faint)', fontSize: '0.88rem', padding: '0.4rem' }}>
               No matches.
             </li>
           ) : (
@@ -882,8 +889,8 @@ function ExerciseSearch({
                     width: '100%',
                     textAlign: 'left',
                     padding: '0.45rem 0.7rem',
-                    background: '#fff',
-                    border: '1px solid #e5e7eb',
+                    background: 'var(--bg-card)',
+                    border: '1px solid var(--border)',
                     borderRadius: '6px',
                     cursor: 'pointer',
                     fontSize: '0.88rem',
@@ -894,7 +901,7 @@ function ExerciseSearch({
                   }}
                 >
                   <span style={{ fontWeight: 500 }}>{r.name}</span>
-                  <span style={{ color: '#94a3b8', fontSize: '0.76rem' }}>
+                  <span style={{ color: 'var(--text-faint)', fontSize: '0.76rem' }}>
                     {r.muscleGroup ?? '—'}
                     {r.outPosition !== undefined &&
                       ` · cable ${r.outPosition === 0 ? 'high' : 'low'}`}
@@ -915,8 +922,8 @@ function ExerciseSearch({
 // ─── styles ───────────────────────────────────────────────────────────
 
 const cardStyle: React.CSSProperties = {
-  background: '#fff',
-  border: '1px solid #e5e7eb',
+  background: 'var(--bg-card)',
+  border: '1px solid var(--border)',
   borderRadius: '12px',
   padding: '1.1rem 1.25rem',
   marginBottom: '1rem',
@@ -932,7 +939,7 @@ const cardHeadingStyle: React.CSSProperties = {
 
 const mutedStyle: React.CSSProperties = {
   margin: '0.3rem 0 0 0',
-  color: '#64748b',
+  color: 'var(--text-muted)',
   fontSize: '0.88rem',
 };
 
@@ -944,17 +951,17 @@ const titleInputStyle: React.CSSProperties = {
   outline: 'none',
   padding: '0.2rem 0',
   background: 'transparent',
-  color: '#0f172a',
+  color: 'var(--text)',
 };
 
 const notesStyle: React.CSSProperties = {
   width: '100%',
-  border: '1px solid #e5e7eb',
+  border: '1px solid var(--border)',
   borderRadius: '8px',
   padding: '0.55rem 0.7rem',
   fontSize: '0.92rem',
   fontFamily: 'inherit',
   resize: 'vertical',
-  background: '#fafbfc',
-  color: '#1f2937',
+  background: 'var(--bg-subtle)',
+  color: 'var(--text)',
 };

@@ -77,7 +77,7 @@ const pageWrapStyle: React.CSSProperties = {
   background: 'linear-gradient(180deg, #f5f8fc 0%, #f7f8fa 280px)',
   minHeight: '100vh',
   fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif',
-  color: '#0f172a',
+  color: 'var(--text)',
 };
 
 const mainStyle: React.CSSProperties = {
@@ -93,13 +93,13 @@ function SetupCallout({ hasProfile }: { hasProfile: boolean }) {
         padding: '1.5rem',
         border: '1px solid #d9e6f5',
         borderRadius: '10px',
-        background: '#f3f8fd',
+        background: 'var(--accent-soft)',
       }}
     >
       <h2 style={{ margin: '0 0 0.5rem 0', fontSize: '1.1rem' }}>
         {hasProfile ? 'Add your Speediance credentials' : 'Finish setting up your profile'}
       </h2>
-      <p style={{ margin: '0 0 1rem 0', color: '#444' }}>
+      <p style={{ margin: '0 0 1rem 0', color: 'var(--text)' }}>
         Head to{' '}
         <a href="/profile" style={linkStyle}>
           Profile
@@ -252,7 +252,7 @@ function DashboardBody({
           <p style={mutedStyle}>Twelve most recent. Click any row for set-by-set detail.</p>
         </div>
         {workouts.length === 0 ? (
-          <p style={{ color: '#888', margin: 0 }}>
+          <p style={{ color: 'var(--text-faint)', margin: 0 }}>
             No workouts pulled yet. The next sync runs every morning, or after you save your
             profile.
           </p>
@@ -290,13 +290,15 @@ function WorkoutRow({ w }: { w: DashboardWorkout }) {
       <td style={tdStyle}>
         <a href={detailHref} style={rowLinkStyle}>
           <div style={{ fontWeight: 500 }}>{formatDate(w.startTime)}</div>
-          <div style={{ color: '#888', fontSize: '0.8rem' }}>{formatTime(w.startTime)}</div>
+          <div style={{ color: 'var(--text-faint)', fontSize: '0.8rem' }}>
+            {formatTime(w.startTime)}
+          </div>
         </a>
       </td>
       <td style={tdStyle}>
         <a href={detailHref} style={rowLinkStyle}>
           <div>{w.title ?? (isCardio ? 'Cardio' : 'Untitled workout')}</div>
-          <div style={{ color: '#888', fontSize: '0.8rem' }}>
+          <div style={{ color: 'var(--text-faint)', fontSize: '0.8rem' }}>
             {isCardio
               ? `${w.distanceMiles?.toFixed(2) ?? '—'} mi`
               : (w.courseCategoryName ?? w.speedianceTrainingType ?? '—')}
@@ -334,10 +336,10 @@ function KpiCard({
     <div
       style={{
         padding: '1.1rem 1.2rem',
-        border: '1px solid #e5e7eb',
+        border: '1px solid var(--border)',
         borderTop: `3px solid ${accent}`,
         borderRadius: '12px',
-        background: '#fff',
+        background: 'var(--bg-card)',
         boxShadow: '0 1px 3px rgba(15,23,42,0.06)',
       }}
     >
@@ -346,10 +348,12 @@ function KpiCard({
         <span style={{ fontSize: '1.8rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>
           {value}
         </span>
-        <span style={{ color: '#64748b', fontSize: '0.8rem' }}>{suffix}</span>
+        <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>{suffix}</span>
       </div>
       {sub && (
-        <div style={{ color: '#94a3b8', fontSize: '0.78rem', marginTop: '0.25rem' }}>{sub}</div>
+        <div style={{ color: 'var(--text-faint)', fontSize: '0.78rem', marginTop: '0.25rem' }}>
+          {sub}
+        </div>
       )}
     </div>
   );
@@ -362,10 +366,10 @@ function Row({ label, value }: { label: string; value: string }) {
         display: 'flex',
         justifyContent: 'space-between',
         padding: '0.5rem 0',
-        borderBottom: '1px solid #f1f5f9',
+        borderBottom: '1px solid var(--border-faint)',
       }}
     >
-      <span style={{ color: '#64748b' }}>{label}</span>
+      <span style={{ color: 'var(--text-muted)' }}>{label}</span>
       <span style={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{value}</span>
     </div>
   );
@@ -412,7 +416,7 @@ function formatDuration(seconds: number): string {
 // ── Styles ──────────────────────────────────────────────────────────────
 
 const linkStyle: React.CSSProperties = {
-  color: '#0b78d1',
+  color: 'var(--accent)',
   fontSize: '0.95rem',
   textDecoration: 'none',
 };
@@ -421,7 +425,7 @@ const buttonStyle: React.CSSProperties = {
   padding: '0.6rem 1rem',
   fontSize: '0.95rem',
   fontWeight: 600,
-  background: '#0b78d1',
+  background: 'var(--accent)',
   color: 'white',
   border: 'none',
   borderRadius: '6px',
@@ -435,7 +439,7 @@ const kpiGridStyle: React.CSSProperties = {
 };
 
 const kpiLabelStyle: React.CSSProperties = {
-  color: '#64748b',
+  color: 'var(--text-muted)',
   fontSize: '0.7rem',
   textTransform: 'uppercase',
   letterSpacing: '0.08em',
@@ -444,9 +448,9 @@ const kpiLabelStyle: React.CSSProperties = {
 
 const cardStyle: React.CSSProperties = {
   padding: '1.4rem 1.5rem',
-  border: '1px solid #e5e7eb',
+  border: '1px solid var(--border)',
   borderRadius: '12px',
-  background: '#fff',
+  background: 'var(--bg-card)',
   marginBottom: '1.25rem',
   boxShadow: '0 1px 3px rgba(15,23,42,0.06)',
 };
@@ -464,7 +468,7 @@ const cardHeadingStyle: React.CSSProperties = {
 
 const mutedStyle: React.CSSProperties = {
   margin: '0.2rem 0 0 0',
-  color: '#94a3b8',
+  color: 'var(--text-faint)',
   fontSize: '0.85rem',
 };
 
@@ -486,17 +490,17 @@ const tableStyle: React.CSSProperties = {
   fontSize: '0.92rem',
 };
 
-const trStyle: React.CSSProperties = { borderTop: '1px solid #f1f5f9' };
+const trStyle: React.CSSProperties = { borderTop: '1px solid var(--border-faint)' };
 
 const thStyle: React.CSSProperties = {
   padding: '0.55rem 0.6rem',
-  color: '#64748b',
+  color: 'var(--text-muted)',
   fontWeight: 600,
   fontSize: '0.74rem',
   textTransform: 'uppercase',
   letterSpacing: '0.06em',
   textAlign: 'left',
-  borderBottom: '1px solid #e5e7eb',
+  borderBottom: '1px solid var(--border)',
 };
 
 const tdStyle: React.CSSProperties = {

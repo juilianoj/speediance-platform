@@ -36,18 +36,18 @@ export default async function CardioPage() {
       <PageShell current="cardio" userLabel={String(claims.email ?? claims.sub)}>
         <section style={cardStyle}>
           <h2 style={cardHeadingStyle}>No cardio sessions yet</h2>
-          <p style={{ margin: '0.4rem 0 0.8rem 0', color: '#475569', lineHeight: 1.55 }}>
+          <p style={{ margin: '0.4rem 0 0.8rem 0', color: 'var(--text-muted)', lineHeight: 1.55 }}>
             Speediance only logs cardio when their mobile app is connected to{' '}
             <strong>Apple Health</strong> (iOS) or <strong>Google Fit</strong> (Android). Walks,
             runs, and bike sessions sync from there into your Speediance training history, then we
             pull them down here on the next sync.
           </p>
-          <p style={{ margin: '0 0 0.6rem 0', color: '#475569', lineHeight: 1.55 }}>
+          <p style={{ margin: '0 0 0.6rem 0', color: 'var(--text-muted)', lineHeight: 1.55 }}>
             <strong>To connect it:</strong> open the Speediance app → Profile → Health Data → enable
             the Apple Health / Google Fit integration. Future walks will show up here after the next
             morning&apos;s sync.
           </p>
-          <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.85rem' }}>
+          <p style={{ margin: 0, color: 'var(--text-faint)', fontSize: '0.85rem' }}>
             Not interested? Hide the Cardio section — you can re-enable it any time from your
             Profile.
           </p>
@@ -113,7 +113,7 @@ export default async function CardioPage() {
         <h2 style={cardHeadingStyle}>By week</h2>
         <p style={mutedStyle}>Walks and runs aggregated by ISO week.</p>
         {weeks.length === 0 ? (
-          <p style={{ color: '#888', margin: '1rem 0 0' }}>No cardio sessions yet.</p>
+          <p style={{ color: 'var(--text-faint)', margin: '1rem 0 0' }}>No cardio sessions yet.</p>
         ) : (
           <table style={{ ...tableStyle, marginTop: '1rem' }}>
             <thead>
@@ -147,7 +147,7 @@ export default async function CardioPage() {
       <section style={cardStyle}>
         <h2 style={cardHeadingStyle}>Recent sessions</h2>
         {cardio.length === 0 ? (
-          <p style={{ color: '#888', margin: '1rem 0 0' }}>No cardio yet.</p>
+          <p style={{ color: 'var(--text-faint)', margin: '1rem 0 0' }}>No cardio yet.</p>
         ) : (
           <table style={{ ...tableStyle, marginTop: '1rem' }}>
             <thead>
@@ -168,7 +168,9 @@ export default async function CardioPage() {
                 return (
                   <tr key={w.startTime}>
                     <td style={tdStyle}>{formatDate(w.startTime)}</td>
-                    <td style={{ ...tdStyle, color: '#666' }}>{w.title ?? 'Cardio'}</td>
+                    <td style={{ ...tdStyle, color: 'var(--text-muted)' }}>
+                      {w.title ?? 'Cardio'}
+                    </td>
                     <td style={{ ...tdStyle, textAlign: 'right' }}>{miles.toFixed(2)} mi</td>
                     <td style={{ ...tdStyle, textAlign: 'right' }}>{Math.round(minutes)}m</td>
                     <td style={{ ...tdStyle, textAlign: 'right' }}>
@@ -193,7 +195,7 @@ function Kpi({ label, value }: { label: string; value: string }) {
     <div style={cardStyle}>
       <div
         style={{
-          color: '#666',
+          color: 'var(--text-muted)',
           fontSize: '0.72rem',
           textTransform: 'uppercase',
           letterSpacing: '0.06em',

@@ -54,14 +54,14 @@ export default async function WorkoutDetailPage({ params }: PageProps) {
       userLabel={String(claims.email ?? claims.sub)}
       title={workout.title ?? 'Workout'}
     >
-      <p style={{ margin: '-0.5rem 0 1rem 0', color: '#666' }}>
-        <a href="/dashboard" style={{ color: '#0b78d1', textDecoration: 'none' }}>
+      <p style={{ margin: '-0.5rem 0 1rem 0', color: 'var(--text-muted)' }}>
+        <a href="/dashboard" style={{ color: 'var(--accent)', textDecoration: 'none' }}>
           ← Back
         </a>
         {titleLink && (
           <>
             {' · '}
-            <a href={titleLink} style={{ color: '#0b78d1', textDecoration: 'none' }}>
+            <a href={titleLink} style={{ color: 'var(--accent)', textDecoration: 'none' }}>
               View all sessions of this workout →
             </a>
           </>
@@ -102,7 +102,7 @@ export default async function WorkoutDetailPage({ params }: PageProps) {
         </section>
       ) : grouped.length === 0 ? (
         <section style={cardStyle}>
-          <p style={{ color: '#888', margin: 0 }}>
+          <p style={{ color: 'var(--text-faint)', margin: 0 }}>
             No set detail was synced for this workout. Try forcing a resync from /admin.
           </p>
         </section>
@@ -133,12 +133,12 @@ export default async function WorkoutDetailPage({ params }: PageProps) {
                 <h3 style={{ margin: 0, fontSize: '1rem' }}>
                   <a
                     href={`/exercises/${encodeURIComponent(exerciseId)}`}
-                    style={{ color: '#0b78d1', textDecoration: 'none' }}
+                    style={{ color: 'var(--accent)', textDecoration: 'none' }}
                   >
                     {agg?.name ?? `Exercise ${exerciseId}`}
                   </a>
                 </h3>
-                <span style={{ fontSize: '0.8rem', color: '#888' }}>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-faint)' }}>
                   {agg?.muscleGroup ?? '—'}
                   {agg?.isUnilateral && ' · L/R'}
                 </span>
@@ -161,7 +161,7 @@ export default async function WorkoutDetailPage({ params }: PageProps) {
                       <Pill
                         label="Headroom"
                         value={headroom === 0 ? 'at PR' : `${headroom.toFixed(0)} lb`}
-                        accent={headroom === 0 ? '#0d9488' : undefined}
+                        accent={headroom === 0 ? 'var(--success)' : undefined}
                       />
                     )}
                     {recommendedNext !== null && (
@@ -199,7 +199,7 @@ export default async function WorkoutDetailPage({ params }: PageProps) {
                   }}
                 >
                   {pr > 0 && <Pill label="Lifetime PR" value={`${fmtWt(pr)} lb`} />}
-                  <span style={{ color: '#888' }}>
+                  <span style={{ color: 'var(--text-faint)' }}>
                     {exSets.length} {exSets.length === 1 ? 'set' : 'sets'} logged · no per-rep
                     weight detail synced
                   </span>
@@ -281,7 +281,7 @@ function Stat({ label, value }: { label: string; value: string }) {
     <div style={cardStyle}>
       <div
         style={{
-          color: '#666',
+          color: 'var(--text-muted)',
           fontSize: '0.72rem',
           textTransform: 'uppercase',
           letterSpacing: '0.06em',
@@ -310,15 +310,15 @@ function Pill({
     <div
       style={{
         padding: '0.4rem 0.7rem',
-        background: '#fafbfc',
-        border: '1px solid #e5e7eb',
-        borderLeft: accent ? `3px solid ${accent}` : '1px solid #e5e7eb',
+        background: 'var(--bg-subtle)',
+        border: '1px solid var(--border)',
+        borderLeft: accent ? `3px solid ${accent}` : '1px solid var(--border)',
         borderRadius: '6px',
       }}
     >
       <div
         style={{
-          color: '#888',
+          color: 'var(--text-faint)',
           fontSize: '0.72rem',
           textTransform: 'uppercase',
           letterSpacing: '0.04em',
@@ -327,7 +327,11 @@ function Pill({
         {label}
       </div>
       <div style={{ fontWeight: 600, marginTop: '0.1rem' }}>{value}</div>
-      {sub && <div style={{ color: '#888', fontSize: '0.72rem', marginTop: '0.05rem' }}>{sub}</div>}
+      {sub && (
+        <div style={{ color: 'var(--text-faint)', fontSize: '0.72rem', marginTop: '0.05rem' }}>
+          {sub}
+        </div>
+      )}
     </div>
   );
 }
@@ -340,10 +344,10 @@ function SetChip({ set }: { set: ExerciseSet }) {
       style={{
         padding: '0.3rem 0.55rem',
         fontSize: '0.85rem',
-        background: flagged ? '#fee2e2' : '#eef5fc',
-        color: flagged ? '#b91c1c' : '#0b5fa8',
+        background: flagged ? 'var(--danger-bg)' : 'var(--bg-chip)',
+        color: flagged ? 'var(--danger)' : 'var(--accent-strong)',
         border: '1px solid',
-        borderColor: flagged ? '#fecaca' : '#cce2f4',
+        borderColor: flagged ? 'var(--danger-border)' : 'var(--border)',
         borderRadius: '999px',
         fontVariantNumeric: 'tabular-nums',
       }}
@@ -385,10 +389,10 @@ function Row({ label, value }: { label: string; value: string }) {
         display: 'flex',
         justifyContent: 'space-between',
         padding: '0.4rem 0',
-        borderBottom: '1px solid #f1f1f1',
+        borderBottom: '1px solid var(--border-faint)',
       }}
     >
-      <span style={{ color: '#666' }}>{label}</span>
+      <span style={{ color: 'var(--text-muted)' }}>{label}</span>
       <span style={{ fontWeight: 600 }}>{value}</span>
     </div>
   );

@@ -54,7 +54,7 @@ function RecoveryRow({ warning }: { warning: RecoveryWarning }) {
           click below scaffolds a draft you can fill in (or ask the coach to fill).
         </p>
         {status && !status.ok && (
-          <p style={{ margin: '0.4rem 0 0', color: '#b91c1c', fontSize: '0.85rem' }}>
+          <p style={{ margin: '0.4rem 0 0', color: 'var(--danger)', fontSize: '0.85rem' }}>
             {status.message ?? 'Could not scaffold the draft.'}
           </p>
         )}
@@ -82,7 +82,7 @@ const bannerStyle: React.CSSProperties = {
   flexWrap: 'wrap',
   padding: '1rem 1.2rem',
   border: '1px solid #fde68a',
-  background: '#fffbeb',
+  background: 'var(--warning-bg)',
   borderRadius: '12px',
   boxShadow: '0 1px 3px rgba(15,23,42,0.04)',
 };
@@ -90,24 +90,24 @@ const bannerStyle: React.CSSProperties = {
 const titleStyle: React.CSSProperties = {
   fontSize: '0.95rem',
   fontWeight: 700,
-  color: '#92400e',
+  color: 'var(--warning-text)',
 };
 
 const dateRangeStyle: React.CSSProperties = {
   fontWeight: 500,
-  color: '#a16207',
+  color: 'var(--warning-text)',
 };
 
 const bodyStyle: React.CSSProperties = {
   margin: '0.3rem 0 0',
   fontSize: '0.88rem',
-  color: '#78350f',
+  color: 'var(--warning-text)',
 };
 
 function ctaStyle(pending: boolean): React.CSSProperties {
   return {
     padding: '0.55rem 1rem',
-    background: pending ? '#cbd5e1' : '#92400e',
+    background: pending ? 'var(--border-strong)' : 'var(--warning-text)',
     color: '#fff',
     border: 'none',
     borderRadius: '8px',

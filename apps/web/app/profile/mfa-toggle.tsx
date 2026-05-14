@@ -31,7 +31,7 @@ export function MfaToggle({ enabled }: { enabled: boolean }) {
       >
         <div>
           <strong style={{ fontSize: '0.95rem' }}>Two-factor sign-in</strong>
-          <p style={{ margin: '0.3rem 0 0 0', color: '#666', fontSize: '0.85rem' }}>
+          <p style={{ margin: '0.3rem 0 0 0', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
             {on
               ? 'You scan a TOTP code at sign-in. Recommended even though training data is low-sensitivity.'
               : 'Sign-in is email + password only. Turn on if you share the account or just want the extra layer.'}
@@ -43,7 +43,7 @@ export function MfaToggle({ enabled }: { enabled: boolean }) {
           disabled={pending}
           style={{
             padding: '0.55rem 1.1rem',
-            background: on ? '#dc2626' : '#0b78d1',
+            background: on ? 'var(--danger)' : 'var(--accent)',
             color: 'white',
             border: 'none',
             borderRadius: '6px',
@@ -61,7 +61,7 @@ export function MfaToggle({ enabled }: { enabled: boolean }) {
           style={{
             margin: '0.6rem 0 0 0',
             fontSize: '0.85rem',
-            color: status.ok ? '#0d9488' : '#b91c1c',
+            color: status.ok ? 'var(--success)' : 'var(--danger)',
           }}
         >
           {status.message}

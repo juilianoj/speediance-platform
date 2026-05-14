@@ -28,9 +28,9 @@ const PAD_T = 14;
 const WIDTH = PAD_L + WEEKS * (CELL + GAP);
 const HEIGHT = PAD_T + DOW * (CELL + GAP) + 12;
 
-const COLORS = ['#eef5fc', '#bcdcf3', '#7fbde8', '#3d97d8', '#1166a9']; // light → dark blue
+const COLORS = ['var(--bg-chip)', '#bcdcf3', '#7fbde8', '#3d97d8', '#1166a9']; // light → dark blue
 const SCHEDULED_COLOR = '#fef3c7'; // amber tint for upcoming days
-const TODAY_RING = '#0b78d1';
+const TODAY_RING = 'var(--accent)';
 
 export function YearHeatmap({
   workouts,
@@ -94,7 +94,7 @@ export function YearHeatmap({
 
   const colorFor = (cell: DayCell): string => {
     if (cell.scheduled) return SCHEDULED_COLOR;
-    if (cell.output === undefined || cell.output <= 0) return '#ffffff';
+    if (cell.output === undefined || cell.output <= 0) return 'var(--bg-card)';
     let bucket = 0;
     for (let i = 0; i < thresholds.length; i++) {
       if (cell.output >= thresholds[i]!) bucket = i + 1;
@@ -180,7 +180,11 @@ export function YearHeatmap({
               const y = PAD_T + d * (CELL + GAP);
               const inRange = cell.date <= todayIso;
               const isToday = cell.date === todayIso;
-              const fill = inRange ? colorFor(cell) : cell.scheduled ? SCHEDULED_COLOR : '#ffffff';
+              const fill = inRange
+                ? colorFor(cell)
+                : cell.scheduled
+                  ? SCHEDULED_COLOR
+                  : 'var(--bg-card)';
               const cellTitle = makeTooltip(cell);
               const rect = (
                 <rect
@@ -190,7 +194,7 @@ export function YearHeatmap({
                   height={CELL}
                   rx={2}
                   fill={fill}
-                  stroke={isToday ? TODAY_RING : '#e5e7eb'}
+                  stroke={isToday ? TODAY_RING : 'var(--border)'}
                   strokeWidth={isToday ? 1.4 : 0.5}
                   style={cell.startTime || cell.scheduled ? { cursor: 'pointer' } : undefined}
                 >
@@ -242,7 +246,7 @@ function Legend() {
         marginTop: '0.75rem',
         flexWrap: 'wrap',
         fontSize: '0.78rem',
-        color: '#64748b',
+        color: 'var(--text-muted)',
       }}
     >
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
@@ -255,7 +259,7 @@ function Legend() {
               width: 12,
               height: 12,
               background: c,
-              border: '1px solid #e5e7eb',
+              border: '1px solid var(--border)',
               borderRadius: 2,
             }}
           />
@@ -269,7 +273,7 @@ function Legend() {
             width: 12,
             height: 12,
             background: SCHEDULED_COLOR,
-            border: '1px solid #e5e7eb',
+            border: '1px solid var(--border)',
             borderRadius: 2,
           }}
         />
@@ -281,7 +285,7 @@ function Legend() {
             display: 'inline-block',
             width: 12,
             height: 12,
-            background: '#fff',
+            background: 'var(--bg-card)',
             border: `1.4px solid ${TODAY_RING}`,
             borderRadius: 2,
           }}

@@ -19,10 +19,10 @@ const METRIC_LABELS: Record<Metric, string> = {
 };
 
 const METRIC_FILLS: Record<Metric, string> = {
-  volume: '#0b78d1',
+  volume: 'var(--accent)',
   outputKj: '#7c3aed',
-  calories: '#dc2626',
-  workouts: '#0d9488',
+  calories: 'var(--danger)',
+  workouts: 'var(--success)',
 };
 
 const RANGE_LABELS: Record<Range, string> = {
@@ -38,7 +38,7 @@ export function WeeklyChart({ weeks }: { weeks: WeekBucket[] }) {
   const [range, setRange] = useState<Range>(12);
 
   if (weeks.length === 0) {
-    return <p style={{ color: '#888', margin: 0 }}>Not enough data yet.</p>;
+    return <p style={{ color: 'var(--text-faint)', margin: 0 }}>Not enough data yet.</p>;
   }
 
   // weeks is built oldest → newest (12 items by default in the loader);
@@ -89,10 +89,10 @@ export function WeeklyChart({ weeks }: { weeks: WeekBucket[] }) {
                 padding: '0.35rem 0.85rem',
                 fontSize: '0.85rem',
                 border: '1px solid',
-                borderColor: m === metric ? METRIC_FILLS[m] : '#d0d0d0',
+                borderColor: m === metric ? METRIC_FILLS[m] : 'var(--border-strong)',
                 borderRadius: '999px',
                 background: m === metric ? METRIC_FILLS[m] : 'transparent',
-                color: m === metric ? '#fff' : '#444',
+                color: m === metric ? '#fff' : 'var(--text-muted)',
                 cursor: 'pointer',
                 fontWeight: m === metric ? 600 : 500,
               }}
@@ -113,10 +113,10 @@ export function WeeklyChart({ weeks }: { weeks: WeekBucket[] }) {
                   padding: '0.3rem 0.55rem',
                   fontSize: '0.78rem',
                   border: '1px solid',
-                  borderColor: r === range ? '#1a1a1a' : '#d0d0d0',
+                  borderColor: r === range ? 'var(--text)' : 'var(--border-strong)',
                   borderRadius: '4px',
-                  background: r === range ? '#1a1a1a' : 'transparent',
-                  color: r === range ? '#fff' : '#666',
+                  background: r === range ? 'var(--text)' : 'transparent',
+                  color: r === range ? '#fff' : 'var(--text-muted)',
                   cursor: 'pointer',
                   fontWeight: r === range ? 600 : 500,
                 }}
@@ -194,7 +194,7 @@ export function WeeklyChart({ weeks }: { weeks: WeekBucket[] }) {
                     textAnchor="middle"
                     fontSize="11"
                     fontWeight={isZero ? 400 : 700}
-                    fill={isZero ? '#bbb' : '#1a1a1a'}
+                    fill={isZero ? '#bbb' : 'var(--text)'}
                   >
                     {isZero ? '0' : compactNumber(v)}
                   </text>

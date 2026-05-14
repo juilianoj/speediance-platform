@@ -54,8 +54,8 @@ export default async function ExerciseDetailPage({ params }: PageProps) {
       userLabel={String(claims.email ?? claims.sub)}
       title={exercise?.name ?? 'Exercise'}
     >
-      <p style={{ margin: '-0.5rem 0 1.5rem 0', color: '#666' }}>
-        <a href="/lift-log" style={{ color: '#0b78d1', textDecoration: 'none' }}>
+      <p style={{ margin: '-0.5rem 0 1.5rem 0', color: 'var(--text-muted)' }}>
+        <a href="/lift-log" style={{ color: 'var(--accent)', textDecoration: 'none' }}>
           ← Back to lift log
         </a>
       </p>
@@ -72,7 +72,7 @@ export default async function ExerciseDetailPage({ params }: PageProps) {
         <h2 style={cardHeadingStyle}>Max weight per session</h2>
         <p style={mutedStyle}>Heaviest single set, oldest → newest.</p>
         {chartPoints.length === 0 ? (
-          <p style={{ color: '#888', margin: '1rem 0 0' }}>
+          <p style={{ color: 'var(--text-faint)', margin: '1rem 0 0' }}>
             No per-rep weight data captured for this exercise yet — Speediance only ships per-rep
             detail for some workout types.
           </p>
@@ -87,7 +87,7 @@ export default async function ExerciseDetailPage({ params }: PageProps) {
         <h2 style={cardHeadingStyle}>Recent sessions</h2>
         <p style={mutedStyle}>Sets per session, drop-sets render as start → end.</p>
         {allSessions.length === 0 ? (
-          <p style={{ color: '#888', margin: '1rem 0 0' }}>No sets logged yet.</p>
+          <p style={{ color: 'var(--text-faint)', margin: '1rem 0 0' }}>No sets logged yet.</p>
         ) : (
           <div style={{ marginTop: '1rem' }}>
             {allSessions.slice(0, 8).map((s) => {
@@ -99,7 +99,7 @@ export default async function ExerciseDetailPage({ params }: PageProps) {
                   style={{
                     marginBottom: '1rem',
                     paddingBottom: '0.75rem',
-                    borderBottom: '1px solid #f1f1f1',
+                    borderBottom: '1px solid var(--border-faint)',
                   }}
                 >
                   <div
@@ -116,7 +116,7 @@ export default async function ExerciseDetailPage({ params }: PageProps) {
                         style={{
                           fontSize: '0.95rem',
                           fontWeight: 600,
-                          color: '#0f172a',
+                          color: 'var(--text)',
                           textDecoration: 'none',
                         }}
                       >
@@ -124,13 +124,17 @@ export default async function ExerciseDetailPage({ params }: PageProps) {
                       </a>
                       {workoutTitleByStart.get(s.startTime) && (
                         <div
-                          style={{ color: '#64748b', fontSize: '0.78rem', marginTop: '0.15rem' }}
+                          style={{
+                            color: 'var(--text-muted)',
+                            fontSize: '0.78rem',
+                            marginTop: '0.15rem',
+                          }}
                         >
                           {workoutTitleByStart.get(s.startTime)}
                         </div>
                       )}
                     </div>
-                    <span style={{ color: '#94a3b8', fontSize: '0.85rem' }}>
+                    <span style={{ color: 'var(--text-faint)', fontSize: '0.85rem' }}>
                       {s.sets.length} set{s.sets.length === 1 ? '' : 's'}
                     </span>
                   </div>
@@ -151,7 +155,7 @@ export default async function ExerciseDetailPage({ params }: PageProps) {
                     <div
                       style={{
                         marginTop: '0.4rem',
-                        color: '#94a3b8',
+                        color: 'var(--text-faint)',
                         fontSize: '0.82rem',
                         fontStyle: 'italic',
                       }}
@@ -173,7 +177,7 @@ export default async function ExerciseDetailPage({ params }: PageProps) {
           {placeholderCount > 0 && (
             <>
               {' '}
-              <span style={{ color: '#94a3b8' }}>
+              <span style={{ color: 'var(--text-faint)' }}>
                 ({placeholderCount} additional session{placeholderCount === 1 ? '' : 's'} above had
                 no per-rep detail captured — see Recent sessions.)
               </span>
@@ -200,25 +204,25 @@ export default async function ExerciseDetailPage({ params }: PageProps) {
                   <td style={tdStyle}>
                     <a
                       href={`/workouts/${encodeURIComponent(s.startTime)}`}
-                      style={{ color: '#0b78d1', textDecoration: 'none' }}
+                      style={{ color: 'var(--accent)', textDecoration: 'none' }}
                     >
                       {shortDate(s.startTime)}
                     </a>
                   </td>
-                  <td style={{ ...tdStyle, color: '#64748b', fontSize: '0.85rem' }}>
+                  <td style={{ ...tdStyle, color: 'var(--text-muted)', fontSize: '0.85rem' }}>
                     {wTitle ?? '—'}
                   </td>
-                  <td style={{ ...tdStyle, color: '#64748b' }}>{s.setNum}</td>
+                  <td style={{ ...tdStyle, color: 'var(--text-muted)' }}>{s.setNum}</td>
                   <td style={{ ...tdStyle, textAlign: 'right' }}>{formatWeight(s)}</td>
                   <td style={{ ...tdStyle, textAlign: 'right' }}>{s.finishedReps ?? '—'}</td>
-                  <td style={{ ...tdStyle, textAlign: 'right', color: '#64748b' }}>
+                  <td style={{ ...tdStyle, textAlign: 'right', color: 'var(--text-muted)' }}>
                     {s.volume !== undefined ? Math.round(s.volume).toLocaleString() : '—'}
                   </td>
                   <td style={tdStyle}>
                     {s.formFlags && s.formFlags.length > 0 ? (
-                      <span style={{ color: '#dc2626' }}>⚠ {s.formFlags.join(',')}</span>
+                      <span style={{ color: 'var(--danger)' }}>⚠ {s.formFlags.join(',')}</span>
                     ) : (
-                      <span style={{ color: '#0d9488' }}>✓</span>
+                      <span style={{ color: 'var(--success)' }}>✓</span>
                     )}
                   </td>
                 </tr>
@@ -249,7 +253,7 @@ function Stat({ label, value }: { label: string; value: string }) {
     <div style={cardStyle}>
       <div
         style={{
-          color: '#666',
+          color: 'var(--text-muted)',
           fontSize: '0.72rem',
           textTransform: 'uppercase',
           letterSpacing: '0.06em',
@@ -271,10 +275,10 @@ function SetChip({ set }: { set: ExerciseSet }) {
       style={{
         padding: '0.3rem 0.55rem',
         fontSize: '0.85rem',
-        background: flagged ? '#fee2e2' : '#eef5fc',
-        color: flagged ? '#b91c1c' : '#0b5fa8',
+        background: flagged ? 'var(--danger-bg)' : 'var(--bg-chip)',
+        color: flagged ? 'var(--danger)' : 'var(--accent-strong)',
         border: '1px solid',
-        borderColor: flagged ? '#fecaca' : '#cce2f4',
+        borderColor: flagged ? 'var(--danger-border)' : 'var(--border)',
         borderRadius: '999px',
         fontVariantNumeric: 'tabular-nums',
       }}
@@ -286,7 +290,7 @@ function SetChip({ set }: { set: ExerciseSet }) {
 }
 
 function MaxWeightChart({ points }: { points: Array<{ label: string; maxWeight: number }> }) {
-  if (points.length === 0) return <p style={{ color: '#888' }}>No data.</p>;
+  if (points.length === 0) return <p style={{ color: 'var(--text-faint)' }}>No data.</p>;
   const w = Math.max(280, points.length * 50);
   const h = 180;
   const pad = { l: 30, r: 10, t: 10, b: 24 };

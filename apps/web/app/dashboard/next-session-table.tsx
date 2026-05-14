@@ -41,11 +41,11 @@ export function NextSessionTable({ lifts }: { lifts: PlannedLift[] }) {
                 <td style={tdStyle}>
                   <a
                     href={`/exercises/${encodeURIComponent(lift.exerciseId)}`}
-                    style={{ color: '#0b78d1', textDecoration: 'none', fontWeight: 500 }}
+                    style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: 500 }}
                   >
                     {lift.name}
                   </a>
-                  <div style={{ color: '#94a3b8', fontSize: '0.75rem' }}>
+                  <div style={{ color: 'var(--text-faint)', fontSize: '0.75rem' }}>
                     {lift.muscleGroup ?? '—'}
                     {lift.isUnilateral && ' · L/R'}
                     {lift.lastSessionDate &&
@@ -57,7 +57,9 @@ export function NextSessionTable({ lifts }: { lifts: PlannedLift[] }) {
                     <>
                       <div style={{ fontWeight: 600 }}>{planSummary}</div>
                       {planReps && (
-                        <div style={{ color: '#94a3b8', fontSize: '0.75rem' }}>{planReps} reps</div>
+                        <div style={{ color: 'var(--text-faint)', fontSize: '0.75rem' }}>
+                          {planReps} reps
+                        </div>
                       )}
                     </>
                   ) : (
@@ -69,14 +71,16 @@ export function NextSessionTable({ lifts }: { lifts: PlannedLift[] }) {
                     <>
                       <div>{lift.lastWeight}</div>
                       {lastBlurb && (
-                        <div style={{ color: '#94a3b8', fontSize: '0.75rem' }}>{lastBlurb}</div>
+                        <div style={{ color: 'var(--text-faint)', fontSize: '0.75rem' }}>
+                          {lastBlurb}
+                        </div>
                       )}
                     </>
                   ) : (
-                    <span style={{ color: '#cbd5e1' }}>—</span>
+                    <span style={{ color: 'var(--border-strong)' }}>—</span>
                   )}
                 </td>
-                <td style={{ ...tdStyle, textAlign: 'right', color: '#64748b' }}>
+                <td style={{ ...tdStyle, textAlign: 'right', color: 'var(--text-muted)' }}>
                   {lift.bestOneRepMax ?? lift.bestWeight ?? '—'}
                 </td>
                 <td
@@ -84,7 +88,7 @@ export function NextSessionTable({ lifts }: { lifts: PlannedLift[] }) {
                     ...tdStyle,
                     textAlign: 'right',
                     fontWeight: 700,
-                    color: lift.recommendedWeight ? '#0b78d1' : '#cbd5e1',
+                    color: lift.recommendedWeight ? 'var(--accent)' : 'var(--border-strong)',
                   }}
                 >
                   {lift.recommendedWeight !== undefined ? lift.recommendedWeight : '—'}
@@ -92,7 +96,7 @@ export function NextSessionTable({ lifts }: { lifts: PlannedLift[] }) {
                 <td
                   style={{
                     ...tdStyle,
-                    color: flagged ? '#dc2626' : '#64748b',
+                    color: flagged ? 'var(--danger)' : 'var(--text-muted)',
                     fontSize: '0.82rem',
                   }}
                 >
@@ -137,17 +141,17 @@ const tableStyle: React.CSSProperties = {
   fontSize: '0.92rem',
 };
 
-const trStyle: React.CSSProperties = { borderTop: '1px solid #f1f5f9' };
+const trStyle: React.CSSProperties = { borderTop: '1px solid var(--border-faint)' };
 
 const thStyle: React.CSSProperties = {
   padding: '0.55rem 0.6rem',
-  color: '#64748b',
+  color: 'var(--text-muted)',
   fontWeight: 600,
   fontSize: '0.74rem',
   textTransform: 'uppercase',
   letterSpacing: '0.06em',
   textAlign: 'left',
-  borderBottom: '1px solid #e5e7eb',
+  borderBottom: '1px solid var(--border)',
 };
 
 const tdStyle: React.CSSProperties = {

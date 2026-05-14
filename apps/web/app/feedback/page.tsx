@@ -17,11 +17,11 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 const STATUS_COLOR: Record<string, { bg: string; fg: string }> = {
-  open: { bg: '#eef5fc', fg: '#0b5fa8' },
-  triaged: { bg: '#fef3c7', fg: '#92400e' },
+  open: { bg: 'var(--bg-chip)', fg: 'var(--accent-strong)' },
+  triaged: { bg: '#fef3c7', fg: 'var(--warning-text)' },
   in_progress: { bg: '#ede9fe', fg: '#5b21b6' },
-  done: { bg: '#ecfdf5', fg: '#065f46' },
-  wontfix: { bg: '#fee2e2', fg: '#991b1b' },
+  done: { bg: 'var(--accent-soft)', fg: '#065f46' },
+  wontfix: { bg: 'var(--danger-bg)', fg: '#991b1b' },
 };
 
 export default async function FeedbackPage() {
@@ -57,10 +57,10 @@ export default async function FeedbackPage() {
                   key={f.createdAt}
                   style={{
                     padding: '0.85rem 1rem',
-                    border: '1px solid #e5e7eb',
+                    border: '1px solid var(--border)',
                     borderLeft: '3px solid #0b78d1',
                     borderRadius: '8px',
-                    background: '#fafbfc',
+                    background: 'var(--bg-subtle)',
                   }}
                 >
                   <div
@@ -88,14 +88,16 @@ export default async function FeedbackPage() {
                       {STATUS_LABEL[f.status ?? 'open'] ?? f.status}
                     </span>
                   </div>
-                  <div style={{ color: '#94a3b8', fontSize: '0.78rem', marginTop: '0.2rem' }}>
+                  <div
+                    style={{ color: 'var(--text-faint)', fontSize: '0.78rem', marginTop: '0.2rem' }}
+                  >
                     {f.category} · {shortDate(f.createdAt)}
                   </div>
                   {f.body && (
                     <p
                       style={{
                         margin: '0.55rem 0 0 0',
-                        color: '#1a1a1a',
+                        color: 'var(--text)',
                         fontSize: '0.9rem',
                         whiteSpace: 'pre-wrap',
                       }}

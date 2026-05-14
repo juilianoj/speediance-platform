@@ -36,7 +36,7 @@ export function ResyncButton() {
           style={{
             margin: '0.6rem 0 0 0',
             fontSize: '0.9rem',
-            color: status.ok ? '#0d9488' : '#b91c1c',
+            color: status.ok ? 'var(--success)' : 'var(--danger)',
           }}
         >
           {status.message}
@@ -65,7 +65,7 @@ export function CatalogRebuildButton({ currentSize }: { currentSize: number }) {
       >
         {pending ? 'Triggering…' : currentSize > 0 ? 'Rebuild catalog' : 'Bootstrap catalog'}
       </button>
-      <p style={{ margin: '0.6rem 0 0 0', fontSize: '0.85rem', color: '#64748b' }}>
+      <p style={{ margin: '0.6rem 0 0 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
         Catalog currently has{' '}
         <span style={{ fontWeight: 600 }}>{currentSize.toLocaleString()}</span> exercises.
       </p>
@@ -74,7 +74,7 @@ export function CatalogRebuildButton({ currentSize }: { currentSize: number }) {
           style={{
             margin: '0.4rem 0 0 0',
             fontSize: '0.9rem',
-            color: status.ok ? '#0d9488' : '#b91c1c',
+            color: status.ok ? 'var(--success)' : 'var(--danger)',
           }}
         >
           {status.message}
@@ -99,7 +99,7 @@ export function InviteForm() {
           minWidth: '220px',
           padding: '0.55rem 0.75rem',
           fontSize: '0.95rem',
-          border: '1px solid #d0d0d0',
+          border: '1px solid var(--border-strong)',
           borderRadius: '6px',
         }}
       />
@@ -110,7 +110,7 @@ export function InviteForm() {
             width: '100%',
             margin: '0.4rem 0 0 0',
             fontSize: '0.9rem',
-            color: result.ok ? '#0d9488' : '#b91c1c',
+            color: result.ok ? 'var(--success)' : 'var(--danger)',
           }}
         >
           {result.message}
@@ -132,7 +132,7 @@ function InviteSubmit() {
 function primaryButton(pending: boolean): React.CSSProperties {
   return {
     padding: '0.55rem 1.1rem',
-    background: pending ? '#88b8e0' : '#0b78d1',
+    background: pending ? 'var(--accent-soft)' : 'var(--accent)',
     color: 'white',
     border: 'none',
     borderRadius: '6px',
@@ -160,7 +160,9 @@ export function UserEnabledToggle({
   const [error, setError] = useState<string | null>(null);
   if (isSelf) {
     return (
-      <span style={{ color: '#94a3b8', fontSize: '0.78rem', fontStyle: 'italic' }}>(you)</span>
+      <span style={{ color: 'var(--text-faint)', fontSize: '0.78rem', fontStyle: 'italic' }}>
+        (you)
+      </span>
     );
   }
   const onClick = () => {
@@ -178,7 +180,7 @@ export function UserEnabledToggle({
       <button type="button" onClick={onClick} disabled={pending} style={smallButton(pending)}>
         {pending ? '…' : enabled ? 'Disable' : 'Enable'}
       </button>
-      {error && <span style={{ color: '#b91c1c', fontSize: '0.78rem' }}>{error}</span>}
+      {error && <span style={{ color: 'var(--danger)', fontSize: '0.78rem' }}>{error}</span>}
     </div>
   );
 }
@@ -233,15 +235,15 @@ export function HardDeleteUserButton({
         disabled={pending}
         style={{
           ...smallButton(pending),
-          background: '#fff',
-          color: '#b91c1c',
+          background: 'var(--bg-card)',
+          color: 'var(--danger)',
           border: '1px solid #fecaca',
         }}
         title={`Hard delete ${email ?? username}`}
       >
         {pending ? '…' : 'Delete'}
       </button>
-      {error && <span style={{ color: '#b91c1c', fontSize: '0.78rem' }}>{error}</span>}
+      {error && <span style={{ color: 'var(--danger)', fontSize: '0.78rem' }}>{error}</span>}
     </div>
   );
 }
@@ -249,9 +251,9 @@ export function HardDeleteUserButton({
 function smallButton(pending: boolean): React.CSSProperties {
   return {
     padding: '0.3rem 0.7rem',
-    background: pending ? '#e5e7eb' : '#f1f5f9',
-    color: '#0f172a',
-    border: '1px solid #cbd5e1',
+    background: pending ? 'var(--border)' : 'var(--bg-subtle)',
+    color: 'var(--text)',
+    border: '1px solid var(--border-strong)',
     borderRadius: '5px',
     cursor: pending ? 'wait' : 'pointer',
     fontWeight: 500,

@@ -58,10 +58,10 @@ export function FeedbackForm() {
           style={{
             margin: 0,
             padding: '0.6rem 0.8rem',
-            background: result.ok ? '#ecfdf5' : '#fef2f2',
+            background: result.ok ? 'var(--accent-soft)' : 'var(--danger-bg)',
             border: '1px solid',
-            borderColor: result.ok ? '#a7f3d0' : '#fecaca',
-            color: result.ok ? '#065f46' : '#b91c1c',
+            borderColor: result.ok ? 'var(--success)' : 'var(--danger-border)',
+            color: result.ok ? '#065f46' : 'var(--danger)',
             borderRadius: '8px',
             fontSize: '0.88rem',
           }}
@@ -82,7 +82,9 @@ function SubmitButton() {
       disabled={pending}
       style={{
         padding: '0.65rem 1.2rem',
-        background: pending ? '#cbd5e1' : 'linear-gradient(135deg, #0b78d1 0%, #0b5fa8 100%)',
+        background: pending
+          ? 'var(--border-strong)'
+          : 'linear-gradient(135deg, #0b78d1 0%, #0b5fa8 100%)',
         color: 'white',
         border: 'none',
         borderRadius: '10px',
@@ -113,7 +115,7 @@ const labelStyle: React.CSSProperties = {
 
 const spanStyle: React.CSSProperties = {
   fontSize: '0.72rem',
-  color: '#64748b',
+  color: 'var(--text-muted)',
   fontWeight: 700,
   textTransform: 'uppercase',
   letterSpacing: '0.06em',
@@ -122,9 +124,9 @@ const spanStyle: React.CSSProperties = {
 const inputStyle: React.CSSProperties = {
   padding: '0.6rem 0.8rem',
   fontSize: '0.92rem',
-  border: '1px solid #cbd5e1',
+  border: '1px solid var(--border-strong)',
   borderRadius: '10px',
-  background: '#fff',
-  color: '#0f172a',
+  background: 'var(--bg-card)',
+  color: 'var(--text)',
   outline: 'none',
 };

@@ -123,7 +123,7 @@ export function ProgramEditor({ program, drafts }: Props) {
           <SaveBadge status={status} />
           <span style={{ flex: 1 }} />
           <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-            <span style={{ color: '#64748b' }}>Weeks</span>
+            <span style={{ color: 'var(--text-muted)' }}>Weeks</span>
             <input
               type="number"
               value={weekCount}
@@ -138,7 +138,7 @@ export function ProgramEditor({ program, drafts }: Props) {
               style={{
                 width: '4rem',
                 padding: '0.35rem 0.5rem',
-                border: '1px solid #cbd5e1',
+                border: '1px solid var(--border-strong)',
                 borderRadius: '6px',
                 fontSize: '0.92rem',
               }}
@@ -156,7 +156,7 @@ export function ProgramEditor({ program, drafts }: Props) {
         </p>
 
         {drafts.length === 0 ? (
-          <p style={{ color: '#94a3b8', margin: '1rem 0 0 0' }}>
+          <p style={{ color: 'var(--text-faint)', margin: '1rem 0 0 0' }}>
             No workouts to assign. Build at least one first.
           </p>
         ) : (
@@ -277,7 +277,7 @@ function ScheduleCard({
         }}
       >
         <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-          <span style={{ color: '#64748b', fontSize: '0.85rem' }}>Start</span>
+          <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Start</span>
           <input
             type="date"
             value={startDate}
@@ -285,7 +285,7 @@ function ScheduleCard({
             min={defaultStartDate()}
             style={{
               padding: '0.4rem 0.55rem',
-              border: '1px solid #cbd5e1',
+              border: '1px solid var(--border-strong)',
               borderRadius: '6px',
               fontSize: '0.92rem',
             }}
@@ -327,7 +327,11 @@ function ScheduleCard({
           style={{
             margin: '0.6rem 0 0',
             fontSize: '0.9rem',
-            color: result.ok ? '#0d9488' : result.reservations ? '#a06000' : '#b91c1c',
+            color: result.ok
+              ? 'var(--success)'
+              : result.reservations
+                ? 'var(--warning)'
+                : 'var(--danger)',
           }}
         >
           {result.message ?? (result.ok ? '✓ Done.' : 'Action failed.')}
@@ -340,7 +344,7 @@ function ScheduleCard({
             style={{
               cursor: 'pointer',
               fontSize: '0.82rem',
-              color: '#64748b',
+              color: 'var(--text-muted)',
               fontWeight: 500,
             }}
           >
@@ -351,7 +355,7 @@ function ScheduleCard({
               margin: '0.5rem 0 0 0',
               padding: '0 0 0 1.2rem',
               fontSize: '0.85rem',
-              color: '#475569',
+              color: 'var(--text-muted)',
             }}
           >
             {program.scheduledReservations!.map((r) => (
@@ -375,7 +379,7 @@ function defaultStartDate(): string {
 function primaryButtonStyle(disabled: boolean): React.CSSProperties {
   return {
     padding: '0.5rem 1rem',
-    background: disabled ? '#94a3b8' : '#0b78d1',
+    background: disabled ? 'var(--text-faint)' : 'var(--accent)',
     color: '#fff',
     border: 'none',
     borderRadius: '8px',
@@ -388,8 +392,8 @@ function primaryButtonStyle(disabled: boolean): React.CSSProperties {
 function secondaryButtonStyle(disabled: boolean): React.CSSProperties {
   return {
     padding: '0.5rem 0.85rem',
-    background: '#fff',
-    color: '#b91c1c',
+    background: 'var(--bg-card)',
+    color: 'var(--danger)',
     border: '1px solid #fecaca',
     borderRadius: '8px',
     fontWeight: 500,
@@ -419,8 +423,8 @@ function SlotCell({
         style={{
           minHeight: '54px',
           padding: '0.4rem 0.55rem',
-          background: draft ? '#eef5fc' : '#fee2e2',
-          border: `1px solid ${draft ? '#cce2f4' : '#fecaca'}`,
+          background: draft ? 'var(--bg-chip)' : 'var(--danger-bg)',
+          border: `1px solid ${draft ? 'var(--border)' : 'var(--danger-border)'}`,
           borderRadius: '6px',
           fontSize: '0.82rem',
           display: 'flex',
@@ -432,7 +436,7 @@ function SlotCell({
         <span
           style={{
             fontWeight: 500,
-            color: draft ? '#0b5fa8' : '#b91c1c',
+            color: draft ? 'var(--accent-strong)' : 'var(--danger)',
             wordBreak: 'break-word',
             flex: 1,
             minWidth: 0,
@@ -447,7 +451,7 @@ function SlotCell({
           style={{
             background: 'transparent',
             border: 'none',
-            color: '#94a3b8',
+            color: 'var(--text-faint)',
             cursor: 'pointer',
             padding: 0,
             fontSize: '0.8rem',
@@ -477,7 +481,7 @@ function SlotCell({
           border: '1px solid #0b78d1',
           borderRadius: '6px',
           fontSize: '0.82rem',
-          background: '#fff',
+          background: 'var(--bg-card)',
         }}
       >
         <option value="" disabled>
@@ -500,10 +504,10 @@ function SlotCell({
         width: '100%',
         minHeight: '54px',
         border: '1px dashed #cbd5e1',
-        background: '#fff',
+        background: 'var(--bg-card)',
         borderRadius: '6px',
         cursor: 'pointer',
-        color: '#94a3b8',
+        color: 'var(--text-faint)',
         fontSize: '0.82rem',
       }}
     >
@@ -513,10 +517,11 @@ function SlotCell({
 }
 
 function SaveBadge({ status }: { status: SaveStatus }) {
-  if (status === 'idle') return <span style={{ color: '#94a3b8' }}>All changes saved.</span>;
-  if (status === 'saving') return <span style={{ color: '#0b78d1' }}>Saving…</span>;
-  if (status === 'saved') return <span style={{ color: '#0d9488' }}>✓ Saved</span>;
-  return <span style={{ color: '#b91c1c' }}>Save failed</span>;
+  if (status === 'idle')
+    return <span style={{ color: 'var(--text-faint)' }}>All changes saved.</span>;
+  if (status === 'saving') return <span style={{ color: 'var(--accent)' }}>Saving…</span>;
+  if (status === 'saved') return <span style={{ color: 'var(--success)' }}>✓ Saved</span>;
+  return <span style={{ color: 'var(--danger)' }}>Save failed</span>;
 }
 
 function DeleteProgramButton({ programId }: { programId: string }) {
@@ -536,7 +541,7 @@ function DeleteProgramButton({ programId }: { programId: string }) {
       style={{
         background: 'transparent',
         border: '1px solid #fecaca',
-        color: '#b91c1c',
+        color: 'var(--danger)',
         borderRadius: '6px',
         padding: '0.35rem 0.7rem',
         fontSize: '0.82rem',
@@ -549,8 +554,8 @@ function DeleteProgramButton({ programId }: { programId: string }) {
 }
 
 const cardStyle: React.CSSProperties = {
-  background: '#fff',
-  border: '1px solid #e5e7eb',
+  background: 'var(--bg-card)',
+  border: '1px solid var(--border)',
   borderRadius: '12px',
   padding: '1.1rem 1.25rem',
   marginBottom: '1rem',
@@ -564,7 +569,7 @@ const cardHeadingStyle: React.CSSProperties = {
 };
 const mutedStyle: React.CSSProperties = {
   margin: '0.3rem 0 0 0',
-  color: '#64748b',
+  color: 'var(--text-muted)',
   fontSize: '0.88rem',
 };
 const titleInputStyle: React.CSSProperties = {
@@ -575,25 +580,25 @@ const titleInputStyle: React.CSSProperties = {
   outline: 'none',
   padding: '0.2rem 0',
   background: 'transparent',
-  color: '#0f172a',
+  color: 'var(--text)',
 };
 const notesStyle: React.CSSProperties = {
   width: '100%',
-  border: '1px solid #e5e7eb',
+  border: '1px solid var(--border)',
   borderRadius: '8px',
   padding: '0.55rem 0.7rem',
   fontSize: '0.92rem',
   fontFamily: 'inherit',
   resize: 'vertical',
-  background: '#fafbfc',
-  color: '#1f2937',
+  background: 'var(--bg-subtle)',
+  color: 'var(--text)',
 };
 const cellHeadStyle: React.CSSProperties = {
   padding: '0.4rem 0.5rem',
   fontSize: '0.72rem',
   textTransform: 'uppercase',
   letterSpacing: '0.05em',
-  color: '#94a3b8',
+  color: 'var(--text-faint)',
   fontWeight: 700,
   textAlign: 'center',
 };
@@ -601,7 +606,7 @@ const weekHeadStyle: React.CSSProperties = {
   padding: '0.5rem 0.6rem',
   fontSize: '0.8rem',
   fontWeight: 600,
-  color: '#475569',
+  color: 'var(--text-muted)',
   textAlign: 'right',
   whiteSpace: 'nowrap',
 };

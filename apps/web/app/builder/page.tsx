@@ -30,12 +30,18 @@ export default async function BuilderIndexPage() {
   return (
     <PageShell current="builder" userLabel={String(claims.email ?? claims.sub)}>
       {!catalogReady && (
-        <section style={{ ...cardStyle, borderLeft: '3px solid #b45309', background: '#fffbeb' }}>
+        <section
+          style={{
+            ...cardStyle,
+            borderLeft: '3px solid var(--warning)',
+            background: 'var(--warning-bg)',
+          }}
+        >
           <h2 style={cardHeadingStyle}>Catalog not bootstrapped yet</h2>
-          <p style={{ ...mutedStyle, color: '#78350f' }}>
+          <p style={{ ...mutedStyle, color: 'var(--warning-text)' }}>
             The builder needs a local catalog of Speediance exercises (setup instructions, cable
             position, etc.) before it&rsquo;s useful. Head to{' '}
-            <a href="/admin" style={{ color: '#b45309', fontWeight: 600 }}>
+            <a href="/admin" style={{ color: 'var(--warning)', fontWeight: 600 }}>
               /admin
             </a>
             , click <strong>Bootstrap catalog</strong>, and come back in 3-5 minutes.
@@ -64,7 +70,7 @@ export default async function BuilderIndexPage() {
         </div>
 
         {drafts.length === 0 ? (
-          <p style={{ color: '#94a3b8', margin: '1.25rem 0 0 0' }}>
+          <p style={{ color: 'var(--text-faint)', margin: '1.25rem 0 0 0' }}>
             {catalogReady ? 'No workouts yet. Click "New workout" to start one.' : '—'}
           </p>
         ) : (
@@ -93,7 +99,7 @@ export default async function BuilderIndexPage() {
         </div>
 
         {programs.length === 0 ? (
-          <p style={{ color: '#94a3b8', margin: '1.25rem 0 0 0' }}>
+          <p style={{ color: 'var(--text-faint)', margin: '1.25rem 0 0 0' }}>
             {!catalogReady
               ? '—'
               : drafts.length === 0
@@ -129,11 +135,13 @@ function DraftList({ drafts }: { drafts: Awaited<ReturnType<typeof listMyDrafts>
               gap: '1.2rem',
               alignItems: 'center',
               padding: '0.85rem 1rem',
-              border: '1px solid #e5e7eb',
+              border: '1px solid var(--border)',
               borderLeft:
-                d.status === 'saved-to-speediance' ? '3px solid #0d9488' : '3px solid #94a3b8',
+                d.status === 'saved-to-speediance'
+                  ? '3px solid var(--success)'
+                  : '3px solid var(--text-faint)',
               borderRadius: '8px',
-              background: '#fff',
+              background: 'var(--bg-card)',
               textDecoration: 'none',
               color: 'inherit',
             }}
@@ -142,7 +150,7 @@ function DraftList({ drafts }: { drafts: Awaited<ReturnType<typeof listMyDrafts>
               <div style={{ fontWeight: 600, fontSize: '0.96rem' }}>{d.name}</div>
               <div
                 style={{
-                  color: '#64748b',
+                  color: 'var(--text-muted)',
                   fontSize: '0.78rem',
                   marginTop: '0.18rem',
                   display: 'flex',
@@ -153,13 +161,13 @@ function DraftList({ drafts }: { drafts: Awaited<ReturnType<typeof listMyDrafts>
                   {(d.exercises ?? []).length} exercise
                   {(d.exercises ?? []).length === 1 ? '' : 's'}
                 </span>
-                <span style={{ color: '#cbd5e1' }}>·</span>
+                <span style={{ color: 'var(--border-strong)' }}>·</span>
                 <span>edited {shortDate(d.updatedAt ?? d.createdAt)}</span>
               </div>
             </div>
             <span
               style={{
-                color: d.status === 'saved-to-speediance' ? '#0d9488' : '#94a3b8',
+                color: d.status === 'saved-to-speediance' ? 'var(--success)' : 'var(--text-faint)',
                 fontSize: '0.74rem',
                 fontWeight: 700,
                 textTransform: 'uppercase',
@@ -168,7 +176,7 @@ function DraftList({ drafts }: { drafts: Awaited<ReturnType<typeof listMyDrafts>
             >
               {d.status === 'saved-to-speediance' ? 'Saved' : 'Draft'}
             </span>
-            <span style={{ color: '#94a3b8', fontSize: '0.85rem' }}>→</span>
+            <span style={{ color: 'var(--text-faint)', fontSize: '0.85rem' }}>→</span>
           </a>
         </li>
       ))}
@@ -197,10 +205,13 @@ function ProgramList({ programs }: { programs: Awaited<ReturnType<typeof listMyP
               gap: '1.2rem',
               alignItems: 'center',
               padding: '0.85rem 1rem',
-              border: '1px solid #e5e7eb',
-              borderLeft: p.status === 'scheduled' ? '3px solid #0d9488' : '3px solid #94a3b8',
+              border: '1px solid var(--border)',
+              borderLeft:
+                p.status === 'scheduled'
+                  ? '3px solid var(--success)'
+                  : '3px solid var(--text-faint)',
               borderRadius: '8px',
-              background: '#fff',
+              background: 'var(--bg-card)',
               textDecoration: 'none',
               color: 'inherit',
             }}
@@ -209,7 +220,7 @@ function ProgramList({ programs }: { programs: Awaited<ReturnType<typeof listMyP
               <div style={{ fontWeight: 600, fontSize: '0.96rem' }}>{p.name}</div>
               <div
                 style={{
-                  color: '#64748b',
+                  color: 'var(--text-muted)',
                   fontSize: '0.78rem',
                   marginTop: '0.18rem',
                   display: 'flex',
@@ -217,17 +228,17 @@ function ProgramList({ programs }: { programs: Awaited<ReturnType<typeof listMyP
                 }}
               >
                 <span>{p.weekCount}-week cycle</span>
-                <span style={{ color: '#cbd5e1' }}>·</span>
+                <span style={{ color: 'var(--border-strong)' }}>·</span>
                 <span>
                   {(p.slots ?? []).length} slot{(p.slots ?? []).length === 1 ? '' : 's'} filled
                 </span>
-                <span style={{ color: '#cbd5e1' }}>·</span>
+                <span style={{ color: 'var(--border-strong)' }}>·</span>
                 <span>edited {shortDate(p.updatedAt ?? p.createdAt)}</span>
               </div>
             </div>
             <span
               style={{
-                color: p.status === 'scheduled' ? '#0d9488' : '#94a3b8',
+                color: p.status === 'scheduled' ? 'var(--success)' : 'var(--text-faint)',
                 fontSize: '0.74rem',
                 fontWeight: 700,
                 textTransform: 'uppercase',
@@ -236,7 +247,7 @@ function ProgramList({ programs }: { programs: Awaited<ReturnType<typeof listMyP
             >
               {p.status === 'scheduled' ? 'Live' : 'Draft'}
             </span>
-            <span style={{ color: '#94a3b8', fontSize: '0.85rem' }}>→</span>
+            <span style={{ color: 'var(--text-faint)', fontSize: '0.85rem' }}>→</span>
           </a>
         </li>
       ))}
