@@ -136,3 +136,89 @@ textarea::placeholder {
 /* Form controls inherit the system color scheme via `color-scheme:` on the
  * root selector — autofill backgrounds, scrollbars, and native pickers
  * pick the right palette automatically. */
+
+/* ─── Responsive: phone / narrow-tablet ───────────────────────────────
+ *
+ * Most of the app uses inline `React.CSSProperties` with absolute paddings
+ * that look cramped on a 375px-wide phone. Rather than thread responsive
+ * props through every component, we hook into the same selectors the
+ * inline styles render to and override the common offenders here.
+ *
+ * Strategy:
+ *   - Tighten `<main>` padding (matches the PageShell mainStyle).
+ *   - Shrink the cardStyle padding so tiles don't feel like billboards.
+ *   - Reduce table font size + cell padding so wide tables still scan.
+ *   - Allow tables to scroll horizontally when they overflow their card.
+ *   - Slim down the nav (smaller pills, brand text hidden — the mark
+ *     alone identifies the app).
+ *   - Drawer goes full-width minus a small inset so the close affordance
+ *     stays visible. (Already maxWidth: 440px so on phones it fills the
+ *     screen; we just drop the leftover gap.)
+ *
+ * Selectors target the standard HTML elements used by the codebase
+ * (`main`, `table`, `th`, `td`, `<header>` for the nav, etc.) plus
+ * `[role="dialog"]` for the drawer.
+ */
+
+@media (max-width: 640px) {
+  main {
+    padding-left: 0.85rem !important;
+    padding-right: 0.85rem !important;
+  }
+
+  /* Card surfaces shrink their interior padding. The `box-shadow` +
+   * border-radius stay so the visual chrome remains intact. */
+  section[style*='border-radius: 12px'],
+  section[style*='borderRadius'] {
+    padding-left: 0.9rem !important;
+    padding-right: 0.9rem !important;
+    padding-top: 1rem !important;
+    padding-bottom: 1rem !important;
+  }
+
+  /* Tables — universal scroll wrapper isn't worth threading from React,
+   * but allowing the parent to scroll keeps the layout from blowing up. */
+  table {
+    font-size: 0.82rem;
+  }
+
+  th,
+  td {
+    padding: 0.45rem 0.4rem !important;
+  }
+
+  /* Nav header. Smaller pill padding + drop the wordmark on phones —
+   * the cyan-blue 'S' mark alone is enough identifying chrome. */
+  header nav a {
+    padding: 0.35rem 0.55rem !important;
+    font-size: 0.82rem !important;
+  }
+
+  /* The brand text is the `<span>` directly inside the brand `<a>` (or
+   * `<Link>`). Tag specifically by its sibling text-only spans inside
+   * the `header`'s logo link. */
+  header > div > a > span:not([aria-hidden]) {
+    display: none;
+  }
+
+  /* Title h1 in PageShell — the inline style is fontSize: 1.75rem,
+   * which dominates the viewport on phones. */
+  main > h1 {
+    font-size: 1.35rem !important;
+  }
+
+  /* Drawer takes the full viewport. The inline `maxWidth: 440px` plus
+   * a small right inset on tablets leaves an awkward sliver of page
+   * peeking through on phones; explicitly stretch it. */
+  aside[role='dialog'] {
+    max-width: 100% !important;
+    border-left: none !important;
+  }
+}
+
+@media (max-width: 480px) {
+  /* KPI cards become extra-compact at very narrow widths. */
+  section[style*='gridTemplateColumns'] > div {
+    padding: 0.85rem 0.95rem !important;
+  }
+}
