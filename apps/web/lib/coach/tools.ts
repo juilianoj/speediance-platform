@@ -48,7 +48,12 @@ export type ToolName =
   // Speediance write-side tools (PR γ): push a workout draft to the
   // user's Speediance app as a custom training template, or pull it back.
   | 'push_draft_to_speediance'
-  | 'unsave_draft_from_speediance';
+  | 'unsave_draft_from_speediance'
+  // Profile mutation: lets the agent edit body-weight / unit / coach
+  // preferences when the user asks ("update my weight to 250", "my goal
+  // is now strength"). Stays out of credentials and security-sensitive
+  // fields — those need the /profile form.
+  | 'update_profile';
 
 export interface ToolSpec {
   name: ToolName;
@@ -490,6 +495,57 @@ export const COACH_TOOLS: ToolSpec[] = [
         },
       },
       required: ['draftId'],
+    },
+  },
+
+  {
+    name: 'update_profile',
+    description:
+      'Update the user\'s profile preferences. Pass only the fields the user wants changed — anything omitted stays as-is. Use when the user says things like "update my weight to 250", "my primary goal is hypertrophy now", "I\'m switching to metric", "set my session length to 60 minutes", "I have a left-shoulder issue, no overhead pressing". Does NOT change Speediance credentials, email, password, or MCP API keys — those need the /profile form.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        bodyweight: {
+          type: 'number',
+          description:
+            "User's body weight, in the unit they currently use (lb if unit=1, kg if unit=0).",
+        },
+        unit: {
+          type: 'number',
+          description: '0 = metric (kg), 1 = imperial (lb).',
+        },
+        gender: {
+          type: 'string',
+          description: "'male' or 'female' — used only for the /balance silhouette.",
+        },
+        hideCardio: {
+          type: 'boolean',
+          description: 'Hide the Cardio nav item + section.',
+        },
+        syncStartDate: {
+          type: 'string',
+          description:
+            'YYYY-MM-DD. The sync worker pulls Speediance records from this date forward.',
+        },
+        primaryGoal: {
+          type: 'string',
+          description:
+            "One of: 'strength', 'hypertrophy', 'general-fitness', 'fat-loss', 'endurance'.",
+        },
+        sessionsPerWeek: {
+          type: 'number',
+          description: 'How many lifting days per week the user trains (1–7).',
+        },
+        sessionMinutes: {
+          type: 'number',
+          description: 'Typical session length in minutes (15–120).',
+        },
+        equipmentConstraints: {
+          type: 'string',
+          description:
+            'Free-text constraints — injuries, equipment limits, things to avoid. Max ~200 chars.',
+        },
+      },
     },
   },
 ];
@@ -1051,6 +1107,83 @@ export async function runTool(
         ok: true,
         draftId,
         message: 'Removed from Speediance. The draft still lives in /builder.',
+      };
+    }
+
+    case 'update_profile': {
+      // Whitelist: only fields the agent is allowed to set. Credentials,
+      // mcpApiKeyPrefix, lastSyncedAt, secretArn, speedianceTemplateCode
+      // etc. are intentionally not exposed — those need the form.
+      const profilePatch: Record<string, unknown> = {};
+      if (typeof args.bodyweight === 'number' && args.bodyweight > 0 && args.bodyweight < 2000) {
+        profilePatch.bodyweight = args.bodyweight;
+      }
+      if (args.unit === 0 || args.unit === 1) {
+        profilePatch.unit = args.unit;
+      }
+      if (args.gender === 'male' || args.gender === 'female') {
+        profilePatch.gender = args.gender;
+      }
+      if (typeof args.hideCardio === 'boolean') {
+        profilePatch.hideCardio = args.hideCardio;
+      }
+      if (
+        typeof args.syncStartDate === 'string' &&
+        /^\d{4}-\d{2}-\d{2}$/.test(args.syncStartDate)
+      ) {
+        profilePatch.syncStartDate = args.syncStartDate;
+      }
+
+      // coachPrefs is a map attribute — merge on top of existing so we
+      // don't clobber unrelated fields the user already set.
+      const coachPrefsPatch: Record<string, unknown> = {};
+      const PRIMARY_GOALS = new Set([
+        'strength',
+        'hypertrophy',
+        'general-fitness',
+        'fat-loss',
+        'endurance',
+      ]);
+      if (typeof args.primaryGoal === 'string' && PRIMARY_GOALS.has(args.primaryGoal)) {
+        coachPrefsPatch.primaryGoal = args.primaryGoal;
+      }
+      if (
+        typeof args.sessionsPerWeek === 'number' &&
+        args.sessionsPerWeek >= 1 &&
+        args.sessionsPerWeek <= 7
+      ) {
+        coachPrefsPatch.sessionsPerWeek = args.sessionsPerWeek;
+      }
+      if (
+        typeof args.sessionMinutes === 'number' &&
+        args.sessionMinutes >= 15 &&
+        args.sessionMinutes <= 120
+      ) {
+        coachPrefsPatch.sessionMinutes = args.sessionMinutes;
+      }
+      if (typeof args.equipmentConstraints === 'string') {
+        coachPrefsPatch.equipmentConstraints = args.equipmentConstraints.slice(0, 200);
+      }
+
+      if (Object.keys(coachPrefsPatch).length > 0) {
+        const existing = (await me.profiles.get()) as {
+          data: { coachPrefs?: Record<string, unknown> } | null;
+        };
+        profilePatch.coachPrefs = {
+          ...(existing.data?.coachPrefs ?? {}),
+          ...coachPrefsPatch,
+        };
+      }
+
+      if (Object.keys(profilePatch).length === 0) {
+        return { error: 'No valid profile fields to update. Pass at least one supported field.' };
+      }
+
+      await me.profiles.patch(profilePatch);
+      return {
+        ok: true,
+        updated: Object.keys(profilePatch),
+        message: `Profile updated. The user can review at /profile.`,
       };
     }
 
