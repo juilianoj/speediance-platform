@@ -44,7 +44,11 @@ export type ToolName =
   | 'create_program_draft'
   | 'update_program_draft'
   | 'schedule_program'
-  | 'unschedule_program';
+  | 'unschedule_program'
+  // Speediance write-side tools (PR γ): push a workout draft to the
+  // user's Speediance app as a custom training template, or pull it back.
+  | 'push_draft_to_speediance'
+  | 'unsave_draft_from_speediance';
 
 export interface ToolSpec {
   name: ToolName;
@@ -447,6 +451,45 @@ export const COACH_TOOLS: ToolSpec[] = [
         programId: { type: 'string' },
       },
       required: ['programId'],
+    },
+  },
+
+  // ─── Speediance write-side tools (PR γ) ─────────────────────────────
+  //
+  // A workout-builder draft lives only in our DB until the user clicks
+  // "Save to Speediance" — these two tools let the agent do that step
+  // as part of an approved plan, so the chat can take a draft all the
+  // way from "build me a push day" to "it's on your machine's
+  // calendar" without making the user leave the conversation.
+
+  {
+    name: 'push_draft_to_speediance',
+    description:
+      "Push a workout draft to the user's Speediance app as a custom training template. After this runs, the workout appears in their Speediance mobile app's library and can be scheduled or started from the machine. Use after a `create_workout_draft` (or when the user explicitly asks to save an existing draft to Speediance). The draft's status flips to 'saved-to-speediance' so subsequent runs won't double-push.",
+    input_schema: {
+      type: 'object',
+      properties: {
+        draftId: {
+          type: 'string',
+          description: 'The draftId from list_workout_drafts or a freshly created draft.',
+        },
+      },
+      required: ['draftId'],
+    },
+  },
+  {
+    name: 'unsave_draft_from_speediance',
+    description:
+      "Remove a previously-pushed draft's template from the user's Speediance app and flip the draft's status back to 'draft'. Use when the user says 'undo' / 'remove from Speediance' / 'pull that back'.",
+    input_schema: {
+      type: 'object',
+      properties: {
+        draftId: {
+          type: 'string',
+          description: 'The draftId — must be one previously pushed via push_draft_to_speediance.',
+        },
+      },
+      required: ['draftId'],
     },
   },
 ];
@@ -948,6 +991,67 @@ export async function runTool(
       if (!programRes?.data) return { error: 'program not found' };
       const { unscheduleProgram } = await import('@/lib/builder/program-schedule');
       return await unscheduleProgram(userId, programRes.data);
+    }
+
+    case 'push_draft_to_speediance': {
+      const draftId = String(args.draftId ?? '');
+      if (!draftId) return { error: 'draftId is required' };
+      const draftRes = (await me.workoutDrafts.get(draftId)) as {
+        data: {
+          draftId: string;
+          name: string;
+          exercises: Array<unknown>;
+          status?: string;
+        } | null;
+      };
+      if (!draftRes?.data) return { error: 'draft not found' };
+      const { pushDraftToSpeediance } = await import('@/lib/builder/save-to-speediance');
+      // The existing builder action expects the full WorkoutDraftRow
+      // shape — cast through unknown because the tool result type here
+      // is intentionally narrow.
+      const { templateCode, templateId } = await pushDraftToSpeediance(
+        userId,
+        draftRes.data as never,
+      );
+      await me.workoutDrafts.patch(draftId, {
+        status: 'saved-to-speediance',
+        speedianceTemplateCode: templateCode,
+        speedianceTemplateId: templateId,
+      });
+      return {
+        ok: true,
+        draftId,
+        templateCode,
+        templateId,
+        message:
+          'Draft is live on Speediance. The user can open the mobile app to see it under their templates.',
+      };
+    }
+
+    case 'unsave_draft_from_speediance': {
+      const draftId = String(args.draftId ?? '');
+      if (!draftId) return { error: 'draftId is required' };
+      const draftRes = (await me.workoutDrafts.get(draftId)) as {
+        data: {
+          draftId: string;
+          speedianceTemplateCode?: string;
+          speedianceTemplateId?: number;
+          status?: string;
+        } | null;
+      };
+      if (!draftRes?.data) return { error: 'draft not found' };
+      const { removeDraftFromSpeediance } = await import('@/lib/builder/save-to-speediance');
+      await removeDraftFromSpeediance(userId, draftRes.data as never);
+      await me.workoutDrafts.patch(draftId, {
+        status: 'draft',
+        speedianceTemplateCode: undefined,
+        speedianceTemplateId: undefined,
+      });
+      return {
+        ok: true,
+        draftId,
+        message: 'Removed from Speediance. The draft still lives in /builder.',
+      };
     }
 
     default:

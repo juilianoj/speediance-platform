@@ -30,6 +30,8 @@ export const WRITE_TOOLS: ReadonlySet<ToolName> = new Set<ToolName>([
   'update_program_draft',
   'schedule_program',
   'unschedule_program',
+  'push_draft_to_speediance',
+  'unsave_draft_from_speediance',
 ]);
 
 export interface ProposedAction {
@@ -159,6 +161,27 @@ export function queueWriteTool(
       }" to the programs list (legacy path)`;
       queue.push({ id, tool: name, args, summary });
       return { ok: true, queued: true, message: 'Queued — saved after approval.' };
+    }
+
+    case 'push_draft_to_speediance': {
+      const draftId = String(args.draftId ?? '');
+      if (!draftId) return { error: 'draftId is required' };
+      const summary = `Push workout draft ${draftId} to Speediance (custom training template appears in the mobile app)`;
+      queue.push({ id, tool: name, args, summary });
+      return { ok: true, queued: true, draftId, message: 'Queued — push happens after approval.' };
+    }
+
+    case 'unsave_draft_from_speediance': {
+      const draftId = String(args.draftId ?? '');
+      if (!draftId) return { error: 'draftId is required' };
+      const summary = `Remove workout draft ${draftId} from Speediance (status flips back to draft)`;
+      queue.push({ id, tool: name, args, summary });
+      return {
+        ok: true,
+        queued: true,
+        draftId,
+        message: 'Queued — Speediance call happens after approval.',
+      };
     }
 
     default: {
