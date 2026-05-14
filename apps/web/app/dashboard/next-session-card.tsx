@@ -38,6 +38,10 @@ export function NextSessionCard({
 
   const source = plan?.source;
   const lastCompleted = plan?.lastCompleted ?? null;
+  // If there's nothing scheduled and the user hasn't explicitly picked a
+  // past workout to preview, render an empty state instead of auto-loading
+  // a historical session — that's misleading as a "next session".
+  const noScheduled = !options.some((o) => o.scheduled);
 
   return (
     <>
@@ -71,7 +75,24 @@ export function NextSessionCard({
         </select>
       </div>
 
-      {!plan || plan.lifts.length === 0 ? (
+      {!plan && noScheduled ? (
+        <div
+          style={{
+            marginTop: '1rem',
+            padding: '1rem 1.1rem',
+            border: '1px dashed var(--border-strong)',
+            borderRadius: '10px',
+            background: 'var(--bg-subtle)',
+            color: 'var(--text-muted)',
+            fontSize: '0.9rem',
+            lineHeight: 1.5,
+          }}
+        >
+          <strong style={{ color: 'var(--text)' }}>No upcoming workout on your calendar.</strong>{' '}
+          Schedule one in the Speediance app, or ask the AI Assistant to plan a session for you.
+          Pick a past workout above to preview its recommendations.
+        </div>
+      ) : !plan || plan.lifts.length === 0 ? (
         <p style={{ color: 'var(--text-faint)', marginTop: '1rem' }}>
           No exercise data is available for this workout yet — try again after the next sync.
         </p>

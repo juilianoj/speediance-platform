@@ -270,20 +270,17 @@ export async function loadNextWorkoutPlan(
     }
   }
   if (!source) {
-    // No preferred; default to scheduled if available, else most recent.
+    // No preferred title. Default to the next scheduled workout when one
+    // exists. We deliberately do NOT fall back to the most-recent completed
+    // workout here — surfacing a past session as "Next session" is more
+    // confusing than helpful (Jeff's call). When there's no upcoming work
+    // on the calendar, the card shows an empty state instead.
     if (scheduled) {
       source = {
         kind: 'scheduled',
         date: scheduled.date,
         title: scheduled.title,
         courseId: scheduled.courseId,
-      };
-    } else if (workouts[0]) {
-      source = {
-        kind: 'completed',
-        date: workouts[0].startTime,
-        title: workouts[0].title,
-        courseId: workouts[0].courseId,
       };
     }
   }

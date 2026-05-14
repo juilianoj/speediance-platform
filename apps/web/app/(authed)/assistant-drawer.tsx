@@ -306,8 +306,28 @@ export function AssistantDrawer() {
             type="submit"
             disabled={pending || !input.trim()}
             style={submitButtonStyle(pending)}
+            aria-label={pending ? 'Sending…' : 'Send message'}
+            title="Send"
           >
-            {pending ? '…' : 'Ask'}
+            {pending ? (
+              '…'
+            ) : (
+              <svg
+                viewBox="0 0 24 24"
+                width="18"
+                height="18"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+                focusable="false"
+              >
+                <line x1="12" y1="19" x2="12" y2="5" />
+                <polyline points="5 12 12 5 19 12" />
+              </svg>
+            )}
           </button>
         </form>
       </aside>
@@ -679,7 +699,12 @@ const inputStyle: React.CSSProperties = {
 
 function submitButtonStyle(pending: boolean): React.CSSProperties {
   return {
-    padding: '0.55rem 1rem',
+    width: '38px',
+    height: '38px',
+    flexShrink: 0,
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
     background: pending
       ? 'var(--border-strong)'
       : 'linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%)',
@@ -689,5 +714,6 @@ function submitButtonStyle(pending: boolean): React.CSSProperties {
     cursor: pending ? 'wait' : 'pointer',
     fontWeight: 600,
     fontSize: '0.9rem',
+    padding: 0,
   };
 }
