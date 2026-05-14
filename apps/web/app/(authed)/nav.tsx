@@ -18,6 +18,7 @@ import { loadProfile } from '@/app/profile/load-profile';
 import { SpeedianceMark } from '@/app/speediance-mark';
 import { verifyIdTokenFromCookies } from '@/lib/auth/session';
 
+import { AssistantButton } from './assistant-button';
 import { ThemeToggle } from './theme-toggle';
 import { UserMenu } from './user-menu';
 
@@ -121,6 +122,7 @@ export async function Nav({ current, userLabel }: { current: Key; userLabel: str
             </Link>
           ))}
         </nav>
+        <AssistantButton />
         <ThemeToggle />
         <UserMenu email={userLabel} items={USER_MENU_ITEMS} />
       </div>
