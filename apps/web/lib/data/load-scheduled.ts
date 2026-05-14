@@ -47,46 +47,52 @@ export const loadScheduledWorkouts = cache(async (userId: string): Promise<Sched
   if (!client) return [];
 
   const months = nextThreeMonths();
-  const out: ScheduledItem[] = [];
   const today = new Date().toISOString().slice(0, 10);
 
-  for (const ym of months) {
-    try {
-      const days = (await client.getCalendarMonth(ym)) as Array<Record<string, unknown>>;
-      if (!Array.isArray(days)) continue;
-      for (const day of days) {
-        const date = typeof day.date === 'string' ? day.date : undefined;
-        if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
-        if (date < today) continue;
-        const plans = Array.isArray(day.trainingPlanList)
-          ? (day.trainingPlanList as Array<Record<string, unknown>>)
-          : [];
-        for (const p of plans) {
-          // Skip finished entries (isFinish === 1). v5 monthNew includes
-          // completed days too — we only want the upcoming ones for
-          // scheduled-day UI.
-          if (p.isFinish === 1) continue;
-          const isTemplate =
-            p.isReservation === true ||
-            typeof p.templateId === 'number' ||
-            typeof p.templateReservationId === 'number';
-          out.push({
-            date,
-            type: isTemplate ? 'template' : 'course',
-            title: typeof p.title === 'string' ? p.title : undefined,
-            courseId: typeof p.courseId === 'number' ? p.courseId : undefined,
-            templateId: typeof p.templateId === 'number' ? p.templateId : undefined,
-            templateCode: typeof p.code === 'string' ? p.code : undefined,
-            exclusivePlanId: typeof p.exclusivePlanId === 'number' ? p.exclusivePlanId : undefined,
-            exclusivePlanName:
-              typeof p.exclusivePlanName === 'string' ? p.exclusivePlanName : undefined,
-            durationMinute: typeof p.durationMinute === 'number' ? p.durationMinute : undefined,
-            sort: typeof p.sort === 'number' ? p.sort : undefined,
-          });
-        }
+  // Three sequential `await client.getCalendarMonth(ym)` calls were the
+  // bottleneck on first-login dashboard render — each is a ~300-800ms
+  // Speediance round-trip and the loop waited on every one. Parallel
+  // settled-promise call cuts the wall time to the slowest single month
+  // (saving ~1-2s on the dashboard load).
+  const settled = await Promise.allSettled(
+    months.map((ym) => client.getCalendarMonth(ym) as Promise<Array<Record<string, unknown>>>),
+  );
+
+  const out: ScheduledItem[] = [];
+  for (const result of settled) {
+    if (result.status !== 'fulfilled') continue;
+    const days = result.value;
+    if (!Array.isArray(days)) continue;
+    for (const day of days) {
+      const date = typeof day.date === 'string' ? day.date : undefined;
+      if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
+      if (date < today) continue;
+      const plans = Array.isArray(day.trainingPlanList)
+        ? (day.trainingPlanList as Array<Record<string, unknown>>)
+        : [];
+      for (const p of plans) {
+        // Skip finished entries (isFinish === 1). v5 monthNew includes
+        // completed days too — we only want the upcoming ones for
+        // scheduled-day UI.
+        if (p.isFinish === 1) continue;
+        const isTemplate =
+          p.isReservation === true ||
+          typeof p.templateId === 'number' ||
+          typeof p.templateReservationId === 'number';
+        out.push({
+          date,
+          type: isTemplate ? 'template' : 'course',
+          title: typeof p.title === 'string' ? p.title : undefined,
+          courseId: typeof p.courseId === 'number' ? p.courseId : undefined,
+          templateId: typeof p.templateId === 'number' ? p.templateId : undefined,
+          templateCode: typeof p.code === 'string' ? p.code : undefined,
+          exclusivePlanId: typeof p.exclusivePlanId === 'number' ? p.exclusivePlanId : undefined,
+          exclusivePlanName:
+            typeof p.exclusivePlanName === 'string' ? p.exclusivePlanName : undefined,
+          durationMinute: typeof p.durationMinute === 'number' ? p.durationMinute : undefined,
+          sort: typeof p.sort === 'number' ? p.sort : undefined,
+        });
       }
-    } catch {
-      // Best-effort; skip month on error.
     }
   }
   return out.sort((a, b) => {

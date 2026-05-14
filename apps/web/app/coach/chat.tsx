@@ -89,7 +89,7 @@ export function CoachChat() {
         </div>
       )}
 
-      {(messages.length > 0 || pending || error) && (
+      {(messages.length > 0 || pending) && (
         <div
           style={{
             display: 'flex',
@@ -100,27 +100,30 @@ export function CoachChat() {
             border: '1px solid #e5e7eb',
             borderRadius: '12px',
             marginBottom: '1rem',
-            minHeight: '120px',
           }}
         >
           {messages.map((m, i) => (
             <Bubble key={i} m={m} />
           ))}
           {pending && <div style={{ ...bubbleAssistant, color: '#94a3b8' }}>Thinking…</div>}
-          {error && (
-            <div
-              style={{
-                padding: '0.6rem 0.8rem',
-                background: '#fef2f2',
-                border: '1px solid #fecaca',
-                borderRadius: '8px',
-                color: '#b91c1c',
-                fontSize: '0.88rem',
-              }}
-            >
-              {error}
-            </div>
-          )}
+        </div>
+      )}
+
+      {/* Errors render inline above the input — no chat-bubble container,
+          no minHeight, no awkward empty space when there are no messages. */}
+      {error && (
+        <div
+          style={{
+            padding: '0.6rem 0.85rem',
+            background: '#fef2f2',
+            border: '1px solid #fecaca',
+            borderRadius: '8px',
+            color: '#b91c1c',
+            fontSize: '0.88rem',
+            marginBottom: '0.85rem',
+          }}
+        >
+          {error}
         </div>
       )}
 

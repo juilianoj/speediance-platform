@@ -22,7 +22,12 @@ import { COACH_TOOLS, runTool, type ToolName } from './tools';
 // resolved by Bedrock at invoke time.
 const MODEL_ID = process.env.BEDROCK_MODEL_ID ?? 'us.anthropic.claude-sonnet-4-20250514-v1:0';
 const REGION = process.env.AWS_REGION ?? 'us-west-2';
-const MAX_TOOL_ITERATIONS = 6;
+// Each iteration is one Bedrock round-trip; a single iteration can drive
+// multiple parallel tool_use blocks. "Build me a workout" prompts have
+// hit the cap at 6 by burning iterations on exploratory catalog searches.
+// 10 gives the model headroom; the 60s Lambda timeout is the real outer
+// bound and per-iter latency stays sub-second for the data tools.
+const MAX_TOOL_ITERATIONS = 10;
 
 export interface CoachMessage {
   role: 'user' | 'assistant';
@@ -131,6 +136,10 @@ export async function askCoach(
     "  exercises you have in mind. Don't invent ids.",
     '• Prefer get_balance_gaps + get_plateau_lifts to bias your picks toward',
     "  what the user actually needs (don't bias by what you'd pick blindly).",
+    '• Be decisive: cap yourself at 2–3 catalog searches across all muscle',
+    '  groups you need. If a search returns no perfect match, take a',
+    '  reasonable substitute from the results rather than searching again —',
+    '  the user reviews the draft and can swap exercises in the builder.',
     '• Group exercises that share equipment (same cable position, same',
     "  attachment) so the user doesn't shuffle the device mid-workout.",
     '• Call create_workout_draft to save the workout. Reply with a short',
