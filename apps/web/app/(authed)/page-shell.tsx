@@ -5,6 +5,7 @@
  */
 import type { ReactNode } from 'react';
 
+import { AssistantDrawer } from './assistant-drawer';
 import { Nav } from './nav';
 
 export function PageShell({
@@ -29,6 +30,7 @@ export function PageShell({
         {title && <h1 style={h1Style}>{title}</h1>}
         {children}
       </main>
+      <AssistantDrawer />
     </div>
   );
 }

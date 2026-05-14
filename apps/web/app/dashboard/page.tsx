@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 
-import { Nav } from '@/app/(authed)/nav';
+import { PageShell } from '@/app/(authed)/page-shell';
 import { loadProfile } from '@/app/profile/load-profile';
 import { verifyIdTokenFromCookies } from '@/lib/auth/session';
 import { loadNextWorkoutPlan } from '@/lib/data/load-next-workout';
@@ -49,42 +49,26 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     settled[5].status === 'fulfilled' ? settled[5].value : [];
 
   return (
-    <div style={pageWrapStyle}>
-      <Nav current="dashboard" userLabel={String(display)} />
-      <main style={mainStyle}>
-        {data?.hasCreds && <SyncBanner lastSyncedAt={profile?.lastSyncedAt} />}
-        {!data || !data.hasCreds ? (
-          <SetupCallout hasProfile={data?.hasProfile ?? false} />
-        ) : (
-          <>
-            <RecoveryBanner warnings={recoveryWarnings} />
-            <DashboardBody
-              data={data}
-              nextPlan={next?.plan ?? null}
-              nextOptions={next?.options ?? []}
-              preferredTitle={preferredTitle}
-              allWorkouts={allWorkouts}
-              scheduledDates={scheduledDates}
-            />
-          </>
-        )}
-      </main>
-    </div>
+    <PageShell current="dashboard" userLabel={String(display)}>
+      {data?.hasCreds && <SyncBanner lastSyncedAt={profile?.lastSyncedAt} />}
+      {!data || !data.hasCreds ? (
+        <SetupCallout hasProfile={data?.hasProfile ?? false} />
+      ) : (
+        <>
+          <RecoveryBanner warnings={recoveryWarnings} />
+          <DashboardBody
+            data={data}
+            nextPlan={next?.plan ?? null}
+            nextOptions={next?.options ?? []}
+            preferredTitle={preferredTitle}
+            allWorkouts={allWorkouts}
+            scheduledDates={scheduledDates}
+          />
+        </>
+      )}
+    </PageShell>
   );
 }
-
-const pageWrapStyle: React.CSSProperties = {
-  background: 'linear-gradient(180deg, var(--bg-page-gradient-top) 0%, var(--bg-page) 280px)',
-  minHeight: '100vh',
-  fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif',
-  color: 'var(--text)',
-};
-
-const mainStyle: React.CSSProperties = {
-  maxWidth: 1200,
-  margin: '0 auto',
-  padding: '0 1.5rem 3rem',
-};
 
 function SetupCallout({ hasProfile }: { hasProfile: boolean }) {
   return (
