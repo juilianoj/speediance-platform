@@ -16,6 +16,7 @@ import { loadProfile } from '@/app/profile/load-profile';
 import { SpeedianceMark } from '@/app/speediance-mark';
 import { verifyIdTokenFromCookies } from '@/lib/auth/session';
 
+import { ThemeToggle } from './theme-toggle';
 import { UserMenu } from './user-menu';
 
 type Key =
@@ -68,8 +69,10 @@ export async function Nav({ current, userLabel }: { current: Key; userLabel: str
         zIndex: 20,
         backdropFilter: 'saturate(180%) blur(8px)',
         WebkitBackdropFilter: 'saturate(180%) blur(8px)',
-        background: 'rgba(255,255,255,0.85)',
-        borderBottom: '1px solid #e5e7eb',
+        // Use a translucent var so the blur effect still works in both
+        // themes — the underlying card surface peeks through.
+        background: 'color-mix(in srgb, var(--bg-card) 85%, transparent)',
+        borderBottom: '1px solid var(--border)',
         marginBottom: '1.5rem',
       }}
     >
@@ -106,8 +109,8 @@ export async function Nav({ current, userLabel }: { current: Key; userLabel: str
                 borderRadius: '8px',
                 fontSize: '0.875rem',
                 textDecoration: 'none',
-                color: current === i.key ? '#0b78d1' : '#475569',
-                background: current === i.key ? '#eaf3fb' : 'transparent',
+                color: current === i.key ? 'var(--accent)' : 'var(--text-muted)',
+                background: current === i.key ? 'var(--accent-soft)' : 'transparent',
                 fontWeight: current === i.key ? 600 : 500,
                 transition: 'background 120ms',
               }}
@@ -116,6 +119,7 @@ export async function Nav({ current, userLabel }: { current: Key; userLabel: str
             </a>
           ))}
         </nav>
+        <ThemeToggle />
         <UserMenu email={userLabel} items={USER_MENU_ITEMS} />
       </div>
     </header>
@@ -125,7 +129,7 @@ export async function Nav({ current, userLabel }: { current: Key; userLabel: str
 const brandStyle: React.CSSProperties = {
   fontWeight: 800,
   fontSize: '1.05rem',
-  color: '#0f172a',
+  color: 'var(--text)',
   textDecoration: 'none',
   letterSpacing: '-0.02em',
 };

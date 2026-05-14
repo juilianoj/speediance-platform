@@ -59,12 +59,12 @@ export function UserMenu({ email, items }: { email: string; items: MenuItem[] })
           alignItems: 'center',
           gap: '0.55rem',
           padding: '0.3rem 0.55rem 0.3rem 0.3rem',
-          border: '1px solid #e5e7eb',
+          border: '1px solid var(--border)',
           borderRadius: '999px',
-          background: open ? '#f8fafc' : '#ffffff',
+          background: open ? 'var(--bg-subtle)' : 'var(--bg-card)',
           cursor: 'pointer',
           fontSize: '0.85rem',
-          color: '#334155',
+          color: 'var(--text-muted)',
         }}
       >
         <span
@@ -75,7 +75,7 @@ export function UserMenu({ email, items }: { email: string; items: MenuItem[] })
             width: 26,
             height: 26,
             borderRadius: '50%',
-            background: 'linear-gradient(135deg, #22d3ee 0%, #0b78d1 100%)',
+            background: 'linear-gradient(135deg, #22d3ee 0%, var(--accent) 100%)',
             color: '#fff',
             fontWeight: 700,
             fontSize: '0.85rem',
@@ -93,7 +93,7 @@ export function UserMenu({ email, items }: { email: string; items: MenuItem[] })
         >
           {display}
         </span>
-        <span style={{ color: '#94a3b8', fontSize: '0.7rem' }}>{open ? '▴' : '▾'}</span>
+        <span style={{ color: 'var(--text-faint)', fontSize: '0.7rem' }}>{open ? '▴' : '▾'}</span>
       </button>
 
       {open && (
@@ -104,10 +104,10 @@ export function UserMenu({ email, items }: { email: string; items: MenuItem[] })
             top: 'calc(100% + 6px)',
             right: 0,
             minWidth: 200,
-            background: '#fff',
-            border: '1px solid #e5e7eb',
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border)',
             borderRadius: '10px',
-            boxShadow: '0 12px 32px rgba(15,23,42,0.12), 0 2px 6px rgba(15,23,42,0.05)',
+            boxShadow: 'var(--shadow-card)',
             padding: '0.35rem',
             zIndex: 30,
           }}
@@ -116,8 +116,8 @@ export function UserMenu({ email, items }: { email: string; items: MenuItem[] })
             style={{
               padding: '0.5rem 0.65rem 0.55rem 0.65rem',
               fontSize: '0.78rem',
-              color: '#94a3b8',
-              borderBottom: '1px solid #f1f5f9',
+              color: 'var(--text-faint)',
+              borderBottom: '1px solid var(--border-faint)',
               marginBottom: '0.25rem',
               wordBreak: 'break-all',
             }}
@@ -156,8 +156,8 @@ export function UserMenu({ email, items }: { email: string; items: MenuItem[] })
                 cursor: 'pointer',
                 fontFamily: 'inherit',
                 fontSize: '0.88rem',
-                color: '#dc2626',
-                borderTop: '1px solid #f1f5f9',
+                color: 'var(--danger)',
+                borderTop: '1px solid var(--border-faint)',
                 marginTop: '0.25rem',
                 paddingTop: '0.55rem',
               }}
@@ -176,7 +176,7 @@ const menuItemStyle: React.CSSProperties = {
   padding: '0.5rem 0.65rem',
   borderRadius: '6px',
   fontSize: '0.88rem',
-  color: '#0f172a',
+  color: 'var(--text)',
   textDecoration: 'none',
   fontWeight: 500,
 };

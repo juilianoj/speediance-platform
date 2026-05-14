@@ -32,7 +32,7 @@ export default async function LoginPage() {
       <p style={footnoteStyle}>
         <a
           href="/forgot-password"
-          style={{ color: '#0b78d1', textDecoration: 'none', fontWeight: 600 }}
+          style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: 600 }}
         >
           Forgot your password?
         </a>{' '}
@@ -49,22 +49,24 @@ const wrapStyle: React.CSSProperties = {
   alignItems: 'center',
   justifyContent: 'center',
   padding: '3rem 1.5rem',
+  // Subtle radial highlights that work in both themes. The base color
+  // is the page background; the highlights are accent-soft tints.
   background:
-    'radial-gradient(circle at 20% 0%, #e0eaf7 0%, transparent 50%), ' +
-    'radial-gradient(circle at 100% 100%, #ede5fb 0%, transparent 55%), ' +
-    'linear-gradient(180deg, #f7f8fa 0%, #ffffff 100%)',
+    'radial-gradient(circle at 20% 0%, var(--accent-soft) 0%, transparent 50%), ' +
+    'radial-gradient(circle at 100% 100%, var(--accent-soft) 0%, transparent 55%), ' +
+    'var(--bg-page)',
   fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif',
-  color: '#0f172a',
+  color: 'var(--text)',
 };
 
 const panelStyle: React.CSSProperties = {
   width: '100%',
   maxWidth: 420,
-  background: '#ffffff',
-  border: '1px solid #e5e7eb',
+  background: 'var(--bg-card)',
+  border: '1px solid var(--border)',
   borderRadius: '16px',
   padding: '2rem 2rem 2.25rem 2rem',
-  boxShadow: '0 12px 40px rgba(15,23,42,0.08), 0 2px 4px rgba(15,23,42,0.04)',
+  boxShadow: 'var(--shadow-card)',
 };
 
 const brandRowStyle: React.CSSProperties = {
@@ -77,15 +79,15 @@ const brandRowStyle: React.CSSProperties = {
 const brandTextStyle: React.CSSProperties = {
   fontSize: '1.05rem',
   fontWeight: 800,
-  color: '#0f172a',
+  color: 'var(--text)',
   letterSpacing: '-0.02em',
 };
 
 const eyebrowStyle: React.CSSProperties = {
   display: 'inline-block',
   padding: '0.18rem 0.6rem',
-  background: '#eef2ff',
-  color: '#4338ca',
+  background: 'var(--accent-soft)',
+  color: 'var(--accent)',
   fontSize: '0.7rem',
   fontWeight: 700,
   letterSpacing: '0.08em',
@@ -99,12 +101,12 @@ const h1Style: React.CSSProperties = {
   fontSize: '1.9rem',
   fontWeight: 800,
   letterSpacing: '-0.02em',
-  color: '#0f172a',
+  color: 'var(--text)',
 };
 
 const subStyle: React.CSSProperties = {
   margin: '0.35rem 0 0 0',
-  color: '#64748b',
+  color: 'var(--text-muted)',
   fontSize: '0.92rem',
   lineHeight: 1.5,
 };
@@ -113,7 +115,7 @@ const footnoteStyle: React.CSSProperties = {
   marginTop: '1.5rem',
   maxWidth: 420,
   fontSize: '0.78rem',
-  color: '#94a3b8',
+  color: 'var(--text-faint)',
   textAlign: 'center',
   lineHeight: 1.6,
 };
