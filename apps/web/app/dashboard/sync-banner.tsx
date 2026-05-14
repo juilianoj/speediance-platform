@@ -114,8 +114,8 @@ const containerStyle: React.CSSProperties = {
   justifyContent: 'space-between',
   gap: '1rem',
   padding: '0.85rem 1.1rem',
-  border: '1px solid #e0e7ff',
-  background: 'linear-gradient(135deg, #f5f8ff 0%, #fafbff 100%)',
+  border: '1px solid var(--border)',
+  background: 'var(--accent-soft)',
   borderRadius: '12px',
   marginBottom: '1.25rem',
 };
@@ -130,7 +130,7 @@ const textStyle: React.CSSProperties = {
 const titleStyle: React.CSSProperties = {
   fontSize: '0.78rem',
   fontWeight: 700,
-  color: '#1e3a8a',
+  color: 'var(--accent)',
   letterSpacing: '0.04em',
   textTransform: 'uppercase',
 };
@@ -148,7 +148,9 @@ function buttonStyle(pending: boolean): React.CSSProperties {
     padding: '0.55rem 1rem',
     fontSize: '0.88rem',
     fontWeight: 600,
-    background: pending ? 'var(--text-faint)' : 'linear-gradient(135deg, #22d3ee 0%, #0b78d1 100%)',
+    background: pending
+      ? 'var(--text-faint)'
+      : 'linear-gradient(135deg, #22d3ee 0%, var(--accent) 100%)',
     color: '#ffffff',
     border: 'none',
     borderRadius: '8px',

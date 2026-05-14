@@ -32,9 +32,9 @@ const wrapStyle: React.CSSProperties = {
   justifyContent: 'center',
   padding: '3rem 1.5rem',
   background:
-    'radial-gradient(circle at 20% 0%, #e0eaf7 0%, transparent 50%), ' +
-    'radial-gradient(circle at 100% 100%, #ede5fb 0%, transparent 55%), ' +
-    'linear-gradient(180deg, #f7f8fa 0%, #ffffff 100%)',
+    'radial-gradient(circle at 20% 0%, var(--accent-soft) 0%, transparent 50%), ' +
+    'radial-gradient(circle at 100% 100%, var(--accent-soft) 0%, transparent 55%), ' +
+    'var(--bg-page)',
   fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif',
   color: 'var(--text)',
 };
