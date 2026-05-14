@@ -19,6 +19,7 @@ import { SpeedianceMark } from '@/app/speediance-mark';
 import { verifyIdTokenFromCookies } from '@/lib/auth/session';
 
 import { AssistantButton } from './assistant-button';
+import { NavMobile } from './nav-mobile';
 import { ThemeToggle } from './theme-toggle';
 import { UserMenu } from './user-menu';
 
@@ -93,6 +94,7 @@ export async function Nav({ current, userLabel }: { current: Key; userLabel: str
           <span style={{ verticalAlign: 'middle', marginLeft: '0.45rem' }}>speediance</span>
         </Link>
         <nav
+          className="nav-inline"
           style={{
             display: 'flex',
             gap: '0.15rem',
@@ -120,9 +122,16 @@ export async function Nav({ current, userLabel }: { current: Key; userLabel: str
             </Link>
           ))}
         </nav>
+        {/* Push the right-hand cluster to the right when nav-inline is
+         *  hidden on mobile — display flipped on via CSS @media. */}
+        <div className="nav-spacer" aria-hidden="true" />
         <AssistantButton />
         <ThemeToggle />
         <UserMenu email={userLabel} items={USER_MENU_ITEMS} />
+        <NavMobile
+          items={items.map((i) => ({ key: i.key, label: i.label, href: i.href }))}
+          current={current}
+        />
       </div>
     </header>
   );

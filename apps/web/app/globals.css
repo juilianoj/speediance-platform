@@ -160,6 +160,12 @@ textarea::placeholder {
  * `[role="dialog"]` for the drawer.
  */
 
+/* The nav-spacer is hidden by default — only takes flex space on mobile
+ * where the inline nav (which itself has flex:1) is hidden. */
+.nav-spacer {
+  display: none;
+}
+
 @media (max-width: 640px) {
   main {
     padding-left: 0.85rem !important;
@@ -187,17 +193,44 @@ textarea::placeholder {
     padding: 0.45rem 0.4rem !important;
   }
 
-  /* Nav header. Smaller pill padding + drop the wordmark on phones —
-   * the cyan-blue 'S' mark alone is enough identifying chrome. */
-  header nav a {
-    padding: 0.35rem 0.55rem !important;
-    font-size: 0.82rem !important;
+  /* On mobile we collapse the inline nav into a hamburger dropdown (see
+   * NavMobile). Hide the inline nav, show the hamburger root. */
+  header nav.nav-inline {
+    display: none !important;
+  }
+
+  .nav-mobile-root {
+    display: inline-flex !important;
+  }
+
+  .nav-spacer {
+    display: block;
+    flex: 1;
+  }
+
+  /* Header row stays on a single line — no wrap so the hamburger always
+   * pins to the right. Tighter padding so the bar isn't so tall. */
+  header > div {
+    flex-wrap: nowrap !important;
+    padding: 0.55rem 0.85rem !important;
+    gap: 0.4rem !important;
   }
 
   /* The brand text is the `<span>` directly inside the brand `<a>` (or
    * `<Link>`). Tag specifically by its sibling text-only spans inside
    * the `header`'s logo link. */
   header > div > a > span:not([aria-hidden]) {
+    display: none;
+  }
+
+  /* AI Assist pill: drop the text label, keep just the ✦ icon — saves
+   * width so the header doesn't get crowded. The icon is the `<span
+   * aria-hidden="true">` child; the label is the unmarked `<span>`. */
+  header > div > button[aria-label='Open AI assistant'] {
+    padding: 0.35rem 0.5rem !important;
+    font-size: 1rem !important;
+  }
+  header > div > button[aria-label='Open AI assistant'] > span:not([aria-hidden]) {
     display: none;
   }
 
