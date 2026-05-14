@@ -9,6 +9,7 @@ import {
   muscleAggregateEntity,
   weekAggregateEntity,
 } from './entities/aggregate.js';
+import { coachInvocationEntity } from './entities/coach-invocation.js';
 import { exerciseCatalogEntity } from './entities/exercise-catalog.js';
 import { feedbackEntity } from './entities/feedback.js';
 import { noteEntity } from './entities/note.js';
@@ -50,6 +51,7 @@ export function createService(opts: DbConfig) {
     exerciseCatalog: exerciseCatalogEntity(cfg),
     workoutDrafts: workoutDraftEntity(cfg),
     programDrafts: programDraftEntity(cfg),
+    coachInvocations: coachInvocationEntity(cfg),
   });
 }
 

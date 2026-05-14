@@ -11,6 +11,7 @@ import {
 } from '@/app/(authed)/page-shell';
 import { verifyIdTokenFromCookies } from '@/lib/auth/session';
 import { getCatalogSize, listUsers } from '@/lib/admin/actions';
+import { loadCoachSpendBreakdown } from '@/lib/admin/coach-spend';
 import { COST_FLAG_THRESHOLD_USD, loadCostBreakdown } from '@/lib/admin/cost';
 import { listAllFeedback } from '@/lib/feedback/actions';
 
@@ -33,6 +34,8 @@ export default async function AdminPage() {
     getCatalogSize(),
     loadCostBreakdown(),
   ]);
+  // Coach spend depends on the user list, so it runs after.
+  const coachSpend = await loadCoachSpendBreakdown(users.map((u) => u.username));
 
   return (
     <PageShell current="admin" userLabel={String(claims.email ?? claims.sub)}>
@@ -116,6 +119,111 @@ export default async function AdminPage() {
               ))}
             </tbody>
           </table>
+        )}
+      </section>
+
+      <section style={cardStyle}>
+        <h2 style={cardHeadingStyle}>Coach spend (per user, month-to-date)</h2>
+        <p style={mutedStyle}>
+          Bedrock token usage logged from every /coach turn × published per-token prices. The
+          variable chunk of AWS spend is almost entirely Bedrock at family scale, so this is the
+          number to watch for runaway prompts. Anyone above ${coachSpend.flagThresholdUsd}/mo is
+          flagged red.
+        </p>
+        {coachSpend.rows.length === 0 ? (
+          <p style={{ color: '#94a3b8', margin: '0.75rem 0 0 0', fontSize: '0.85rem' }}>
+            No coach turns logged this month yet.
+          </p>
+        ) : (
+          <>
+            <div
+              style={{
+                marginTop: '0.9rem',
+                display: 'flex',
+                alignItems: 'baseline',
+                gap: '0.6rem',
+              }}
+            >
+              <span style={{ fontSize: '1.4rem', fontWeight: 700 }}>
+                ${coachSpend.totalUsd.toFixed(2)}
+              </span>
+              <span style={{ color: '#94a3b8', fontSize: '0.85rem' }}>
+                across {coachSpend.totalTurns.toLocaleString()} turns · since{' '}
+                {coachSpend.monthStart}
+              </span>
+            </div>
+            <table style={{ ...tableStyle, marginTop: '0.75rem' }}>
+              <thead>
+                <tr>
+                  <th style={thStyle}>User</th>
+                  <th style={{ ...thStyle, textAlign: 'right' }}>Turns</th>
+                  <th style={{ ...thStyle, textAlign: 'right' }}>In tokens</th>
+                  <th style={{ ...thStyle, textAlign: 'right' }}>Out tokens</th>
+                  <th style={{ ...thStyle, textAlign: 'right' }}>Slowest</th>
+                  <th style={{ ...thStyle, textAlign: 'right' }}>Estimated $</th>
+                </tr>
+              </thead>
+              <tbody>
+                {coachSpend.rows.map((r) => {
+                  const u = users.find((x) => x.username === r.userId);
+                  const over = r.estimatedUsd > coachSpend.flagThresholdUsd;
+                  return (
+                    <tr key={r.userId}>
+                      <td style={tdStyle}>{u?.email ?? r.userId.slice(0, 8)}</td>
+                      <td
+                        style={{
+                          ...tdStyle,
+                          textAlign: 'right',
+                          fontVariantNumeric: 'tabular-nums',
+                        }}
+                      >
+                        {r.turns} {r.successfulTurns < r.turns ? `(${r.successfulTurns} ok)` : ''}
+                      </td>
+                      <td
+                        style={{
+                          ...tdStyle,
+                          textAlign: 'right',
+                          fontVariantNumeric: 'tabular-nums',
+                        }}
+                      >
+                        {r.inputTokens.toLocaleString()}
+                      </td>
+                      <td
+                        style={{
+                          ...tdStyle,
+                          textAlign: 'right',
+                          fontVariantNumeric: 'tabular-nums',
+                        }}
+                      >
+                        {r.outputTokens.toLocaleString()}
+                      </td>
+                      <td
+                        style={{
+                          ...tdStyle,
+                          textAlign: 'right',
+                          color: r.maxDurationMs > 45000 ? '#a06000' : '#666',
+                          fontVariantNumeric: 'tabular-nums',
+                        }}
+                      >
+                        {(r.maxDurationMs / 1000).toFixed(1)}s
+                      </td>
+                      <td
+                        style={{
+                          ...tdStyle,
+                          textAlign: 'right',
+                          fontVariantNumeric: 'tabular-nums',
+                          color: over ? '#dc2626' : '#0f172a',
+                          fontWeight: over ? 700 : 400,
+                        }}
+                      >
+                        ${r.estimatedUsd.toFixed(2)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </>
         )}
       </section>
 
