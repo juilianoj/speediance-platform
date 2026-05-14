@@ -34,10 +34,10 @@ export function PageShell({
 }
 
 const pageWrapStyle: React.CSSProperties = {
-  background: 'linear-gradient(180deg, #f5f8fc 0%, #f7f8fa 280px)',
+  background: 'linear-gradient(180deg, var(--bg-page-gradient-top) 0%, var(--bg-page) 280px)',
   minHeight: '100vh',
   fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif',
-  color: '#0f172a',
+  color: 'var(--text)',
 };
 
 const mainStyle: React.CSSProperties = {
@@ -55,11 +55,11 @@ const h1Style: React.CSSProperties = {
 
 export const cardStyle: React.CSSProperties = {
   padding: '1.4rem 1.5rem',
-  border: '1px solid #e5e7eb',
+  border: '1px solid var(--border)',
   borderRadius: '12px',
-  background: '#fff',
+  background: 'var(--bg-card)',
   marginBottom: '1.25rem',
-  boxShadow: '0 1px 3px rgba(15,23,42,0.06)',
+  boxShadow: 'var(--shadow-card)',
 };
 
 export const cardHeadingStyle: React.CSSProperties = {
@@ -67,11 +67,12 @@ export const cardHeadingStyle: React.CSSProperties = {
   fontSize: '1.05rem',
   fontWeight: 700,
   letterSpacing: '-0.01em',
+  color: 'var(--text)',
 };
 
 export const mutedStyle: React.CSSProperties = {
   margin: '0.2rem 0 0 0',
-  color: '#94a3b8',
+  color: 'var(--text-faint)',
   fontSize: '0.85rem',
 };
 
@@ -79,21 +80,22 @@ export const tableStyle: React.CSSProperties = {
   width: '100%',
   borderCollapse: 'collapse',
   fontSize: '0.92rem',
+  color: 'var(--text)',
 };
 
 export const thStyle: React.CSSProperties = {
   padding: '0.55rem 0.6rem',
-  color: '#64748b',
+  color: 'var(--text-muted)',
   fontWeight: 600,
   fontSize: '0.74rem',
   textTransform: 'uppercase',
   letterSpacing: '0.06em',
   textAlign: 'left',
-  borderBottom: '1px solid #e5e7eb',
+  borderBottom: '1px solid var(--border)',
 };
 
 export const tdStyle: React.CSSProperties = {
   padding: '0.7rem 0.6rem',
   fontVariantNumeric: 'tabular-nums',
-  borderTop: '1px solid #f1f5f9',
+  borderTop: '1px solid var(--border-faint)',
 };

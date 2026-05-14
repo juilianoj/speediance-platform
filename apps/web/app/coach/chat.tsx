@@ -96,8 +96,8 @@ export function CoachChat() {
             flexDirection: 'column',
             gap: '0.7rem',
             padding: '0.85rem',
-            background: '#f8fafc',
-            border: '1px solid #e5e7eb',
+            background: 'var(--bg-subtle)',
+            border: '1px solid var(--border)',
             borderRadius: '12px',
             marginBottom: '1rem',
           }}
@@ -105,7 +105,9 @@ export function CoachChat() {
           {messages.map((m, i) => (
             <Bubble key={i} m={m} />
           ))}
-          {pending && <div style={{ ...bubbleAssistant, color: '#94a3b8' }}>Thinking…</div>}
+          {pending && (
+            <div style={{ ...bubbleAssistant, color: 'var(--text-faint)' }}>Thinking…</div>
+          )}
         </div>
       )}
 
@@ -115,10 +117,10 @@ export function CoachChat() {
         <div
           style={{
             padding: '0.6rem 0.85rem',
-            background: '#fef2f2',
-            border: '1px solid #fecaca',
+            background: 'var(--danger-bg)',
+            border: '1px solid var(--danger-border)',
             borderRadius: '8px',
-            color: '#b91c1c',
+            color: 'var(--danger)',
             fontSize: '0.88rem',
             marginBottom: '0.85rem',
           }}
@@ -139,12 +141,12 @@ export function CoachChat() {
           style={{
             flex: 1,
             padding: '0.65rem 0.9rem',
-            border: '1px solid #cbd5e1',
+            border: '1px solid var(--border-strong)',
             borderRadius: '10px',
             fontSize: '0.95rem',
-            color: '#0f172a',
+            color: 'var(--text)',
             outline: 'none',
-            background: '#fff',
+            background: 'var(--bg-input)',
           }}
         />
         <button
@@ -152,14 +154,16 @@ export function CoachChat() {
           disabled={pending || !input.trim()}
           style={{
             padding: '0.65rem 1.3rem',
-            background: pending ? '#cbd5e1' : 'linear-gradient(135deg, #0b78d1 0%, #0b5fa8 100%)',
-            color: 'white',
+            background: pending
+              ? 'var(--border-strong)'
+              : 'linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%)',
+            color: 'var(--text-on-accent)',
             border: 'none',
             borderRadius: '10px',
             cursor: pending ? 'wait' : 'pointer',
             fontWeight: 700,
             fontSize: '0.95rem',
-            boxShadow: pending ? 'none' : '0 4px 12px rgba(11,120,209,0.30)',
+            boxShadow: pending ? 'none' : 'var(--shadow-button)',
           }}
         >
           {pending ? '…' : 'Ask'}
@@ -186,7 +190,7 @@ function Bubble({ m }: { m: CoachMessage }) {
               a: ({ href, children }) => (
                 <a
                   href={href}
-                  style={{ color: '#0b78d1', textDecoration: 'underline' }}
+                  style={{ color: 'var(--accent)', textDecoration: 'underline' }}
                   // Internal /builder links should stay in-tab; offsite
                   // shouldn't ever come from the coach, but be defensive.
                   {...(href?.startsWith('http')
@@ -218,9 +222,9 @@ function Bubble({ m }: { m: CoachMessage }) {
                 <th
                   style={{
                     padding: '0.3rem 0.55rem',
-                    borderBottom: '1px solid #cbd5e1',
+                    borderBottom: '1px solid var(--border-strong)',
                     textAlign: 'left',
-                    color: '#475569',
+                    color: 'var(--text-muted)',
                     fontWeight: 600,
                   }}
                 >
@@ -231,7 +235,7 @@ function Bubble({ m }: { m: CoachMessage }) {
                 <td
                   style={{
                     padding: '0.25rem 0.55rem',
-                    borderBottom: '1px solid #f1f5f9',
+                    borderBottom: '1px solid var(--border-faint)',
                     verticalAlign: 'top',
                   }}
                 >
@@ -241,7 +245,7 @@ function Bubble({ m }: { m: CoachMessage }) {
               code: ({ children }) => (
                 <code
                   style={{
-                    background: '#f1f5f9',
+                    background: 'var(--bg-subtle)',
                     padding: '0.05rem 0.3rem',
                     borderRadius: '3px',
                     fontSize: '0.85em',
@@ -279,7 +283,7 @@ const assistantMarkdownStyle: React.CSSProperties = {
 };
 
 const chipsHeadingStyle: React.CSSProperties = {
-  color: '#64748b',
+  color: 'var(--text-muted)',
   fontSize: '0.72rem',
   fontWeight: 700,
   textTransform: 'uppercase',
@@ -288,10 +292,10 @@ const chipsHeadingStyle: React.CSSProperties = {
 
 const chipStyle: React.CSSProperties = {
   padding: '0.5rem 0.85rem',
-  border: '1px solid #cbd5e1',
+  border: '1px solid var(--border-strong)',
   borderRadius: '999px',
-  background: '#ffffff',
-  color: '#0f172a',
+  background: 'var(--bg-card)',
+  color: 'var(--text)',
   fontSize: '0.88rem',
   cursor: 'pointer',
   fontFamily: 'inherit',
@@ -308,8 +312,8 @@ const bubbleBase: React.CSSProperties = {
 
 const bubbleUser: React.CSSProperties = {
   ...bubbleBase,
-  background: 'linear-gradient(135deg, #0b78d1 0%, #0b5fa8 100%)',
-  color: 'white',
+  background: 'linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%)',
+  color: 'var(--text-on-accent)',
   alignSelf: 'flex-end',
   marginLeft: 'auto',
   boxShadow: '0 2px 6px rgba(11,120,209,0.25)',
@@ -317,9 +321,9 @@ const bubbleUser: React.CSSProperties = {
 
 const bubbleAssistant: React.CSSProperties = {
   ...bubbleBase,
-  background: '#ffffff',
-  color: '#0f172a',
+  background: 'var(--bg-card)',
+  color: 'var(--text)',
   alignSelf: 'flex-start',
-  border: '1px solid #e5e7eb',
-  boxShadow: '0 1px 2px rgba(15,23,42,0.04)',
+  border: '1px solid var(--border)',
+  boxShadow: 'var(--shadow-card-sm)',
 };

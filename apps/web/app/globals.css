@@ -1,0 +1,138 @@
+/*
+ * Global theme tokens. Every color used by the app should reference one of
+ * these CSS custom properties rather than a hard-coded hex. The light
+ * palette is the baseline; the `[data-theme="dark"]` override re-points
+ * the same names at dark equivalents.
+ *
+ * Why CSS vars (vs. a JS theme object): inline styles in React.CSSProperties
+ * are just strings, so `color: 'var(--text)'` works without a Context
+ * provider, without a re-render on theme toggle, and without a flash of
+ * unstyled content. The toggle just flips a single attribute on <html>.
+ */
+
+:root {
+  /* Layered surfaces. `bg-page` is the body gradient; `bg-card` is the
+   * card / panel / modal background that sits on top of it. `bg-input`
+   * is for form fields and similar inset panels. */
+  --bg-page: #f7f8fa;
+  --bg-page-gradient-top: #f5f8fc;
+  --bg-card: #ffffff;
+  --bg-input: #ffffff;
+  --bg-subtle: #f8fafc;
+  --bg-chip: #eef5fc;
+
+  /* Text. `text` is the primary copy color; `text-muted` is for labels,
+   * helper text, and secondary metadata. `text-strong` is rare — only
+   * for emphasis where the default `text` isn't bold enough. */
+  --text: #0f172a;
+  --text-strong: #020617;
+  --text-muted: #64748b;
+  --text-faint: #94a3b8;
+  --text-on-accent: #ffffff;
+
+  /* Borders + dividers. `border` is the default card border; `border-strong`
+   * is for tables and form fields where we need a touch more contrast. */
+  --border: #e5e7eb;
+  --border-strong: #cbd5e1;
+  --border-faint: #f1f5f9;
+
+  /* Accents — primary CTA and link hover states. */
+  --accent: #0b78d1;
+  --accent-strong: #0b5fa8;
+  --accent-soft: #0b78d11a;
+
+  /* Status. */
+  --success: #0d9488;
+  --warning: #a06000;
+  --warning-bg: #fffbeb;
+  --warning-border: #fde68a;
+  --warning-text: #92400e;
+  --danger: #b91c1c;
+  --danger-bg: #fef2f2;
+  --danger-border: #fecaca;
+
+  /* Shadows + overlays. Defined as `box-shadow` strings rather than
+   * just colors so light + dark can use different opacity tunings. */
+  --shadow-card: 0 1px 3px rgba(15, 23, 42, 0.06);
+  --shadow-card-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-button: 0 4px 12px rgba(11, 120, 209, 0.3);
+
+  color-scheme: light;
+}
+
+[data-theme='dark'] {
+  --bg-page: #0b0f15;
+  --bg-page-gradient-top: #0d1117;
+  --bg-card: #161b22;
+  --bg-input: #0d1117;
+  --bg-subtle: #1c2128;
+  --bg-chip: #1a2c3e;
+
+  --text: #e6edf3;
+  --text-strong: #f0f6fc;
+  --text-muted: #8b949e;
+  --text-faint: #6e7681;
+  --text-on-accent: #ffffff;
+
+  --border: #30363d;
+  --border-strong: #484f58;
+  --border-faint: #21262d;
+
+  --accent: #58a6ff;
+  --accent-strong: #79b8ff;
+  --accent-soft: #58a6ff1f;
+
+  --success: #3fb950;
+  --warning: #d29922;
+  --warning-bg: #341a00;
+  --warning-border: #553d12;
+  --warning-text: #f0c674;
+  --danger: #f85149;
+  --danger-bg: #2c1213;
+  --danger-border: #5d2222;
+
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-card-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-button: 0 4px 12px rgba(88, 166, 255, 0.25);
+
+  color-scheme: dark;
+}
+
+/* Smooth the theme flip — no jarring jumps, but short enough that the
+ * UI doesn't feel laggy. Limited to a small set of properties so React
+ * transitions on individual elements aren't disrupted. */
+* {
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
+}
+
+/* Page baseline. Body color/background follow the theme via the same
+ * vars; pages can still override via inline style as needed. */
+body {
+  background: var(--bg-page);
+  color: var(--text);
+  margin: 0;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+/* Inputs / selects / textareas pick up the theme by default. Individual
+ * components can still override; this just gets us out of "default white
+ * input on dark background" for free. */
+input,
+textarea,
+select {
+  background: var(--bg-input);
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--text-faint);
+}
+
+/* Form controls inherit the system color scheme via `color-scheme:` on the
+ * root selector — autofill backgrounds, scrollbars, and native pickers
+ * pick the right palette automatically. */
