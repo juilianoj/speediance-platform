@@ -1,15 +1,22 @@
 {
   "name": "@speediance/mcp-server",
   "version": "0.1.0",
-  "description": "Local MCP (Model Context Protocol) server exposing a slice of the Speediance AI Coach tools over stdio. Drop into Claude Desktop's MCP config to chat with your own training data.",
+  "description": "MCP (Model Context Protocol) server exposing a slice of the Speediance AI Coach tools. The stdio entry runs on Mac for Claude Desktop; the same createServer factory is reused by apps/api for the HTTP/SSE remote endpoint.",
   "license": "MIT",
   "type": "module",
-  "main": "dist/index.js",
+  "main": "src/server.ts",
+  "exports": {
+    ".": {
+      "types": "./src/server.ts",
+      "default": "./src/server.ts"
+    }
+  },
   "bin": {
     "speediance-mcp": "dist/index.js"
   },
   "files": [
     "dist",
+    "src",
     "README.md"
   ],
   "scripts": {

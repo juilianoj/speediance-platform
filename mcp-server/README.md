@@ -1,13 +1,19 @@
 # @speediance/mcp-server
 
-Local MCP (Model Context Protocol) server that exposes a slice of the
-Speediance AI Coach tools over **stdio**, so Claude Desktop on your Mac
-can chat with your own training data.
+Server-side MCP (Model Context Protocol) implementation exposing a slice
+of the Speediance AI Coach tools. There are **two transport modes**:
 
-This server is a thin shim over `@speediance/db` — it reads and writes
-DynamoDB directly using your Mac's AWS credentials, and never opens a
-network listener. There is nothing to deploy; you install it and Claude
-Desktop spawns it as a child process whenever a chat session starts.
+1. **Stdio** (this package's `bin`) — Claude Desktop on your Mac spawns
+   the server as a child process. The server talks to DynamoDB using
+   your Mac's AWS creds. Lowest-latency, but tied to your machine.
+2. **Remote HTTP/SSE** (`apps/api`, deployed by SST) — Claude Desktop
+   talks to a Lambda Function URL over HTTPS, authenticated with a
+   per-user opaque bearer token minted on `/profile`. Works from any
+   machine; no AWS creds on the client.
+
+Both modes share the same tool registry (`src/tools.ts`) and the same
+`createServer({ getDb })` factory (`src/server.ts`). The transport is
+chosen at the entry point.
 
 > Roadmap reference: §3.9 ("MCP server for Claude Desktop").
 
@@ -102,6 +108,87 @@ the lowest-friction path.
 
 ---
 
+## Remote (HTTP) mode
+
+For chatting with your training data from a machine that doesn't have
+AWS creds set up (a Windows laptop, an iPad over a remote desktop, etc),
+deploy the HTTP wrapper in `apps/api/` and authenticate with a personal
+API key minted on `/profile`.
+
+### One-time setup
+
+1. Deploy SST (`pnpm sst deploy --stage dev`). The output includes
+   `mcpUrl`, an HTTPS URL like `https://<id>.lambda-url.us-west-2.on.aws/`.
+2. Sign in to the web app and visit **`/profile` → Integrations → MCP
+   API key → Generate key**. Copy the displayed value immediately — the
+   UI only shows it once. The visible prefix on subsequent visits
+   (`spd_xxxxxxxx…`) is just for "yes this is still my key" recognition.
+
+### Claude Desktop config
+
+Claude Desktop's HTTP transport entry uses the `url` field:
+
+```json
+{
+  "mcpServers": {
+    "speediance-remote": {
+      "url": "https://<your-mcp-url>/mcp",
+      "headers": {
+        "Authorization": "Bearer spd_<your-key>"
+      }
+    }
+  }
+}
+```
+
+Restart Claude Desktop. You should see the same four Speediance tools
+appear in the tool-use UI as the local stdio install — the server-side
+factory is shared.
+
+### Curl smoke test
+
+```bash
+curl -s -X POST "https://<mcp-url>/mcp" \
+  -H "Authorization: Bearer spd_<your-key>" \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "initialize",
+    "params": {
+      "protocolVersion": "2025-03-26",
+      "clientInfo": {"name": "curl", "version": "0"},
+      "capabilities": {}
+    }
+  }'
+```
+
+A `200` with a `result.serverInfo` block means auth + transport are
+healthy. A `401` means the key wasn't recognised (typo? key revoked?
+rotate it from `/profile` and try again).
+
+### Security model (remote mode)
+
+- The key is 36 chars (`spd_` + 32 url-safe base64). ~256 bits of
+  entropy; brute-forcing it is not on the table.
+- It's stored verbatim in DynamoDB (single-table; `PK=APIKEY#{key}`).
+  DDB access is already perimeter-secured via IAM, and the cleartext
+  store is the simplest thing that works for an MVP. If we ever go
+  multi-tenant we'll HKDF-hash + store a verifier instead.
+- The key value is **shown to the user exactly once**, at generation
+  time. After that the UI only displays the prefix. Forgot it? Rotate.
+- Rotation = `Generate` again on `/profile`. The old key stops working
+  immediately (its reverse-lookup row is deleted).
+- Server logs in CloudWatch contain only the prefix
+  (`spd_xxxxxxxx…`), never the full key — see `apps/api/src/mcp-auth.ts`'s
+  `redactKey()`.
+- Every request still goes through the same `forUser(userId)` wrapper
+  in `@speediance/db`, so cross-tenant reads remain structurally
+  impossible.
+
+---
+
 ## Development
 
 ```bash
@@ -113,6 +200,10 @@ pnpm --filter @speediance/mcp-server test
 The tests boot the server against an `InMemoryTransport` (no stdio,
 no DDB) and exercise the tools via the MCP `Client` class. Use them as
 the integration smoke-test for any tool change.
+
+The remote HTTP transport has its own tests under `apps/api/tests/`
+that drive the Hono app via `app.request()` — they mock `@speediance/db`
+and exercise auth + `initialize` + `tools/list` end-to-end.
 
 ---
 

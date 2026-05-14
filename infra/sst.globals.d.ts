@@ -37,6 +37,10 @@ declare global {
         // class, and references that compile against the stub will explode
         // at deploy time (the value resolves to `undefined`).
         readonly arn: any;
+        // `url` is populated when the Function is created with `url: true`
+        // (SST wires up a Lambda Function URL). Type-loose because the
+        // real shape is `Output<string | undefined>`.
+        readonly url: any;
       }
       class Cron {
         constructor(name: string, args?: any);

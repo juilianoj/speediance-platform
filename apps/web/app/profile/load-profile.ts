@@ -34,6 +34,10 @@ export interface LoadedProfile {
    *  Fit to Speediance, so we let them hide the empty section. */
   hideCardio?: boolean;
   coachPrefs?: CoachPrefs;
+  /** Display-safe prefix of the user's active MCP API key, when set —
+   *  e.g. "spd_abcdef12". Full key is never read back; rotation = mint
+   *  + (atomically) revoke previous. */
+  mcpApiKeyPrefix?: string;
 }
 
 /** Fetches the user's Profile DDB item, or null if not yet created.

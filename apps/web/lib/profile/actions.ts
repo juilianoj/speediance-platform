@@ -2,6 +2,8 @@
 
 import 'server-only';
 
+import { randomBytes } from 'node:crypto';
+
 import { InvokeCommand, LambdaClient } from '@aws-sdk/client-lambda';
 import { createDb } from '@speediance/db';
 import { createSecretsStore } from '@speediance/secrets-store';
@@ -213,5 +215,107 @@ export async function setCardioHidden(hidden: boolean): Promise<{ ok: boolean }>
   } catch (err) {
     console.error('setCardioHidden failed', err);
     return { ok: false };
+  }
+}
+
+// ─── MCP API keys (remote Claude Desktop / IDE access) ─────────────────────
+//
+// The key format is `spd_` followed by 32 url-safe base64 chars — ~256 bits
+// of entropy. That's well past brute-force range; we don't need a hash,
+// IAM already gates raw DDB access.
+//
+// Format guard: never log the full key. The display-safe prefix is the
+// first 12 characters (`spd_xxxxxxxx`) and is persisted onto the profile
+// row so /profile can show it on subsequent visits.
+
+const KEY_RANDOM_BYTES = 24; // 24 raw bytes → 32 base64-url chars
+const PREFIX_LENGTH = 12; // `spd_` (4) + 8 chars
+
+/** Generates a fresh opaque key. ~256 bits of entropy from /dev/urandom. */
+function newApiKey(): { key: string; prefix: string } {
+  const random = randomBytes(KEY_RANDOM_BYTES).toString('base64url');
+  const key = `spd_${random}`;
+  return { key, prefix: key.slice(0, PREFIX_LENGTH) };
+}
+
+export interface McpKeyGenerateResult {
+  ok: true;
+  /** Returned ONCE; the UI shows this in a copy-now banner and discards
+   *  it after the user navigates away. After that, only the prefix is
+   *  reachable (via the profile row). */
+  key: string;
+  prefix: string;
+}
+
+export interface McpKeyErrorResult {
+  ok: false;
+  message: string;
+}
+
+/**
+ * Mint a new MCP API key for the signed-in user. If a key already
+ * exists, it's revoked first (including its reverse-lookup row), so
+ * the old token immediately stops working.
+ *
+ * Returns the full key value ONCE; the UI is responsible for showing it
+ * to the user in a "copy now, this won't be displayed again" banner.
+ * The display-safe prefix is also stored on the profile row.
+ *
+ * Logging: never `console.*` the full key. `redactKey` returns just the
+ * prefix; the actions log only the prefix for traceability.
+ */
+export async function generateMcpKey(): Promise<McpKeyGenerateResult | McpKeyErrorResult> {
+  const claims = await verifyIdTokenFromCookies();
+  if (!claims) return { ok: false, message: 'Sign in to generate an MCP key.' };
+  const tableName = process.env.DYNAMO_TABLE_NAME;
+  if (!tableName) return { ok: false, message: 'Server misconfigured (no DYNAMO_TABLE_NAME).' };
+
+  try {
+    const me = createDb({ tableName }).forUser(claims.sub);
+    // Revoke the old key first so rotation is atomic-from-the-outside:
+    // the user can't end up with two simultaneously-valid keys.
+    await me.apiKeys.delete();
+
+    const fresh = newApiKey();
+    await me.apiKeys.put(fresh);
+    await me.profiles.patch({ mcpApiKeyPrefix: fresh.prefix });
+
+    // Trace log only — full key NEVER logged.
+    console.info('mcp api key minted', { userId: claims.sub, prefix: fresh.prefix });
+    return { ok: true, key: fresh.key, prefix: fresh.prefix };
+  } catch (err) {
+    console.error('generateMcpKey failed', err);
+    return { ok: false, message: 'Failed to generate key. Try again.' };
+  }
+}
+
+export interface McpKeyRevokeResult {
+  ok: boolean;
+  message?: string;
+}
+
+/**
+ * Revoke the user's active MCP key (if any). After this returns the
+ * old token stops authenticating against `POST /mcp`. The profile row's
+ * `mcpApiKeyPrefix` is cleared so the UI reflects "no active key".
+ */
+export async function revokeMcpKey(): Promise<McpKeyRevokeResult> {
+  const claims = await verifyIdTokenFromCookies();
+  if (!claims) return { ok: false, message: 'Sign in first.' };
+  const tableName = process.env.DYNAMO_TABLE_NAME;
+  if (!tableName) return { ok: false, message: 'Server misconfigured.' };
+
+  try {
+    const me = createDb({ tableName }).forUser(claims.sub);
+    await me.apiKeys.delete();
+    // Patch to undefined removes the attribute. Use the empty-string
+    // sentinel since ElectroDB `patch` won't `REMOVE` for `undefined` —
+    // a follow-up could prefer DDB's UPDATE … REMOVE.
+    await me.profiles.patch({ mcpApiKeyPrefix: '' });
+    console.info('mcp api key revoked', { userId: claims.sub });
+    return { ok: true };
+  } catch (err) {
+    console.error('revokeMcpKey failed', err);
+    return { ok: false, message: 'Failed to revoke key.' };
   }
 }

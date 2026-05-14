@@ -136,6 +136,22 @@ export interface UserScopedDb {
     patch: (programId: string, input: Partial<Put<'programDrafts'>>) => Promise<unknown>;
     delete: (programId: string) => Promise<unknown>;
   };
+
+  apiKeys: {
+    /** The active MCP key row for this user, or null. Reads return the
+     *  full secret — only do this on the server, and never log the value. */
+    get: () => Promise<{ key: string; prefix: string; createdAt: string } | null>;
+    /** Persist a new key (caller must have already deleted the old one
+     *  if any). Writes BOTH the user-owned row and the reverse-lookup row
+     *  in sequence — there's no transactional guarantee here, but the
+     *  failure mode is a stranded lookup row that points at a userId with
+     *  no matching APIKEY row, which is harmless (the HTTP handler also
+     *  re-validates by reading the user row before trusting the userId). */
+    put: (input: { key: string; prefix: string }) => Promise<void>;
+    /** Remove the active key, including its reverse-lookup row. No-op if
+     *  there's no active key. */
+    delete: () => Promise<void>;
+  };
 }
 
 /**
@@ -154,6 +170,23 @@ export interface GlobalDb {
      *  batches without hammering the table. ElectroDB's bulk-put fans out
      *  to BatchWrite under the hood (25 items per request). */
     bulkUpsert: (inputs: Array<Put<'exerciseCatalog'>>) => Promise<unknown>;
+  };
+
+  /**
+   * MCP API key reverse-lookup. The remote HTTP handler resolves a
+   * presented `Authorization: Bearer <key>` to the owning userId via a
+   * single GetItem on PK=APIKEY#{key}. This is intentionally NOT scoped
+   * to a user — the lookup is the way we *learn* who the user is.
+   */
+  apiKeyLookups: {
+    /** Resolve a presented key to its owning userId. Returns null if
+     *  the key has been revoked or never existed. The caller MUST treat
+     *  a null return as auth failure. */
+    findUserId: (key: string) => Promise<string | null>;
+    /** Write the reverse-lookup row. Called from `apiKeys.put` above. */
+    put: (input: { key: string; userId: string; createdAt: string }) => Promise<void>;
+    /** Delete the reverse-lookup row. Called from `apiKeys.delete` above. */
+    delete: (key: string) => Promise<void>;
   };
 }
 
@@ -179,6 +212,23 @@ export function createDb(opts: DbConfig): CreatedDb {
         globalEntities.exerciseCatalog
           .put(inputs as Array<CreateEntityItem<Entities['exerciseCatalog']>>)
           .go(),
+    },
+    apiKeyLookups: {
+      findUserId: async (key) => {
+        if (!key) return null;
+        const result = (await globalEntities.apiKeyLookups.get({ key }).go()) as {
+          data: { userId: string } | null;
+        };
+        return result.data?.userId ?? null;
+      },
+      put: async (input) => {
+        await globalEntities.apiKeyLookups
+          .put(input as CreateEntityItem<Entities['apiKeyLookups']>)
+          .go();
+      },
+      delete: async (key) => {
+        await globalEntities.apiKeyLookups.delete({ key }).go();
+      },
     },
   };
 
@@ -352,6 +402,47 @@ export function createDb(opts: DbConfig): CreatedDb {
               .set(input as Partial<CreateEntityItem<Entities['programDrafts']>>)
               .go(),
           delete: (programId) => entities.programDrafts.delete({ userId, programId }).go(),
+        },
+
+        apiKeys: {
+          get: async () => {
+            const result = (await entities.apiKeys.get({ userId }).go()) as {
+              data: { key: string; prefix: string; createdAt: string } | null;
+            };
+            return result.data ?? null;
+          },
+          put: async (input) => {
+            const createdAt = new Date().toISOString();
+            // 1) user-owned row. Writing this first means a failure between
+            //    the two writes leaves no orphaned reverse-lookup row.
+            await entities.apiKeys
+              .put({
+                userId,
+                key: input.key,
+                prefix: input.prefix,
+                createdAt,
+              } as CreateEntityItem<Entities['apiKeys']>)
+              .go();
+            // 2) reverse-lookup row. Used by the HTTP handler to resolve
+            //    bearer tokens to userIds in O(1).
+            await globalEntities.apiKeyLookups
+              .put({
+                key: input.key,
+                userId,
+                createdAt,
+              } as CreateEntityItem<Entities['apiKeyLookups']>)
+              .go();
+          },
+          delete: async () => {
+            // Read first so we can also tear down the reverse-lookup row.
+            // No-op cleanly if nothing exists.
+            const existing = (await entities.apiKeys.get({ userId }).go()) as {
+              data: { key: string } | null;
+            };
+            if (!existing.data) return;
+            await entities.apiKeys.delete({ userId }).go();
+            await globalEntities.apiKeyLookups.delete({ key: existing.data.key }).go();
+          },
         },
       };
     },

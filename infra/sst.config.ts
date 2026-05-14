@@ -41,6 +41,7 @@ export default $config({
       userPoolId: auth.userPool.id,
       userPoolClientId: auth.userPoolClient.id,
       apiUrl: api.url,
+      mcpUrl: api.mcpUrl,
       webUrl: web.url,
       syncWorkerArn: syncWorker.functionArn,
     };

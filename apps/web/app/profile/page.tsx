@@ -7,6 +7,7 @@ import { getMyMfaStatus } from '@/lib/admin/actions';
 import { verifyIdTokenFromCookies } from '@/lib/auth/session';
 
 import { loadProfile } from './load-profile';
+import { McpKeyCard } from './mcp-key-card';
 import { MfaToggle } from './mfa-toggle';
 import { ProfileForm } from './profile-form';
 
@@ -60,6 +61,11 @@ export default async function ProfilePage() {
       <section style={cardStyle}>
         <h2 style={{ ...cardHeadingStyle, marginBottom: '0.75rem' }}>Security</h2>
         <MfaToggle enabled={mfa.enabled} />
+      </section>
+
+      <section style={cardStyle}>
+        <h2 style={{ ...cardHeadingStyle, marginBottom: '0.75rem' }}>Integrations</h2>
+        <McpKeyCard initialPrefix={existing?.mcpApiKeyPrefix} />
       </section>
     </PageShell>
   );
