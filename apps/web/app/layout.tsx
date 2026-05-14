@@ -17,13 +17,13 @@ const THEME_COOKIE = 'spd-theme';
  * very first frame — no flash-of-wrong-theme on slow loads or hard
  * reloads.
  *
- * Falls back to `light` when no cookie is set; the `ThemePrefDetector`
- * client component handles "user has never toggled but their OS prefers
- * dark" by setting the cookie on first mount.
+ * Default is `dark`. The cookie value `'light'` is the only opt-out —
+ * once a user toggles to light, the cookie sticks for a year and
+ * carries them across sessions. New visitors land in dark.
  */
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const stored = (await cookies()).get(THEME_COOKIE)?.value;
-  const theme = stored === 'dark' ? 'dark' : 'light';
+  const theme = stored === 'light' ? 'light' : 'dark';
 
   return (
     <html lang="en" data-theme={theme}>
