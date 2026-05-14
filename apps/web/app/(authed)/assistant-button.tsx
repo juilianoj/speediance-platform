@@ -15,8 +15,8 @@ export function AssistantButton() {
     <button
       type="button"
       onClick={open}
-      aria-label="Open assistant"
-      title="Ask the assistant"
+      aria-label="Open AI assistant"
+      title="Open AI assistant — chat, build workouts, push to Speediance"
       style={{
         padding: '0.35rem 0.75rem',
         background: 'linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%)',
@@ -33,7 +33,7 @@ export function AssistantButton() {
       }}
     >
       <span aria-hidden="true">✦</span>
-      <span>Ask</span>
+      <span>AI Assist</span>
     </button>
   );
 }

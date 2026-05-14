@@ -32,6 +32,7 @@ export const WRITE_TOOLS: ReadonlySet<ToolName> = new Set<ToolName>([
   'unschedule_program',
   'push_draft_to_speediance',
   'unsave_draft_from_speediance',
+  'update_profile',
 ]);
 
 export interface ProposedAction {
@@ -182,6 +183,36 @@ export function queueWriteTool(
         draftId,
         message: 'Queued — Speediance call happens after approval.',
       };
+    }
+
+    case 'update_profile': {
+      // Build a human-readable summary that names the specific fields
+      // we're about to change. Helps the user spot-check before
+      // approving (e.g. "is the AI really changing my goal AND my
+      // unit, or just one?").
+      const parts: string[] = [];
+      if (typeof args.bodyweight === 'number') parts.push(`bodyweight → ${args.bodyweight}`);
+      if (args.unit === 0 || args.unit === 1) {
+        parts.push(`unit → ${args.unit === 0 ? 'metric (kg)' : 'imperial (lb)'}`);
+      }
+      if (typeof args.gender === 'string') parts.push(`gender → ${args.gender}`);
+      if (typeof args.hideCardio === 'boolean')
+        parts.push(`hideCardio → ${args.hideCardio ? 'yes' : 'no'}`);
+      if (typeof args.syncStartDate === 'string')
+        parts.push(`syncStartDate → ${args.syncStartDate}`);
+      if (typeof args.primaryGoal === 'string') parts.push(`primaryGoal → ${args.primaryGoal}`);
+      if (typeof args.sessionsPerWeek === 'number')
+        parts.push(`sessionsPerWeek → ${args.sessionsPerWeek}`);
+      if (typeof args.sessionMinutes === 'number')
+        parts.push(`sessionMinutes → ${args.sessionMinutes}`);
+      if (typeof args.equipmentConstraints === 'string')
+        parts.push(`equipmentConstraints → "${args.equipmentConstraints}"`);
+      const summary =
+        parts.length > 0
+          ? `Update profile: ${parts.join(', ')}`
+          : 'Update profile (no recognized fields)';
+      queue.push({ id, tool: name, args, summary });
+      return { ok: true, queued: true, message: 'Queued — profile updates after approval.' };
     }
 
     default: {
