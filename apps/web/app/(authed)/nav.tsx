@@ -12,11 +12,13 @@
  * primary value-add of this platform and where users will spend most of
  * their time.
  */
+import Link from 'next/link';
+
 import { loadProfile } from '@/app/profile/load-profile';
 import { SpeedianceMark } from '@/app/speediance-mark';
 import { verifyIdTokenFromCookies } from '@/lib/auth/session';
 
-import { ThemeToggle } from './theme-toggle';
+import { ThemePrefDetector, ThemeToggle } from './theme-toggle';
 import { UserMenu } from './user-menu';
 
 type Key =
@@ -87,10 +89,10 @@ export async function Nav({ current, userLabel }: { current: Key; userLabel: str
           flexWrap: 'wrap',
         }}
       >
-        <a href="/dashboard" style={brandStyle}>
+        <Link href="/dashboard" style={brandStyle}>
           <SpeedianceMark size={28} />
           <span style={{ verticalAlign: 'middle', marginLeft: '0.45rem' }}>speediance</span>
-        </a>
+        </Link>
         <nav
           style={{
             display: 'flex',
@@ -101,7 +103,7 @@ export async function Nav({ current, userLabel }: { current: Key; userLabel: str
           }}
         >
           {items.map((i) => (
-            <a
+            <Link
               key={i.key}
               href={i.href}
               style={{
@@ -116,10 +118,11 @@ export async function Nav({ current, userLabel }: { current: Key; userLabel: str
               }}
             >
               {i.label}
-            </a>
+            </Link>
           ))}
         </nav>
         <ThemeToggle />
+        <ThemePrefDetector />
         <UserMenu email={userLabel} items={USER_MENU_ITEMS} />
       </div>
     </header>

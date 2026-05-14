@@ -1,3 +1,4 @@
+import { cookies } from 'next/headers';
 import type { ReactNode } from 'react';
 
 import './globals.css';
@@ -7,36 +8,25 @@ export const metadata = {
   description: 'Self-hosted Speediance workout dashboard.',
 };
 
-/**
- * Inline script that runs BEFORE React hydrates. Reads the stored theme
- * preference (or system default) and sets `data-theme` on <html> so the
- * page paints with the correct palette and there's no flash of light
- * background on first load.
- *
- * Kept as a string-injected <script> rather than a normal component
- * because React's hydration tree can't run before paint — this needs to
- * execute synchronously in the document head.
- */
-const themeBootstrap = `
-(function() {
-  try {
-    var stored = localStorage.getItem('spd-theme');
-    var theme = stored === 'light' || stored === 'dark'
-      ? stored
-      : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-    document.documentElement.setAttribute('data-theme', theme);
-  } catch (_e) {
-    document.documentElement.setAttribute('data-theme', 'light');
-  }
-})();
-`;
+const THEME_COOKIE = 'spd-theme';
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+/**
+ * Reads the user's theme preference from a cookie and applies it as
+ * `data-theme` on `<html>` server-side. Because the attribute is part of
+ * the server response, the page paints with the correct palette on the
+ * very first frame — no flash-of-wrong-theme on slow loads or hard
+ * reloads.
+ *
+ * Falls back to `light` when no cookie is set; the `ThemePrefDetector`
+ * client component handles "user has never toggled but their OS prefers
+ * dark" by setting the cookie on first mount.
+ */
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  const stored = (await cookies()).get(THEME_COOKIE)?.value;
+  const theme = stored === 'dark' ? 'dark' : 'light';
+
   return (
-    <html lang="en" suppressHydrationWarning>
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
-      </head>
+    <html lang="en" data-theme={theme}>
       <body>{children}</body>
     </html>
   );
