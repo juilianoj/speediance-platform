@@ -40,10 +40,12 @@ export function Web({ api, auth, database, syncWorker }: WebArgs) {
     stage === 'prod'
       ? {
           name: 'gymmonsterfit.com',
-          // Explicit Route53 zone id (auto-lookup also works but pinning
-          // is faster + less ambiguous if a second zone with the same
-          // name is ever created). Found via `aws route53 list-hosted-zones`.
-          dns: sst.aws.dns({ zone: 'Z09119842KHAR1QNX83RM' }),
+          // No explicit `dns:` — SST auto-discovers the Route53 zone for
+          // the domain via HostedZoneLookup and uses it for both ACM
+          // cert validation and the apex alias records. (Calling
+          // `sst.aws.dns(...)` explicitly works at runtime but isn't on
+          // the stub typings we use in CI, so we'd need to extend
+          // sst.globals.d.ts. Auto-discovery is just as good for this app.)
           redirects: ['www.gymmonsterfit.com'],
         }
       : undefined;
