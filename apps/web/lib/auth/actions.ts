@@ -7,10 +7,13 @@ import {
   AuthFlowType,
   ChallengeNameType,
   ConfirmForgotPasswordCommand,
+  ConfirmSignUpCommand,
   ForgotPasswordCommand,
   GlobalSignOutCommand,
   InitiateAuthCommand,
+  ResendConfirmationCodeCommand,
   RespondToAuthChallengeCommand,
+  SignUpCommand,
   VerifySoftwareTokenCommand,
 } from '@aws-sdk/client-cognito-identity-provider';
 import { z } from 'zod';
@@ -319,6 +322,171 @@ export async function confirmPasswordReset(
       };
     }
     return { state: 'error', message: 'Reset failed. Double-check your email and code.' };
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Self-service signup
+// ──────────────────────────────────────────────────────────────────────
+
+/**
+ * Step 1: create a new Cognito user. The user starts in an UNCONFIRMED
+ * state and Cognito emails them a 6-digit verification code (via SES, per
+ * the pool's `verificationMessageTemplate`). The user finishes signup by
+ * submitting that code to `confirmSignUp`.
+ *
+ * Cognito enforces the password policy server-side; we still pre-validate
+ * length here so the round-trip isn't wasted on obvious rejects.
+ *
+ * `preventUserExistenceErrors` is OFF for SignUp (it only applies to auth
+ * commands), so we DO leak whether an email is already registered via
+ * `UsernameExistsException`. That's the standard sign-up tradeoff — if
+ * you don't tell the user "already registered", they have no idea what to
+ * do next. We accept the tradeoff and use a friendly message.
+ */
+const SignUpInputSchema = z.object({
+  email: z.string().email().max(320),
+  password: z.string().min(12).max(256),
+});
+
+export interface SignUpResult {
+  state: 'sent' | 'error' | 'alreadyExists';
+  message?: string;
+}
+
+export async function signUp(
+  _prev: SignUpResult | null,
+  formData: FormData,
+): Promise<SignUpResult> {
+  const parsed = SignUpInputSchema.safeParse({
+    email: formData.get('email'),
+    password: formData.get('password'),
+  });
+  if (!parsed.success) {
+    return {
+      state: 'error',
+      message: 'Email must be valid and password must be at least 12 characters.',
+    };
+  }
+  const { userPoolClientId } = getCognitoConfig();
+  try {
+    await getCognitoClient().send(
+      new SignUpCommand({
+        ClientId: userPoolClientId,
+        Username: parsed.data.email,
+        Password: parsed.data.password,
+        UserAttributes: [{ Name: 'email', Value: parsed.data.email }],
+      }),
+    );
+    return { state: 'sent' };
+  } catch (err: unknown) {
+    if (err instanceof Error && /UsernameExists/i.test(err.name)) {
+      return {
+        state: 'alreadyExists',
+        message:
+          'An account with that email already exists. Try signing in, or use "forgot password" to reset it.',
+      };
+    }
+    if (err instanceof Error && /InvalidPassword/i.test(err.name)) {
+      return {
+        state: 'error',
+        message: 'Password rejected. Must be 12+ chars with mixed case, a number, and a symbol.',
+      };
+    }
+    if (err instanceof Error && /InvalidParameter/i.test(err.name)) {
+      return { state: 'error', message: 'That email address was rejected. Try a different one.' };
+    }
+    if (err instanceof Error && /LimitExceeded|TooManyRequests/i.test(err.name)) {
+      return { state: 'error', message: 'Too many attempts. Wait a few minutes and try again.' };
+    }
+    console.error('signUp failed', err);
+    return { state: 'error', message: 'Could not create that account. Try again in a moment.' };
+  }
+}
+
+/**
+ * Step 2: confirm the 6-digit code Cognito emailed. After success the
+ * user is CONFIRMED and can sign in via /login like any other account.
+ */
+const ConfirmSignUpSchema = z.object({
+  email: z.string().email().max(320),
+  code: z.string().regex(/^\d{6}$/, 'Code must be 6 digits'),
+});
+
+export interface ConfirmSignUpResult {
+  state: 'done' | 'error';
+  message?: string;
+}
+
+export async function confirmSignUp(
+  _prev: ConfirmSignUpResult | null,
+  formData: FormData,
+): Promise<ConfirmSignUpResult> {
+  const parsed = ConfirmSignUpSchema.safeParse({
+    email: formData.get('email'),
+    code: formData.get('code'),
+  });
+  if (!parsed.success) {
+    return { state: 'error', message: 'Enter the 6-digit code from your email.' };
+  }
+  const { userPoolClientId } = getCognitoConfig();
+  try {
+    await getCognitoClient().send(
+      new ConfirmSignUpCommand({
+        ClientId: userPoolClientId,
+        Username: parsed.data.email,
+        ConfirmationCode: parsed.data.code,
+      }),
+    );
+    return { state: 'done' };
+  } catch (err: unknown) {
+    if (err instanceof Error && /CodeMismatch|ExpiredCode/i.test(err.name)) {
+      return { state: 'error', message: 'That code is wrong or expired. Request a new one.' };
+    }
+    if (err instanceof Error && /NotAuthorized/i.test(err.name)) {
+      // Cognito returns NotAuthorizedException when the user is already
+      // confirmed — treat as success so the user can move on.
+      return { state: 'done' };
+    }
+    console.error('confirmSignUp failed', err);
+    return { state: 'error', message: 'Could not verify the code. Try again.' };
+  }
+}
+
+/**
+ * Step 2b: resend the verification code if the first one was lost / expired.
+ * Cognito rate-limits this; we surface the LimitExceeded specifically so
+ * the user knows to wait rather than retrying.
+ */
+const ResendCodeSchema = z.object({ email: z.string().email().max(320) });
+
+export interface ResendCodeResult {
+  state: 'sent' | 'error';
+  message?: string;
+}
+
+export async function resendSignUpCode(
+  _prev: ResendCodeResult | null,
+  formData: FormData,
+): Promise<ResendCodeResult> {
+  const parsed = ResendCodeSchema.safeParse({ email: formData.get('email') });
+  if (!parsed.success) return { state: 'error', message: 'Invalid email.' };
+  const { userPoolClientId } = getCognitoConfig();
+  try {
+    await getCognitoClient().send(
+      new ResendConfirmationCodeCommand({
+        ClientId: userPoolClientId,
+        Username: parsed.data.email,
+      }),
+    );
+    return { state: 'sent' };
+  } catch (err: unknown) {
+    if (err instanceof Error && /LimitExceeded/i.test(err.name)) {
+      return { state: 'error', message: 'Too many attempts. Wait a few minutes and try again.' };
+    }
+    // Don't leak whether the user exists — return success-shaped for
+    // anything else.
+    return { state: 'sent' };
   }
 }
 

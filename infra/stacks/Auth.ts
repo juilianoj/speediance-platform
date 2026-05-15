@@ -34,9 +34,12 @@ export function Auth() {
     softwareToken: true,
     transform: {
       userPool: {
-        // Invite-only platform — no public signup.
+        // Self-service signup: anyone can register at /signup; Cognito
+        // emails a 6-digit verification code (via SES, per
+        // verificationMessageTemplate). Admin-create still works for
+        // back-channel invites from /admin.
         adminCreateUserConfig: {
-          allowAdminCreateUserOnly: true,
+          allowAdminCreateUserOnly: false,
           // Branded invite email — replaces Cognito's default which looks
           // like phishing. Uses {username} and {####} placeholders (Cognito
           // substitutes email and temp password respectively).
