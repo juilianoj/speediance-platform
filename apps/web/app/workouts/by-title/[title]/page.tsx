@@ -12,7 +12,7 @@ import {
 import { verifyIdTokenFromCookies } from '@/lib/auth/session';
 import { loadWorkoutGroupDetail } from '@/lib/data/load-workouts';
 
-export const metadata = { title: 'Workout history — speediance-platform' };
+export const metadata = { title: 'Workout history' };
 
 interface PageProps {
   params: { title: string };

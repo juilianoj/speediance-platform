@@ -23,7 +23,7 @@ import {
   UserEnabledToggle,
 } from './actions';
 
-export const metadata = { title: 'Admin — speediance-platform' };
+export const metadata = { title: 'Admin' };
 
 export default async function AdminPage() {
   const claims = await verifyIdTokenFromCookies();

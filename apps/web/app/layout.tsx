@@ -16,7 +16,13 @@ const siteUrl =
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
-  title: 'Gym Monster Fit',
+  // `default` is used when a page doesn't export its own title; `template`
+  // prefixes the page's title (e.g. page sets `Sign in` → tab shows
+  // `Sign in — Gym Monster Fit`). Keeps the page-by-page metadata tiny.
+  title: {
+    default: 'Gym Monster Fit',
+    template: '%s — Gym Monster Fit',
+  },
   description:
     'Your self-hosted Speediance training dashboard — workout history, progression tracking, and an AI coach that builds your next session.',
   openGraph: {

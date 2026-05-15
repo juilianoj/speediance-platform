@@ -9,7 +9,7 @@ interface PageProps {
   params: { date: string };
 }
 
-export const metadata = { title: 'Scheduled workout — speediance-platform' };
+export const metadata = { title: 'Scheduled workout' };
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 

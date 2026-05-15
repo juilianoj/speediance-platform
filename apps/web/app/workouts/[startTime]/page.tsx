@@ -13,7 +13,7 @@ import { verifyIdTokenFromCookies } from '@/lib/auth/session';
 import { loadExercises, type ExerciseSet } from '@/lib/data/load-exercises';
 import { loadWorkoutDetail } from '@/lib/data/load-workouts';
 
-export const metadata = { title: 'Workout — speediance-platform' };
+export const metadata = { title: 'Workout' };
 
 interface PageProps {
   params: { startTime: string };

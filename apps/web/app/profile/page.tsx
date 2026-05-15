@@ -12,7 +12,7 @@ import { MfaToggle } from './mfa-toggle';
 import { ProfileForm } from './profile-form';
 
 export const metadata = {
-  title: 'Profile — speediance-platform',
+  title: 'Profile',
 };
 
 export default async function ProfilePage() {

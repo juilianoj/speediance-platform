@@ -12,7 +12,7 @@ import {
 import { verifyIdTokenFromCookies } from '@/lib/auth/session';
 import { loadAllWorkouts } from '@/lib/data/load-workouts';
 
-export const metadata = { title: 'Consistency — speediance-platform' };
+export const metadata = { title: 'Consistency' };
 
 const WEEKS_TO_SHOW = 12;
 

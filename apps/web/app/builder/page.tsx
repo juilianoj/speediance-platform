@@ -8,7 +8,7 @@ import { listExercises } from '@/lib/catalog/lookup';
 
 import { NewProgramButton, NewWorkoutButton } from './new-buttons';
 
-export const metadata = { title: 'Builder — speediance-platform' };
+export const metadata = { title: 'Builder' };
 
 /**
  * Builder index. Lists workout + program drafts, with "New workout" and

@@ -3,7 +3,7 @@ import { SpeedianceMark } from '@/app/speediance-mark';
 import { ForgotPasswordForm } from './forgot-form';
 
 export const metadata = {
-  title: 'Reset password — speediance-platform',
+  title: 'Reset password',
 };
 
 export default function ForgotPasswordPage() {

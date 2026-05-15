@@ -17,7 +17,7 @@ import { SyncBanner } from './sync-banner';
 import { WeeklyChart } from './weekly-chart';
 
 export const metadata = {
-  title: 'Dashboard — speediance-platform',
+  title: 'Dashboard',
 };
 
 interface PageProps {

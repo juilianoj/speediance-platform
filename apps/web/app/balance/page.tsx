@@ -8,7 +8,7 @@ import { loadAllWorkouts } from '@/lib/data/load-workouts';
 import { loadProfile } from '../profile/load-profile';
 import { BodyFigure } from './body-figure';
 
-export const metadata = { title: 'Balance — speediance-platform' };
+export const metadata = { title: 'Balance' };
 
 const LABELS: Record<(typeof MUSCLE_GROUP_ORDER)[number], string> = {
   chest: 'Chest',
