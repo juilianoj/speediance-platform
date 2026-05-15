@@ -13,7 +13,7 @@ import { NotesSection } from '@/app/(authed)/notes-section';
 import { verifyIdTokenFromCookies } from '@/lib/auth/session';
 import { loadExerciseHistory, type ExerciseSet } from '@/lib/data/load-exercises';
 
-export const metadata = { title: 'Exercise — speediance-platform' };
+export const metadata = { title: 'Exercise' };
 
 interface PageProps {
   params: { id: string };

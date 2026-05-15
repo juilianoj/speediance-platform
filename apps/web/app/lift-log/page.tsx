@@ -8,7 +8,7 @@ import { loadWorkoutGroups } from '@/lib/data/load-workouts';
 import { LiftLogTable } from './lift-log-table';
 import { WorkoutGroupsList } from './workout-groups-list';
 
-export const metadata = { title: 'Lift log — speediance-platform' };
+export const metadata = { title: 'Lift log' };
 
 export default async function LiftLogPage() {
   const claims = await verifyIdTokenFromCookies();

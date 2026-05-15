@@ -6,7 +6,7 @@ import { listMyFeedback } from '@/lib/feedback/actions';
 
 import { FeedbackForm } from './feedback-form';
 
-export const metadata = { title: 'Feedback — speediance-platform' };
+export const metadata = { title: 'Feedback' };
 
 const STATUS_LABEL: Record<string, string> = {
   open: 'New',

@@ -7,7 +7,7 @@ import { getProgram } from '@/lib/builder/program-actions';
 
 import { ProgramEditor } from './editor';
 
-export const metadata = { title: 'Program — speediance-platform' };
+export const metadata = { title: 'Program' };
 
 interface PageProps {
   params: { programId: string };

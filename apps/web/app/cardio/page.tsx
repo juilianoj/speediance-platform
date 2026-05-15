@@ -15,7 +15,7 @@ import { loadAllWorkouts } from '@/lib/data/load-workouts';
 
 import { HideCardioButton } from './hide-cardio-button';
 
-export const metadata = { title: 'Cardio — speediance-platform' };
+export const metadata = { title: 'Cardio' };
 
 export default async function CardioPage() {
   const claims = await verifyIdTokenFromCookies();

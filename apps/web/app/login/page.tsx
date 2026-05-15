@@ -5,7 +5,7 @@ import { verifyIdTokenFromCookies } from '@/lib/auth/session';
 import { LoginForm } from './login-form';
 
 export const metadata = {
-  title: 'Sign in — speediance-platform',
+  title: 'Sign in',
 };
 
 // Server component. If the user already has a valid id_token cookie we

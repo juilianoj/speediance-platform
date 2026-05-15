@@ -7,7 +7,7 @@ import { listExercises } from '@/lib/catalog/lookup';
 
 import { Editor } from './editor';
 
-export const metadata = { title: 'Workout — speediance-platform' };
+export const metadata = { title: 'Workout' };
 
 interface PageProps {
   params: { draftId: string };

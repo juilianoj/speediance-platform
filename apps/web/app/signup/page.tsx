@@ -6,7 +6,7 @@ import { verifyIdTokenFromCookies } from '@/lib/auth/session';
 import { SignUpForm } from './signup-form';
 
 export const metadata = {
-  title: 'Sign up — speediance-platform',
+  title: 'Sign up',
 };
 
 export default async function SignUpPage() {
