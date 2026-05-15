@@ -30,9 +30,28 @@ export function Web({ api, auth, database, syncWorker }: WebArgs) {
   // covers the account the deploy is targeting.
   const secretsArnPattern = `arn:aws:secretsmanager:${region}:*:secret:speediance-platform/${stage}/users/*`;
 
+  // Custom domain only on prod — dev keeps the auto-assigned CloudFront
+  // URL so feature branches can deploy without DNS contention. SST
+  // handles ACM cert issuance in us-east-1 (CloudFront requirement),
+  // DNS validation, the apex A-record (alias) in the existing
+  // gymmonsterfit.com Route53 zone, and a 301 redirect from
+  // www.gymmonsterfit.com to the apex.
+  const domain =
+    stage === 'prod'
+      ? {
+          name: 'gymmonsterfit.com',
+          // Explicit Route53 zone id (auto-lookup also works but pinning
+          // is faster + less ambiguous if a second zone with the same
+          // name is ever created). Found via `aws route53 list-hosted-zones`.
+          dns: sst.aws.dns({ zone: 'Z09119842KHAR1QNX83RM' }),
+          redirects: ['www.gymmonsterfit.com'],
+        }
+      : undefined;
+
   const site = new sst.aws.Nextjs('Web', {
     // Relative to sst.config.ts (infra/) — see SyncWorker.ts for the same reason.
     path: '../apps/web',
+    ...(domain ? { domain } : {}),
     // The Coach Server Action chains Bedrock + DDB tool calls and can
     // legitimately take 20–40s on a "build me a program" prompt. SST's
     // default Nextjs server timeout (10s) was killing those requests with

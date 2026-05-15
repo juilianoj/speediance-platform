@@ -19,12 +19,12 @@ const SES_IDENTITY_ARN = `arn:aws:ses:${SES_REGION}:${AWS_ACCOUNT}:identity/${SE
 // flow through the configured destination.
 const SES_CONFIGURATION_SET = 'speediance-platform';
 
-// Public sign-in URL embedded in the invite email. Stage-scoped — the prod
-// URL is unknown until first deploy, so prod uses a placeholder; after the
-// first deploy we update this and redeploy. The dev URL is stable.
+// Public sign-in URL embedded in the invite email. Stage-scoped — dev
+// keeps the auto-assigned CloudFront URL; prod is the gymmonsterfit.com
+// custom domain wired up in Web.ts.
 const SIGN_IN_URLS: Record<string, string> = {
   dev: 'https://d2wtidficpq5l9.cloudfront.net/login',
-  prod: 'https://d13plgksrb5db.cloudfront.net/login',
+  prod: 'https://gymmonsterfit.com/login',
 };
 
 export function Auth() {
