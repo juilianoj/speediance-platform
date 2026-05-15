@@ -12,6 +12,12 @@ const SES_FROM_DISPLAY = 'Speediance Platform';
 const AWS_ACCOUNT = '657014345871';
 const SES_REGION = 'us-west-2';
 const SES_IDENTITY_ARN = `arn:aws:ses:${SES_REGION}:${AWS_ACCOUNT}:identity/${SES_SENDER}`;
+// SES configuration set that publishes bounce/complaint/reject events
+// to the speediance-ses-events SNS topic. Created out-of-band via
+// scripts/bootstrap-ses.sh — required before AWS will grant SES
+// production access. Cognito forwards this name on every send so events
+// flow through the configured destination.
+const SES_CONFIGURATION_SET = 'speediance-platform';
 
 // Public sign-in URL embedded in the invite email. Stage-scoped — the prod
 // URL is unknown until first deploy, so prod uses a placeholder; after the
@@ -93,6 +99,11 @@ export function Auth() {
           // using `from` fails with "Invalid or unknown key".
           fromEmailAddress: `${SES_FROM_DISPLAY} <${SES_SENDER}>`,
           replyToEmailAddress: SES_SENDER,
+          // Routes Cognito-originated sends through our SES configuration
+          // set so bounce/complaint/reject events publish to the
+          // speediance-ses-events SNS topic. The configuration set must
+          // exist in us-west-2 — see scripts/bootstrap-ses.sh.
+          configurationSet: SES_CONFIGURATION_SET,
         },
         // PLUS tier is required for Cognito Threat Protection (compromised
         // credentials, IP risk scoring). ~$0.05/MAU, so ~$0.25/mo for a
