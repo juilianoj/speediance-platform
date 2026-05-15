@@ -2,16 +2,14 @@ import { redirect } from 'next/navigation';
 
 import { SpeedianceMark } from '@/app/speediance-mark';
 import { verifyIdTokenFromCookies } from '@/lib/auth/session';
-import { LoginForm } from './login-form';
+
+import { SignUpForm } from './signup-form';
 
 export const metadata = {
-  title: 'Sign in — speediance-platform',
+  title: 'Sign up — speediance-platform',
 };
 
-// Server component. If the user already has a valid id_token cookie we
-// short-circuit and send them to /dashboard so the back button doesn't
-// strand them on the login screen.
-export default async function LoginPage() {
+export default async function SignUpPage() {
   const claims = await verifyIdTokenFromCookies();
   if (claims) redirect('/dashboard');
 
@@ -22,26 +20,20 @@ export default async function LoginPage() {
           <SpeedianceMark size={32} />
           <span style={brandTextStyle}>speediance</span>
         </div>
-        <h1 style={h1Style}>Welcome back</h1>
+        <h1 style={h1Style}>Create your account</h1>
         <p style={subStyle}>
-          Sign in to see your training history, progression, and what to do next.
+          Self-hosted dashboard for your Speediance training. Bring your existing Speediance login
+          and we&rsquo;ll sync your history.
         </p>
-        <LoginForm />
+        <SignUpForm />
       </div>
       <p style={footnoteStyle}>
+        Already have an account?{' '}
         <a
-          href="/forgot-password"
+          href="/login"
           style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: 600 }}
         >
-          Forgot your password?
-        </a>
-        <br />
-        New here?{' '}
-        <a
-          href="/signup"
-          style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: 600 }}
-        >
-          Create an account →
+          Sign in →
         </a>
       </p>
     </div>
@@ -55,8 +47,6 @@ const wrapStyle: React.CSSProperties = {
   alignItems: 'center',
   justifyContent: 'center',
   padding: '3rem 1.5rem',
-  // Subtle radial highlights that work in both themes. The base color
-  // is the page background; the highlights are accent-soft tints.
   background:
     'radial-gradient(circle at 20% 0%, var(--accent-soft) 0%, transparent 50%), ' +
     'radial-gradient(circle at 100% 100%, var(--accent-soft) 0%, transparent 55%), ' +
@@ -107,7 +97,7 @@ const subStyle: React.CSSProperties = {
 const footnoteStyle: React.CSSProperties = {
   marginTop: '1.5rem',
   maxWidth: 420,
-  fontSize: '0.78rem',
+  fontSize: '0.85rem',
   color: 'var(--text-faint)',
   textAlign: 'center',
   lineHeight: 1.6,
