@@ -55,35 +55,62 @@ export async function createRefreshingSpeedianceClient(
     allowMonsterMoves: secret.allowMonsterMoves,
   };
 
+  // Dedupe in-flight token refreshes. The dashboard fires ~6 Speediance
+  // calls in parallel (loadScheduledWorkouts hits monthNew + month for
+  // 3 months at a time). When the stored token is stale, every one of
+  // those calls 401s and independently invokes `onUnauthorized` —
+  // without this dedupe, 6 concurrent `client.login()` calls hit
+  // Speediance, and because Speediance only permits ONE active session
+  // per account each login invalidates the previous. The retries then
+  // race against a moving token and most of them get re-401'd, falling
+  // back to empty arrays. Result: "Next session" disappears until a
+  // manual sync writes a fresh token from a single-call context.
+  //
+  // The shared promise pattern collapses N concurrent refresh requests
+  // into one login → one token write → N retries with a stable token.
+  let pendingRefresh: Promise<boolean> | null = null;
+
   const client = new SpeedianceClient(creds, {
     region: secret.region,
     deviceType: secret.deviceType,
     allowMonsterMoves: secret.allowMonsterMoves,
     async onUnauthorized() {
-      console.info(`web onUnauthorized: re-logging in for ${userId}`);
-      try {
-        const login = await client.login(secret.email, secret.password);
-        if (!login.ok || !login.credentials) {
-          console.error(`web re-login failed for ${userId}: ${login.reason}`);
-          return false;
-        }
-        const refreshed = SpeedianceSecretSchema.parse({
-          ...secret,
-          token: login.credentials.token,
-          appUserId: login.credentials.userId,
-          tokenAcquiredAt: new Date().toISOString(),
-        });
-        secret = {
-          ...refreshed,
-          token: login.credentials.token,
-          appUserId: login.credentials.userId,
-        };
-        await secretsApi.put(userId, refreshed);
-        return true;
-      } catch (err) {
-        console.error(`web re-login threw for ${userId}`, err);
-        return false;
+      if (pendingRefresh) {
+        console.info(`web onUnauthorized: awaiting in-flight refresh for ${userId}`);
+        return pendingRefresh;
       }
+      console.info(`web onUnauthorized: re-logging in for ${userId}`);
+      pendingRefresh = (async () => {
+        try {
+          const login = await client.login(secret.email, secret.password);
+          if (!login.ok || !login.credentials) {
+            console.error(`web re-login failed for ${userId}: ${login.reason}`);
+            return false;
+          }
+          const refreshed = SpeedianceSecretSchema.parse({
+            ...secret,
+            token: login.credentials.token,
+            appUserId: login.credentials.userId,
+            tokenAcquiredAt: new Date().toISOString(),
+          });
+          secret = {
+            ...refreshed,
+            token: login.credentials.token,
+            appUserId: login.credentials.userId,
+          };
+          await secretsApi.put(userId, refreshed);
+          return true;
+        } catch (err) {
+          console.error(`web re-login threw for ${userId}`, err);
+          return false;
+        } finally {
+          // Clear AFTER all awaiters resolve so a subsequent 401 in a
+          // long-lived request triggers a fresh login rather than
+          // returning a stale `true` from the cleared slot.
+          pendingRefresh = null;
+        }
+      })();
+      return pendingRefresh;
     },
   });
   return client;
