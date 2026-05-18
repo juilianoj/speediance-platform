@@ -3,6 +3,7 @@ import 'server-only';
 import { cache } from 'react';
 
 import { createRefreshingSpeedianceClient } from '@/lib/speediance/refreshing-client';
+import { todayInUserTimezone } from '@/lib/time/user-time';
 
 /**
  * A scheduled (not-yet-completed) workout on a specific day. Pulled from
@@ -57,7 +58,10 @@ export const loadScheduledWorkouts = cache(async (userId: string): Promise<Sched
   }
 
   const months = nextThreeMonths();
-  const today = new Date().toISOString().slice(0, 10);
+  // Use the user's local "today" (read from spd-tz cookie), not UTC's
+  // today — otherwise users east of UTC see tomorrow's workout while
+  // today's local workout gets filtered out as "in the past".
+  const today = await todayInUserTimezone();
 
   // Run both endpoints in parallel across all months. Each is a ~300-800ms
   // Speediance round-trip; settled-promise so a single 5xx/timeout doesn't
