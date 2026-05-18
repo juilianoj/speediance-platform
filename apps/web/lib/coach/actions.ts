@@ -12,6 +12,7 @@ import {
 import { createDb } from '@speediance/db';
 
 import { verifyIdTokenFromCookies } from '@/lib/auth/session';
+import { todayInUserTimezone } from '@/lib/time/user-time';
 
 import { loadCoachContext, renderCoachContextBlock } from './load-context';
 import { queueWriteTool, WRITE_TOOLS, type ProposedAction } from './plan';
@@ -214,7 +215,7 @@ export async function askCoach(
     '  asked to schedule it, also call schedule_program with the date they',
     '  picked (default to next Monday if unclear and ask first).',
     '',
-    "Today's date: " + new Date().toISOString().slice(0, 10),
+    "Today's date: " + (await todayInUserTimezone()),
     ...(userContextBlock ? ['', userContextBlock] : []),
   ].join('\n');
 

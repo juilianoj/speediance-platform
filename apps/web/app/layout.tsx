@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import type { ReactNode } from 'react';
 
 import './globals.css';
+import { UserTzCookie } from './user-tz-cookie';
 
 // Resolved by Next when emitting absolute URLs in OG / twitter / canonical
 // tags. Unfurlers like iMessage and Slack reject relative paths, so this
@@ -60,7 +61,10 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
 
   return (
     <html lang="en" data-theme={theme}>
-      <body>{children}</body>
+      <body>
+        <UserTzCookie />
+        {children}
+      </body>
     </html>
   );
 }

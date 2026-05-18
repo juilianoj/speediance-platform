@@ -1,5 +1,7 @@
 import 'server-only';
 
+import { todayInUserTimezone } from '@/lib/time/user-time';
+
 import { loadScheduledWorkouts, type ScheduledItem } from './load-scheduled';
 import { isMobilityScheduledItem } from './mobility-detection';
 
@@ -64,7 +66,7 @@ export async function loadRecoveryWarnings(userId: string): Promise<RecoveryWarn
     if (hasLift) liftDays.add(date);
   }
 
-  const today = todayIso();
+  const today = await todayInUserTimezone();
   const horizon = addDaysIso(today, HORIZON_DAYS);
 
   // Walk forward day-by-day, counting consecutive lift days. When the
@@ -107,10 +109,6 @@ function buildWarning(startDate: string, count: number, nextNonLiftDay: string):
     count,
     suggestedInsertDate: nextNonLiftDay,
   };
-}
-
-function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
 }
 
 function addDaysIso(iso: string, days: number): string {
