@@ -305,6 +305,17 @@ textarea::placeholder {
     overflow-wrap: anywhere;
     word-wrap: break-word;
   }
+
+  /* Balance page — outer grid collapses to a single column on phones.
+   * The desktop 220-280px sidebar + 1fr layout left the bars column at
+   * ~95px on a 375px phone, which the inner Bars grid (110px label +
+   * 1fr bar + 96px count) blew through, pushing the Gap callout past
+   * the card's right edge. Stacking gives the bars + callout the full
+   * card width. */
+  .balance-grid {
+    grid-template-columns: 1fr !important;
+    gap: 1.25rem !important;
+  }
 }
 
 @media (max-width: 480px) {

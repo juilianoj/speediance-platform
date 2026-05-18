@@ -578,7 +578,16 @@ const drawerStyle: React.CSSProperties = {
   position: 'fixed',
   top: 0,
   right: 0,
-  bottom: 0,
+  // Use 100dvh (dynamic viewport height) instead of `bottom: 0` so the
+  // drawer tracks the *visual* viewport on iOS Safari. When the virtual
+  // keyboard opens, the layout viewport stays full-screen but Safari
+  // auto-scrolls the page up so the focused input stays visible —
+  // anchored with `bottom: 0` that pushed our header off-screen and
+  // left a huge black void above the input. `100dvh` shrinks with the
+  // keyboard, so the header stays pinned and the body's flex:1 fills
+  // exactly the visible space. Supported in iOS Safari 15.4+ and all
+  // evergreen browsers.
+  height: '100dvh',
   width: '100%',
   maxWidth: DRAWER_WIDTH,
   background: 'var(--bg-card)',
