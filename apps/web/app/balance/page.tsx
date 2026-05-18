@@ -55,6 +55,7 @@ export default async function BalancePage() {
         <h2 style={cardHeadingStyle}>30-day balance</h2>
         <p style={mutedStyle}>Set counts by muscle group, with gap callouts.</p>
         <div
+          className="balance-grid"
           style={{
             display: 'grid',
             gridTemplateColumns: 'minmax(220px, 280px) 1fr',
